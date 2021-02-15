@@ -1,10 +1,15 @@
-//boost includes
+// boost includes
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
 // B2 includes
-#include "B2Reader.hh"
+#include <B2Reader.hh>
+#include <B2SpillSummary.hh>
+
+// ROOT includes
+#include <TFile.h>
+#include <TTree.h>
 
 #ifdef COORDINATE_METHOD
 #include "McsCoordinateMethod.hpp"
@@ -12,15 +17,15 @@
 #include "McsAngleMethod.hpp"
 #endif
 
-namespace loggin = boost::log;
+namespace logging = boost::log;
 
 int main (int argc, char *argv[]) {
 
-  logging::core::get()->set_filter
+  /*  logging::core::get()->set_filter
     (
      logging::trivial::severity >= logging::trivial::debug
      );
-
+  */
   BOOST_LOG_TRIVIAL(info) << "==========NINJA Momentum Reconstruction Start==========";
 
   if (argc != 3) {
@@ -36,15 +41,16 @@ int main (int argc, char *argv[]) {
     TFile *file = new TFile(argv[2], "recreate");
     TTree *tree = new TTree("tree", "ECC reconstructed momentum");
 
+    int ievent = 0;
     while(reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
-
+      BOOST_LOG_TRIVIAL(debug) << "Entry : " << ievent;
 #ifdef COORDINATE_METHOD
       mcs_coordinate_method(spill_summary);
 #else
       mcs_angle_method(spill_summary);
 #endif
-
+      ievent++;
     }
 
   } catch (const std::runtime_error &error) {

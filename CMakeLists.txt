@@ -66,7 +66,7 @@ set(CMAKE_INSTALL_INCDIR ${CMAKE_INSTALL_PREFIX}/include/ninja/momrecon)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 if (${COORDINATE_METHOD})
-   add_difenitions(-DCOORDINATE_METHOD=ON)
+   add_definitions(-DCOORDINATE_METHOD=ON)
 endif()
 
 # ROOT
