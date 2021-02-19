@@ -10,7 +10,9 @@
 // ROOT includes
 #include <TFile.h>
 #include <TTree.h>
+#include <TPDGCode.h>
 
+#include "McsCommon.hpp"
 #ifdef COORDINATE_METHOD
 #include "McsCoordinateMethod.hpp"
 #else
@@ -34,24 +36,44 @@ int main (int argc, char *argv[]) {
     std::exit(1);
   }
 
+#ifdef COORDINATE_METHOD
+  BOOST_LOG_TRIVIAL(info) << "Coordinate method test";
+#else
+  BOOST_LOG_TRIVIAL(info) << "Angle method test";
+#endif
+
   try {
 
     B2Reader reader(argv[1]);
 
     TFile *file = new TFile(argv[2], "recreate");
     TTree *tree = new TTree("tree", "ECC reconstructed momentum");
+    std::vector<Double_t> true_pbeta = {};
+    std::vector<Double_t> recon_pbeta = {};
+    tree->Branch("true_pbeta", &true_pbeta);
+    tree->Branch("recon_pbeta", &recon_pbeta);
 
     int ievent = 0;
+    int particle_id = PDG_t::kMuonMinus;
     while(reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
       BOOST_LOG_TRIVIAL(debug) << "Entry : " << ievent;
+      //true_pbeta = get_true_pbeta(spill_summary, particle_id);
 #ifdef COORDINATE_METHOD
-      mcs_coordinate_method(spill_summary);
+      recon_pbeta = mcs_coordinate_method(spill_summary, particle_id);
 #else
-      mcs_angle_method(spill_summary);
+      recon_pbeta = mcs_angle_method(spill_summary, particle_id);
 #endif
+
       ievent++;
+      if (recon_pbeta.size() > 0)
+	tree->Fill();
+      //if (ievent > 10) break;
     }
+
+    file->cd();
+    tree->Write();
+    file->Close();
 
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

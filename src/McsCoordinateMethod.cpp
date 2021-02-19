@@ -10,7 +10,7 @@
 #include <B2TrackSummary.hh>
 #include <B2EmulsionSummary.hh>
 
-void mcs_coordinate_method(const B2SpillSummary &spill_summary) {
+void mcs_coordinate_method(const B2SpillSummary &spill_summary, int particle_id) {
 
   // Get emulsion tracks
   std::vector<const B2EmulsionSummary*> emulsions;

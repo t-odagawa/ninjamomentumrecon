@@ -3,6 +3,6 @@
 
 #include <B2SpillSummary.hh>
 
-void mcs_coordinate_method(const B2SpillSummary &spill_summary);
+void mcs_coordinate_method(const B2SpillSummary &spill_summary, int particle_id);
 
 #endif
