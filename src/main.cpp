@@ -23,11 +23,11 @@ namespace logging = boost::log;
 
 int main (int argc, char *argv[]) {
 
-  /*  logging::core::get()->set_filter
+    logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::debug
+     logging::trivial::severity >= logging::trivial::info
      );
-  */
+    
   BOOST_LOG_TRIVIAL(info) << "==========NINJA Momentum Reconstruction Start==========";
 
   if (argc != 3) {
@@ -68,7 +68,7 @@ int main (int argc, char *argv[]) {
       ievent++;
       if (recon_pbeta.size() > 0)
 	tree->Fill();
-      //if (ievent > 10) break;
+      //if (ievent > 100) break;
     }
 
     file->cd();

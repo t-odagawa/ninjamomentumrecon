@@ -12,7 +12,13 @@ double get_pb_oneskip(int skip, double dz, double theta_rms);
 
 double calculate_one_material(int skip, double dz, int material);
 
-double reconstruct_pbeta_inverse(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms);
+double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms);
 
+/**
+ * Get angle difference in lateral coordinate of upstream base track
+ * @param tangent_up tangent vector of upstream film
+ * @param tangent_down tangent vector of downstream film
+ * @return angle difference in lateral coordinate of upstream base track
+ */
 double get_angle_difference(TVector3 tangent_up, TVector3 tangent_down);
 #endif
