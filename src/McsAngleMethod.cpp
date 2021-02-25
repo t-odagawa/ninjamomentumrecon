@@ -132,10 +132,10 @@ double get_pb_oneskip(int skip, double dz, double theta_rms) {
   return std::sqrt(pb2) / theta_rms;
 }
 
-double calculate_one_material(int skip, double dz, int material) {
-  if (skip == 0) return 0.;
-  return 13.6 * std::sqrt(dz * skip * MATERIAL_THICK[material] / RAD_LENGTH[material])
-    * (1 + 0.038 * std::log(dz * skip * MATERIAL_THICK[material] / RAD_LENGTH[material]));
+double calculate_one_material(int num_layer, double dz, int material) {
+  if (num_layer == 0) return 0.;
+  return 13.6 * std::sqrt(num_layer * dz * MATERIAL_THICK[material] / RAD_LENGTH[material])
+    * (1 + 0.038 * std::log(num_layer * dz *  MATERIAL_THICK[material] / RAD_LENGTH[material]));
 }
 
 double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms) {

@@ -10,7 +10,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
 
 double get_pb_oneskip(int skip, double dz, double theta_rms);
 
-double calculate_one_material(int skip, double dz, int material);
+double calculate_one_material(int num_layer, double dz, int material);
 
 double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms);
 
