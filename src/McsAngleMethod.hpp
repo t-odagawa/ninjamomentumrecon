@@ -20,5 +20,7 @@ double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_S
  * @param tangent_down tangent vector of downstream film
  * @return angle difference in lateral coordinate of upstream base track
  */
-double get_angle_difference(TVector3 tangent_up, TVector3 tangent_down);
+double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down);
+
+double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
 #endif

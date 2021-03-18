@@ -73,8 +73,8 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
 				     << " down plate : " << emulsion_down->GetPlate();
 
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
-	    theta_rms.at((plate_difference + 1) / 2).first += get_angle_difference(tangent_up, tangent_down)
-	      * get_angle_difference(tangent_up, tangent_down);
+	    theta_rms.at((plate_difference + 1) / 2).first += get_angle_difference_lateral(tangent_up, tangent_down)
+	      * get_angle_difference_lateral(tangent_up, tangent_down);
 	    theta_rms.at((plate_difference + 1 ) / 2).second++;
 
 	  }
@@ -153,8 +153,14 @@ double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_S
     / pbeta.size();
 }
 
-double get_angle_difference(TVector3 tangent_up, TVector3 tangent_down) {
+double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down) {
   return (1. / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y()))
     * ((tangent_down.X() - tangent_up.X()) * tangent_up.Y()
        - (tangent_down.Y() - tangent_up.Y()) * tangent_up.X());
+}
+
+double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down) {
+  return (1. / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y()))
+    * ((tangent_down.X() - tangent_up.X()) * tangent_up.X()
+       + (tangent_down.Y() - tangent_up.Y()) * tangent_up.Y());
 }
