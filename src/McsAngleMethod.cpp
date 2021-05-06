@@ -53,6 +53,9 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
       TVector3 vertex_tangent = emulsions_one_track.at(0)->GetTangent().GetValue();
       double dz = std::sqrt(vertex_tangent.X() * vertex_tangent.X()
 			    + vertex_tangent.Y() * vertex_tangent.Y() + 1.);
+      BOOST_LOG_TRIVIAL(debug) << "Vertex Plate ID : " << vertex_plate
+			       << " Vertex Tangent X = " << vertex_tangent.X()
+			       << ", Vertex Tangent Y = " << vertex_tangent.Y();
       std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms;
 
       for (int i = 0; i < MAX_NUM_SKIP; i++) theta_rms.at(i) = std::make_pair(0., 0);
@@ -105,7 +108,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
 double get_pb_oneskip(int skip, double dz, double theta_rms) {
 
   if (skip >= MAX_NUM_SKIP)
-    throw std::out_of_range("skip should be less than MAX_NUM_SKIP");
+    throw std::out_of_range("skip should be less than MAX_NUM_SKIP: %d", MAX_NUM_SKIP);
 
   double pb2 = 0;
 
