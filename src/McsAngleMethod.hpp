@@ -6,7 +6,10 @@
 #include <B2SpillSummary.hh>
 #include "McsCommon.hpp"
 
-std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int particle_id);
+std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, 
+				     std::vector<double> &angle_difference,
+				     std::vector<double> &path_length,
+				     int particle_id);
 
 double get_pb_oneskip(int skip, double dz, double theta_rms);
 

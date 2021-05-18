@@ -25,8 +25,8 @@ int main (int argc, char *argv[]) {
 
     logging::core::get()->set_filter
     (
-     // logging::trivial::severity >= logging::trivial::info
-     logging::trivial::severity >= logging::trivial::debug
+      logging::trivial::severity >= logging::trivial::info
+     //logging::trivial::severity >= logging::trivial::debug
      );
     
   BOOST_LOG_TRIVIAL(info) << "==========NINJA Momentum Reconstruction Start==========";
@@ -51,8 +51,12 @@ int main (int argc, char *argv[]) {
     TTree *tree = new TTree("tree", "ECC reconstructed momentum");
     std::vector<Double_t> true_pbeta = {};
     std::vector<Double_t> recon_pbeta = {};
+    std::vector<Double_t> path_length = {};
+    std::vector<Double_t> angle_difference = {};
     tree->Branch("true_pbeta", &true_pbeta);
     tree->Branch("recon_pbeta", &recon_pbeta);
+    tree->Branch("path_length", &path_length);
+    tree->Branch("angle_difference", &angle_difference);
 
     int ievent = 0;
     int particle_id = PDG_t::kMuonMinus;
@@ -63,13 +67,17 @@ int main (int argc, char *argv[]) {
 #ifdef COORDINATE_METHOD
       recon_pbeta = mcs_coordinate_method(spill_summary, particle_id);
 #else
-      recon_pbeta = mcs_angle_method(spill_summary, particle_id);
+      recon_pbeta = mcs_angle_method(spill_summary, angle_difference, path_length, particle_id);
 #endif
 
       ievent++;
       if (recon_pbeta.size() > 0)
 	tree->Fill();
       //if (ievent > 100) break;
+      angle_difference.clear();
+      path_length.clear();
+      angle_difference.shrink_to_fit();
+      path_length.shrink_to_fit();
     }
 
     file->cd();

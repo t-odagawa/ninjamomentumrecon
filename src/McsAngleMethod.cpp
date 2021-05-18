@@ -13,7 +13,10 @@
 #include <B2TrackSummary.hh>
 #include <B2EmulsionSummary.hh>
 
-std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int particle_id) {
+std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, 
+				     std::vector<double> &angle_difference, 
+				     std::vector<double> &path_length,
+				     int particle_id) {
 
   std::vector<double> recon_pb = {};
 
@@ -53,6 +56,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
       TVector3 vertex_tangent = emulsions_one_track.at(0)->GetTangent().GetValue();
       double dz = std::sqrt(vertex_tangent.X() * vertex_tangent.X()
 			    + vertex_tangent.Y() * vertex_tangent.Y() + 1.);
+      path_length.push_back(dz);
       BOOST_LOG_TRIVIAL(debug) << "Vertex Plate ID : " << vertex_plate
 			       << " Vertex Tangent X = " << vertex_tangent.X()
 			       << ", Vertex Tangent Y = " << vertex_tangent.Y();
@@ -79,6 +83,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
 	    theta_rms.at((plate_difference + 1) / 2).first += get_angle_difference_lateral(tangent_up, tangent_down)
 	      * get_angle_difference_lateral(tangent_up, tangent_down);
 	    theta_rms.at((plate_difference + 1 ) / 2).second++;
+	    angle_difference.push_back(get_angle_difference_lateral(tangent_up, tangent_down));
 
 	  }
 	}
@@ -108,7 +113,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int pa
 double get_pb_oneskip(int skip, double dz, double theta_rms) {
 
   if (skip >= MAX_NUM_SKIP)
-    throw std::out_of_range("skip should be less than MAX_NUM_SKIP: %d", MAX_NUM_SKIP);
+    throw std::out_of_range("skip should be less than MAX_NUM_SKIP");
 
   double pb2 = 0;
 
