@@ -13,12 +13,11 @@
 #include <B2TrackSummary.hh>
 #include <B2EmulsionSummary.hh>
 
-std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, 
+bool mcs_angle_method(const B2SpillSummary &spill_summary,
+				     std::vector<double> &recon_pb,
 				     std::vector<double> &angle_difference, 
 				     std::vector<double> &path_length,
 				     int particle_id) {
-
-  std::vector<double> recon_pb = {};
 
   // Get emulsion tracks
   std::vector<const B2EmulsionSummary*> emulsions;
@@ -30,7 +29,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary,
     emulsions.push_back(emulsion);
   }
 
-  if (emulsions.size() <= 0) return recon_pb;
+  if (emulsions.size() <= 0) return false;
 
   BOOST_LOG_TRIVIAL(debug) << "# of emulsion tracks : " << emulsions.size();
 
@@ -73,17 +72,17 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary,
 	for (int iemulsion_down = iemulsion_up + 1; iemulsion_down < emulsions_one_track.size(); iemulsion_down++) {
 
 	  const auto emulsion_down = emulsions_one_track.at(iemulsion_down);
-	  if (emulsion_down->GetPlate() < 16) continue;
+	  if (emulsion_down->GetPlate() < 15) continue;
 	  int plate_difference = emulsion_up->GetPlate() - emulsion_down->GetPlate();
 	  if (plate_difference % 2 == 1 && plate_difference / 2 < MAX_NUM_SKIP - 1) {
 	    BOOST_LOG_TRIVIAL(debug) << "up plate : " << emulsion_up->GetPlate()
 				     << " down plate : " << emulsion_down->GetPlate();
 
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
-	    theta_rms.at((plate_difference + 1) / 2).first += get_angle_difference_lateral(tangent_up, tangent_down)
-	      * get_angle_difference_lateral(tangent_up, tangent_down);
+	    theta_rms.at((plate_difference + 1) / 2).first += get_angle_difference_lateral(tangent_up, tangent_down, vertex_tangent)
+	      * get_angle_difference_lateral(tangent_up, tangent_down, vertex_tangent);
 	    theta_rms.at((plate_difference + 1 ) / 2).second++;
-	    angle_difference.push_back(get_angle_difference_lateral(tangent_up, tangent_down));
+	    angle_difference.push_back(get_angle_difference_lateral(tangent_up, tangent_down, vertex_tangent));
 
 	  }
 	}
@@ -95,7 +94,7 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary,
       }
 
       // Reconstruct pbeta from RMS of angle difference distribution
-      recon_pb.push_back(reconstruct_pbeta(dz, theta_rms));
+      recon_pb.push_back(calculate_pb_average(dz, theta_rms));
       emulsions_one_track.clear();
     }
 
@@ -106,65 +105,76 @@ std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary,
 
   BOOST_LOG_TRIVIAL(debug) << "# of particles which make tracks in emulsions : " << number_of_tracks;
   BOOST_LOG_TRIVIAL(debug) << "Reconstructed pbeta = " << recon_pb.front();
-  return recon_pb;
+
+  return true;
 
 }
 
-double get_pb_oneskip(int skip, double dz, double theta_rms) {
+double calculate_pb_average(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms){ 
 
+  std::array<double, MAX_NUM_SKIP> recon_pb = {};
+
+  for (int skip = MIN_NUM_SKIP; skip < MAX_NUM_SKIP; skip++) {
+    if (theta_rms.at(skip).second < 5) continue;
+    BOOST_LOG_TRIVIAL(debug) << "theta_rms.at(" << skip << ").first = "
+			     << theta_rms.at(skip).first
+    			     << " theta_rms.at(" << skip << ").second = "
+			     << theta_rms.at(skip).second;
+    recon_pb.at(skip) = calculate_pb(theta_rms.at(skip).first, calculate_radiation_length(skip, dz));
+  }
+
+  return std::accumulate(recon_pb.begin(), recon_pb.end(), 0.) / recon_pb.size();
+
+}
+
+double calculate_pb(double theta_rms, double rad_length) {
+  return 13.6 * std::sqrt(rad_length) / theta_rms * (1 + 0.038 * std::log(rad_length));
+  // assume beta = 1
+}
+
+double calculate_radiation_length(int skip, double dz) {
   if (skip >= MAX_NUM_SKIP)
     throw std::out_of_range("skip should be less than MAX_NUM_SKIP");
 
-  double pb2 = 0;
+  double rad_length = 0.;
 
   for (int material = 0; material < kNumberOfNinjaMaterials; material++) {
+    int num_layers = 0;
     switch (material) {
-    case kNinjaIron :
-      pb2 += calculate_one_material(skip, dz, material) * calculate_one_material(skip, dz, material);
+    case kNinjaIron : 
+      num_layers = skip;
       break;
     case kNinjaWater :
-      pb2 += calculate_one_material(skip - 1, dz, material) * calculate_one_material(skip - 1, dz, material);
+      num_layers = skip - 1;
       break;
     case kNinjaGel :
-      pb2 += calculate_one_material(4 * skip - 2, dz, material) * calculate_one_material(4 * skip - 2, dz, material);
+      num_layers = 4 * skip - 2;
       break;
     case kNinjaBase :
-      pb2 += calculate_one_material(2 * skip - 2, dz, material) * calculate_one_material(2 * skip - 2, dz, material);
-      break;
     case kNinjaPacking :
-      pb2 += calculate_one_material(2 * skip - 2, dz, material) * calculate_one_material(2 * skip - 2, dz, material);
+      num_layers = 2 * skip - 2;
       break;
     }
+    rad_length += num_layers * dz * MATERIAL_THICK[material] / RAD_LENGTH[material];
   }
 
-  return std::sqrt(pb2) / theta_rms;
+  BOOST_LOG_TRIVIAL(debug) << "Radiation length = " << rad_length << "X0";
+  return rad_length;
+
 }
 
-double calculate_one_material(int num_layer, double dz, int material) {
-  if (num_layer == 0) return 0.;
-  return 13.6 * std::sqrt(num_layer * dz * MATERIAL_THICK[material] / RAD_LENGTH[material])
-    * (1 + 0.038 * std::log(num_layer * dz *  MATERIAL_THICK[material] / RAD_LENGTH[material]));
-}
+double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent) {
 
-double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms) {
-
-  std::vector<double> pbeta = {};
-
-  for (int iskip = MIN_NUM_SKIP; iskip < MAX_NUM_SKIP; iskip++) {
-    if (theta_rms.at(iskip).second < 5) continue;
-    BOOST_LOG_TRIVIAL(debug) << "theta_rms.at(" << iskip << ").first = " << theta_rms.at(iskip).first
-    			     << " theta_rms.at(" << iskip << ").second = " << theta_rms.at(iskip).second;
-    pbeta.push_back(get_pb_oneskip(iskip, dz, theta_rms.at(iskip).first));
-  }
-
-  return std::accumulate(pbeta.begin(), pbeta.end(), 0.)
-    / pbeta.size();
-}
-
-double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down) {
-  return (1. / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y()))
+  /*  
+  return (1. / std::sqrt(vertex_tangent.X() * vertex_tangent.X() + vertex_tangent.Y() * vertex_tangent.Y()))
+    * ((tangent_down.X() - tangent_up.X()) * vertex_tangent.Y()
+       - (tangent_down.Y() - tangent_up.Y()) * vertex_tangent.X());
+  */
+  
+  return (1. / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_down.Y() * tangent_down.Y()))
     * ((tangent_down.X() - tangent_up.X()) * tangent_up.Y()
        - (tangent_down.Y() - tangent_up.Y()) * tangent_up.X());
+  
 }
 
 double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down) {

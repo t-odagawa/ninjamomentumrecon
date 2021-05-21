@@ -11,7 +11,7 @@ enum {kNinjaIron = 0,
 
 ///> Radiation lengths of each material
 //const static double IRON_RAD_LENGTH = 17.58; // mm
-const static double IRON_RAD_LENGTH = 14.40; // mm
+const static double IRON_RAD_LENGTH = 17.18; // mm
 const static double WATER_RAD_LENGTH = 360.8; // mm
 const static double GEL_RAD_LENGTH = 30.3; // mm
 const static double POLY_RAD_LENGTH = 413.1; // mm
