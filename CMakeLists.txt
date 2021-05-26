@@ -160,3 +160,4 @@ set(NINJA_MOMRECON_LIBRARIES ${ROOT_LIBRARIES} ${Boost_LIBRARIES} ${B2MC_LIBRARY
 ################ Sub Directories ################
 
 add_subdirectory(src)
+add_subdirectory(src/EnergyDeposit)

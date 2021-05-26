@@ -6,13 +6,18 @@
 #include <B2SpillSummary.hh>
 #include "McsCommon.hpp"
 
-std::vector<double> mcs_angle_method(const B2SpillSummary &spill_summary, int particle_id);
+bool mcs_angle_method(const B2SpillSummary &spill_summary, 
+		      std::vector<double> &recon_pb,
+		      std::vector<double> &angle_difference,
+		      std::vector<double> &path_length,
+		      int particle_id);
 
-double get_pb_oneskip(int skip, double dz, double theta_rms);
+double calculate_pb_average(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms);
 
-double calculate_one_material(int num_layer, double dz, int material);
+double calculate_pb(double theta_rms, double rad_length);
 
-double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_SKIP> theta_rms);
+double calculate_radiation_length(int skip, double dz);
+
 
 /**
  * Get angle difference in lateral coordinate of upstream base track
@@ -20,7 +25,7 @@ double reconstruct_pbeta(double dz, std::array<std::pair<double, int>, MAX_NUM_S
  * @param tangent_down tangent vector of downstream film
  * @return angle difference in lateral coordinate of upstream base track
  */
-double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down);
+double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent);
 
 double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
 #endif
