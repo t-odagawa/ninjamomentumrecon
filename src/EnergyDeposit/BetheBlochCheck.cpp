@@ -28,21 +28,21 @@ int main (int argc, char *argv[]) {
      logging::trivial::severity >= logging::trivial::info
      // loggin::trivial::severity >= logging::trivial::debug
      );
-
-    BOOST_LOG_TRIVIAL(info) << "==========Bethe Bloch Fit Start==========";
-
+  
+  BOOST_LOG_TRIVIAL(info) << "==========Bethe Bloch Fit Start==========";
+  
   if (argc != 1) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0];
     std::exit(1);
   }
-
+  
   try {
-
+    
     gStyle->SetOptStat(0);
     gErrorIgnoreLevel = kWarning;
     const Double_t muon_mass = 105.658 * MeV;
-
-
+    
+    
     TCanvas *c = new TCanvas("c", "c");
     TString pdfname = "bethe_bloch_fit.pdf";
     c->Print(pdfname + "[", "pdf");

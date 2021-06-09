@@ -22,12 +22,12 @@
 namespace logging = boost::log;
 
 // Function to be minimized
-// par[0]  : reconstructed pbeta obtained from minimum log likelihood
-// par[1]  : Ncell (number of skipped film between the pair)
-// par[2]  : Initial angle (true information or smeared if necessary) dz
-// par[3]  : direction (1 or -1)
-// par[4]  : number of pairs of the basetracks
-// par[5-] : angle differences between basetracks
+// par[0]    : reconstructed pbeta obtained from minimum log likelihood
+// par[1]    : Ncell (number of skipped film between the pair)
+// par[2]    : direction (1 or -1)
+// par[3]    : number of pairs of the basetracks
+// par[4-N]  : angle differences between basetracks
+// par[N+1-] : upstream angle of each pair
 void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
   // Log likelihood
   Double_t ll = 0.; // constant (= n * log(2pi) / 2) is ignored
@@ -113,10 +113,18 @@ Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
 }
   
 
-std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, Double_t dz, std::vector<Double_t> angle_difference) {
+std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> angle, std::vector<Double_t> angle_difference) {
 
+  if (angle.size() != ncell) {
+    throw std::out_of_range("Angle vector out of range");
+    std::exit(1);
+  }
+  else if (angle_difference.size() != ncell) {
+    throw std::out_of_range("Angle differnece vector out of range");
+    std::exit(1);
+  }
 
-  const UInt_t num_of_param = 5 + angle_difference.size();
+  const UInt_t num_of_param = 4 + angle.size() + angle_difference.size();
 
   TMinuit *min = new TMinuit(num_of_param); // TMinuit(n), n = number of parameters
   min->SetPrintLevel(-1);
@@ -128,18 +136,17 @@ std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, Double_t dz, std::vector<
   TString parname[num_of_param];
   parname[0] = "Reconstructed momentum";
   parname[1] = "Ncell";
-  parname[2] = "Initial angle (dz)";
-  parname[3] = "Track direction";
-  parname[4] = "Number of angle differences";
-  for (Int_t ipar = 5; ipar < num_of_param; ipar++) {
-    parname[ipar] = Form("Angle difference %d", ipar - 5);
+  parname[2] = "Track direction";
+  parname[3] = "Number of track pairs";
+  for (Int_t i = 0; i < angle.size(); i++) {
+    parname[i] = "";
   }
 
   // Initial values
   Double_t vstart[num_of_param];
   vstart[0] = 1000;
   vstart[1] = ncell;
-  vstart[2] = dz;
+  //vstart[2] = dz;
   vstart[3] = 1;
   vstart[4] = angle_difference.size();
   for (Int_t ipar = 5; ipar < num_of_param; ipar++) {
@@ -245,14 +252,13 @@ int main (int argc, char *argv[]) {
 
       Int_t track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
       Int_t ecc_tmp_ = emulsions.at(0)->GetEcc();
-      true_pbeta = emulsions.at(0)->GetMomentum().GetValue().Mag();
-      true_pbeta = true_pbeta * true_pbeta / TMath::Sqrt(true_pbeta * true_pbeta + muon_mass * muon_mass);
+      true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), muon_mass);
       TVector3 vertex_tangent = emulsions.at(0)->GetTangent().GetValue();
       Double_t momentum_difference_max = 0.;
 
       // input parameters for TMinuit
       const Int_t ncell = std::atoi(argv[3]); // Ncell will be sweeped in the next step
-      Double_t dz = vertex_tangent.Mag(); // dz is calculated from the initial tangent
+      std::vector<Double_t> angle = {};
       std::vector<Double_t> angle_difference = {};
 
       for (Int_t iemulsion_up = 0; iemulsion_up < emulsions.size(); iemulsion_up++) {
@@ -271,21 +277,22 @@ int main (int argc, char *argv[]) {
 
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
+	    angle.push_back(tangent_up.Mag());
 	    angle_difference.push_back(TMath::ATan(get_angle_difference_lateral(tangent_up,
 										tangent_down,
 										vertex_tangent)));
 	    
-	    BOOST_LOG_TRIVIAL(debug) << "Angle difference between"
-				     << " film " << emulsion_up->GetPlate() << " and"
+	    BOOST_LOG_TRIVIAL(debug) << " film " << emulsion_up->GetPlate() << " and"
 				     << " film " << emulsion_down->GetPlate()
-				     << " is " << angle_difference.back();
+				     << " angle difference is " << angle_difference.back() << ", "
+				     << " initial angle is " << angle.back();
 	    break;
 	  }
 	}
       }
 
 
-      std::array<Double_t,2> result_array = ReconstructPBeta(ncell, dz, angle_difference);
+      std::array<Double_t,2> result_array = ReconstructPBeta(ncell, angle, angle_difference);
       recon_pbeta = result_array.at(0);
       recon_pbeta_err = result_array.at(1);
       otree->Fill();
