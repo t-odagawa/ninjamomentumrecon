@@ -26,10 +26,4 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters();
 
 Double_t SigmaAtIfilm(Double_t momentum, UInt_t ncell, Double_t dz);
 
-std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, Double_t dz, std::vector<Double_t> angle_difference);
-
-// Not used function
-Double_t CalculateRadLenUnit(UInt_t ncell);
-Double_t MomentumDrop(Double_t momentum, UInt_t ncell, Double_t dz);
-std::array<Double_t, 3> CalculateFunctionParameters(Double_t dz);
-
+std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> angle, std::vector<Double_t> angle_difference);

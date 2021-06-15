@@ -26,8 +26,8 @@ namespace logging = boost::log;
 // par[1]    : Ncell (number of skipped film between the pair)
 // par[2]    : direction (1 or -1)
 // par[3]    : number of pairs of the basetracks
-// par[4-N]  : angle differences between basetracks
-// par[N+1-] : upstream angle of each pair
+// par[4-N]  : upstream angle of each pair
+// par[N+1-] : angle differences between basetracks
 void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
   // Log likelihood
   Double_t ll = 0.; // constant (= n * log(2pi) / 2) is ignored
@@ -35,17 +35,17 @@ void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t
   // Momentum
   Double_t pbeta = par[0];
   
-  for (Int_t ifilm = 0; ifilm < (UInt_t)par[4]; ifilm++) {
+  for (Int_t ifilm = 0; ifilm < (UInt_t)par[3]; ifilm++) {
 
-    Double_t sigma = SigmaAtIfilm(pbeta, (UInt_t)par[1], par[2]);
+    Double_t sigma = SigmaAtIfilm(pbeta, (UInt_t)par[1], par[4 + ifilm]);
 
-    if (TMath::Abs(par[5 + ifilm]) > 2.5 * sigma) continue;
+    if (TMath::Abs(par[4 + par[3] + ifilm]) > 2.5 * sigma) continue;
 
-    ll += 2 * TMath::Log(sigma) + par[5 + ifilm] * par[5 + ifilm] / sigma / sigma;
+    ll += 2 * TMath::Log(sigma) + par[4 + par[3] + ifilm] * par[4 + par[3] + ifilm] / sigma / sigma;
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, muon_mass);
     Double_t beta = CalculateBetaFromPBeta(pbeta, muon_mass);
-    energy = energy - par[3] * par[2] * (BetheBlochIron(beta) + BetheBlochWater(beta));
+    energy = energy - par[2] * par[1] * (BetheBlochIron(beta) + BetheBlochWater(beta));
     pbeta = CalculatePBetaFromEnergy(energy, muon_mass);
   }
   
@@ -107,6 +107,7 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters() {
 }
 
 Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
+  if (ncell != 1) std::exit(1);
   Double_t beta = 1.;
   Double_t radiation_length = calculate_radiation_length(ncell, dz);
   return 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
@@ -115,12 +116,10 @@ Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
 
 std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> angle, std::vector<Double_t> angle_difference) {
 
-  if (angle.size() != ncell) {
-    throw std::out_of_range("Angle vector out of range");
-    std::exit(1);
-  }
-  else if (angle_difference.size() != ncell) {
-    throw std::out_of_range("Angle differnece vector out of range");
+  if (angle.size() != angle_difference.size()) {
+    BOOST_LOG_TRIVIAL(error) << "Angle vector and angle difference vector size different";
+    BOOST_LOG_TRIVIAL(error) << "Angle size : " << angle.size()			     
+			     << "Angle difference size : " << angle_difference.size();
     std::exit(1);
   }
 
@@ -138,19 +137,20 @@ std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> ang
   parname[1] = "Ncell";
   parname[2] = "Track direction";
   parname[3] = "Number of track pairs";
-  for (Int_t i = 0; i < angle.size(); i++) {
-    parname[i] = "";
+  for (Int_t ipar = 0; ipar < angle.size(); ipar++) {
+    parname[4 + ipar] = Form("Unit path length%d", ipar);
+    parname[4 + angle.size() + ipar] = Form("Angle difference %d", ipar);
   }
 
   // Initial values
   Double_t vstart[num_of_param];
   vstart[0] = 1000;
   vstart[1] = ncell;
-  //vstart[2] = dz;
-  vstart[3] = 1;
-  vstart[4] = angle_difference.size();
-  for (Int_t ipar = 5; ipar < num_of_param; ipar++) {
-    vstart[ipar] = angle_difference.at(ipar - 5);
+  vstart[2] = 1;
+  vstart[3] = angle.size();
+  for (Int_t ipar = 0; ipar < angle.size(); ipar++) {
+    vstart[4 + ipar] = angle.at(ipar);
+    vstart[4 + angle.size() + ipar] = angle_difference.at(ipar);
   }
   
   // Step
@@ -312,47 +312,5 @@ int main (int argc, char *argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Finish==========";
   std::exit(0);
-
-}
-
-// These functions are not used anymore
-
-Double_t MomentumDrop(Double_t momentum, UInt_t ncell, Double_t dz) {
-  std::array<Double_t, 3> funcpar = CalculateFunctionParameters(dz);
-  return funcpar.at(0) / (momentum - funcpar.at(1)) + funcpar.at(2);
-}
-
-std::array<Double_t, 3> CalculateFunctionParameters(Double_t dz) {
-  std::array<Double_t, 3> return_array = {4.19, 256.1, 0.626 * dz};
-  return return_array;
-}
-
-Double_t CalculateRadLenUnit(UInt_t ncell) {
-  if (ncell > 10)
-    throw std::out_of_range("Ncell should be less than 10");
-
-  Double_t rad_len_unit = 0;
-
-  for (Int_t imaterial = 0; imaterial < kNumberOfNinjaMaterials; imaterial++) {
-    int num_of_layers = 0;
-    switch (imaterial) {
-    case kNinjaIron : 
-      num_of_layers = ncell;
-      break;
-    case kNinjaWater :
-      num_of_layers = ncell - 1;
-      break;
-    case kNinjaGel :
-      num_of_layers = 4 * ncell - 2;
-      break;
-    case kNinjaBase :
-    case kNinjaPacking :
-      num_of_layers = 2 * ncell - 2;
-      break;
-    }
-    rad_len_unit += num_of_layers * MATERIAL_THICK[imaterial] / RAD_LENGTH[imaterial];
-  }
-
-  return rad_len_unit;
 
 }
