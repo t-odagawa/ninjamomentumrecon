@@ -31,8 +31,9 @@ int main (int argc, char *argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "==========Range Plate Function Start==========";
 
-  if (argc != 2) {
-    BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0];
+  if (argc != 3) {
+    BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
+			     << " <input B2 file name> <output root file name>";
     std::exit(1);
   }
 
@@ -42,6 +43,9 @@ int main (int argc, char *argv[]) {
     gErrorIgnoreLevel = kWarning;
 
     B2Reader reader(argv[1]);
+
+    TString ofilename = argv[2];
+    TFile *ofile = new TFile()
 
     while (reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
@@ -76,7 +80,18 @@ int main (int argc, char *argv[]) {
 	  number_of_tracks++;
 
 	  int vertex_plate = emulsions_one_track.at(0)->GetPlate();
+	  const auto *primary_particle = emulsions_one_track.at(0)->GetParentTrack();
+	  Int_t particle_pdg = primary_particle->GetParticlePdg();
+	  Double_t particle_initial_momentum = primary_particle->GetInitialAbsoluteMomentum();
 
+	  for (int iemulsion_up = 0; iemulsion_up < emulsions_one_track.size() - 1; iemulsion_up++) {
+	    const auto emulsion_up = emulsions_one_track.at(iemulsion_up);
+	    TVector3 tangent_up = emulsion_up->GetTangent().GetValue();
+
+	    const auto emulsion_down = emulsions_one_track.at(iemulsion_up + 1);
+	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
+
+	  }
 
 	}
 

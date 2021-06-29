@@ -163,7 +163,7 @@ double calculate_radiation_length(int skip, double dz) {
 
 }
 
-double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent) {
+double get_tangent_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent) {
 
   /*  
   return (1. / std::sqrt(vertex_tangent.X() * vertex_tangent.X() + vertex_tangent.Y() * vertex_tangent.Y()))
@@ -177,7 +177,16 @@ double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, 
   
 }
 
-double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down) {
+double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent) {
+  return std::atan(tangent_down.Y() / tangent_down.X()) - std::atan(tangent_up.Y() / tangent_up.X());
+}
+
+/*
+double get_angle_difference_radial(TVector3 tangent_up, TVevcor3 tangent_down, TVector3 vertex_tangent) {
+  return std::
+}
+*/
+double get_tangent_difference_radial(TVector3 tangent_up, TVector3 tangent_down) {
   return (1. / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y()))
     * ((tangent_down.X() - tangent_up.X()) * tangent_up.X()
        + (tangent_down.Y() - tangent_up.Y()) * tangent_up.Y());

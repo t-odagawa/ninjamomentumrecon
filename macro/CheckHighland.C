@@ -1,6 +1,8 @@
 void CheckHighland() {
 
-  TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_fit.root";
+  //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_dax_fit_thetax0.root";
+  TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_day_fit_thetax0.root";
+  //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_fit_latcheck.root";
   TFile *file = new TFile(filename, "read");
   TTree *tree = (TTree*)file->Get("tree");
 
@@ -18,7 +20,9 @@ void CheckHighland() {
   tree->SetBranchAddress("sigma_lat", &sigma_lat);
   tree->SetBranchAddress("sigma_lat_err", &sigma_lat_err);
 
-  TString pdfname = "~/check_highland.pdf";
+  //TString pdfname = "~/check_highland_dax_thetax0.pdf";
+  TString pdfname = "~/check_highland_day_thetax0.pdf";
+  //TString pdfname = "~/check_highland_dthetalat.pdf";
   TCanvas *c = new TCanvas("c", "c");
   c->Print(pdfname + "[", "pdf");
 
@@ -54,7 +58,8 @@ void CheckHighland() {
 
   for (Int_t isideview = 0; isideview < 10; isideview++) {
     for (Int_t itopview = 0; itopview < 10; itopview++) {
-
+      if (itopview != 0) continue;
+      //if (isideview != 2) continue;
       Double_t tangent = TMath::Hypot(TMath::Tan(isideview * 5. * TMath::DegToRad()),
 				      TMath::Tan(itopview  * 5. * TMath::DegToRad()));
       Double_t unit_path_length = TMath::Hypot(tangent, 1.);
@@ -72,8 +77,11 @@ void CheckHighland() {
 
       TGraphErrors *ge = new TGraphErrors(29, x, y, xe, ye);
       ge->SetMarkerStyle(10);
-      ge->SetTitle(Form("#sigma_{lat} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{lat} x p#betac [MeV]",
-			isideview * 5, itopview * 5));
+      //ge->GetYaxis()->SetRangeUser(1., 8.);
+      ge->SetTitle(Form("#sigma_{rad} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{rad} x p#betac [MeV]",
+      		itopview * 5, isideview * 5));
+      //ge->SetTitle(Form("#sigma_{x} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{x} x p#betac [MeV]",
+      //			itopview * 5, isideview * 5));      
       TF1 *constant = new TF1("constant", "[0]");
       c->cd();
       ge->Draw("AP");
@@ -94,15 +102,17 @@ void CheckHighland() {
   highland_check_ge->SetMarkerStyle(10);
   //gPad->SetLogy();
   //gPad->SetLogx();
-  highland_check_ge->SetTitle(";#sqrt{1 + tan^{2}#theta};#sigma_{lat} x p#betac [MeV]");
-  //TF1 *highland_func = new TF1("highland_func", "[0] * sqrt([1] * x) * (1 + 0.038 * log([1] * x))", 1.1, 1.6);
-  TF1 *highland_func = new TF1("highland_func", "13.6 * pow([0] * x, [1])", 1., 1.8);
-  highland_func->SetParameter(0, 0.03);
-  highland_func->SetParameter(1, 1.);
+  highland_check_ge->SetTitle(";#sqrt{1 + tan^{2}#theta};#sigma_{rad} x p#betac [MeV]");
+  //highland_check_ge->SetTitle(";#sqrt{1 + tan^{2}#theta};#sigma_{x} x p#betac [MeV]");
+  TF1 *highland_func = new TF1("highland_func", "[0] * sqrt([1] * x) * (1 + 0.038 * log([1] * x))", 0.9, 1.8);
+  //TF1 *highland_func = new TF1("highland_func", "13.6 * sqrt([0] * x) * x", 1., 1.8);
+  highland_func->FixParameter(0, 13.6);
+  highland_func->FixParameter(1, 0.0342); // 0.5 / 17.18 + 0.07 * 2 / 30.3 + 0.21 / 413.1
+  //highland_func->FixParameter(0,3.e-2);
   c->cd();
   highland_check_ge->Draw("AP");
   c->Print(pdfname, "pdf");
-  highland_check_ge->Fit(highland_func, "", "", 1.1, 1.7);
+  highland_check_ge->Fit(highland_func, "", "", 1.0, 1.7);
   highland_func->Draw("same");
   c->Print(pdfname, "pdf");
 

@@ -43,3 +43,14 @@ target_link_libraries(DeltaTheta
 )
 
 install(TARGETS DeltaTheta DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+add_executable(DeltaThetaLatCheck
+	DeltaThetaLatCheck.cpp
+)
+
+target_include_directories(DeltaThetaLatCheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DeltaThetaLatCheck
+	${NINJA_MOMRECON_LIBRARIES}
+)
+
+install(TARGETS DeltaThetaLatCheck DESTINATION "${CMAKE_INSTALL_BINDIR}")

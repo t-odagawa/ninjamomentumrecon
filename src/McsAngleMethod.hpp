@@ -25,7 +25,9 @@ double calculate_radiation_length(int skip, double dz);
  * @param tangent_down tangent vector of downstream film
  * @return angle difference in lateral coordinate of upstream base track
  */
+double get_tangent_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent);
+
 double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent);
 
-double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
+double get_tangent_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
 #endif

@@ -88,7 +88,7 @@ endif ()
 
 # boost program_options, system, filesystem and log are required
 set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost 1.73 COMPONENTS system filesystem program_options unit_test_framework log_setup log REQUIRED)
+find_package(Boost 1.73 COMPONENTS system filesystem program_options unit_test_framework log_setup log regex REQUIRED)
 if (Boost_FOUND)
     message(STATUS "Boost library -- found")
     message(STATUS "Boost library include dir : ${Boost_INCLUDE_DIRS}")
@@ -161,3 +161,4 @@ set(NINJA_MOMRECON_LIBRARIES ${ROOT_LIBRARIES} ${Boost_LIBRARIES} ${B2MC_LIBRARY
 
 add_subdirectory(src)
 add_subdirectory(src/EnergyDeposit)
+add_subdirectory(src/RangeMethod)

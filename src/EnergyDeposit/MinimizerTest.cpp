@@ -39,9 +39,9 @@ void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t
 
     Double_t sigma = SigmaAtIfilm(pbeta, (UInt_t)par[1], par[4 + ifilm]);
 
-    if (TMath::Abs(par[4 + par[3] + ifilm]) > 2.5 * sigma) continue;
+    if (TMath::Abs(par[4 + (UInt_t)par[3] + ifilm]) > 3. * sigma) continue;
 
-    ll += 2 * TMath::Log(sigma) + par[4 + par[3] + ifilm] * par[4 + par[3] + ifilm] / sigma / sigma;
+    ll += 2 * TMath::Log(sigma) + par[4 + (UInt_t)par[3] + ifilm] * par[4 + (UInt_t)par[3] + ifilm] / sigma / sigma;
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, muon_mass);
     Double_t beta = CalculateBetaFromPBeta(pbeta, muon_mass);
@@ -278,10 +278,13 @@ int main (int argc, char *argv[]) {
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
 	    angle.push_back(tangent_up.Mag());
+	    /*
 	    angle_difference.push_back(TMath::ATan(get_angle_difference_lateral(tangent_up,
 										tangent_down,
 										vertex_tangent)));
-	    
+	    */
+	    angle_difference.push_back(TMath::ATan(get_tangent_difference_radial(tangent_up,
+										 tangent_down)));
 	    BOOST_LOG_TRIVIAL(debug) << " film " << emulsion_up->GetPlate() << " and"
 				     << " film " << emulsion_down->GetPlate()
 				     << " angle difference is " << angle_difference.back() << ", "
