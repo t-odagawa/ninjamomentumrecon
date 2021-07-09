@@ -35,6 +35,27 @@ const static double MATERIAL_THICK[kNumberOfNinjaMaterials] = { IRON_THICK,
 								PACK_THICK
 };
 
+enum { kNinjaMcsMuon = 0,
+       kNinjaMcsPion = 1,
+       kNinjaMcsProton = 2,
+       kNumberOfNinjaMcsParticles = 3
+} NinjaMcsParticle;
+
+///> Mass of particles in interest
+const static double MCS_MUON_MASS = 105.658; // MeV/c2
+const static double MCS_PION_MASS = 139.570; // MeV/c2
+const static double MCS_PROTON_MASS = 938.262; // MeV/c2
+
+const static double PARTICLE_MASS[kNumberOfNinjaMcsParticles] = { MCS_MUON_MASS,
+								  MCS_PION_MASS,
+								  MCS_PROTON_MASS
+};
+
+enum { kNinjaMcsForward = 1,
+       kNinjaMcsBackward = -1,
+       kNumberOfNinjaMcsDirections = 2
+} NinjaMcsDirection;
+
 ///> Error of angle difference
 const static double D_ANG_ERROR = 0.0022;
 ///> Error of position difference

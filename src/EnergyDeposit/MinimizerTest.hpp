@@ -26,4 +26,11 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters();
 
 Double_t SigmaAtIfilm(Double_t momentum, UInt_t ncell, Double_t dz);
 
-std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> angle, std::vector<Double_t> angle_difference);
+std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell,
+					 Int_t particle_id,
+					 Int_t direction,
+					 std::vector<Double_t> basetrack_distance,
+					 std::vector<Double_t> unit_path_length,
+					 std::vector<Int_t> plate_id,
+					 std::vector<Double_t> radial_angle_difference,
+					 std::vector<Double_t> lateral_angle_difference);

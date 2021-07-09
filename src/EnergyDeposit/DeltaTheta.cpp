@@ -36,7 +36,7 @@ int main (int argc, char *argv[]) {
 
   if (argc != 6) {
     BOOST_LOG_TRIVIAL(error) << "Usage :" << argv[0]
-			     << " <output rootfile name> <output pdf name> <mode (lateral(0)/ax(1)/ay(2))> <certain topview angle> <certain sideview angle>";
+			     << " <output rootfile name> <output pdf name> <mode (lateral(0)/ax(1)/ay(2)/radial angle(3))> <certain topview angle> <certain sideview angle>";
     std::exit(1);
   }
 

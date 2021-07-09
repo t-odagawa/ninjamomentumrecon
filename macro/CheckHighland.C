@@ -1,8 +1,9 @@
 void CheckHighland() {
 
-  //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_dax_fit_thetax0.root";
-  TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_day_fit_thetax0.root";
+  TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_dax_fit_thetax0.root";
+  //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_day_fit_thetax0.root";
   //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_fit_latcheck.root";
+  //TString filename = "/home/t2k/odagawa/NinjaMomentumRecon/build/angle_difference_fit_radcheck_ang.root";
   TFile *file = new TFile(filename, "read");
   TTree *tree = (TTree*)file->Get("tree");
 
@@ -20,9 +21,10 @@ void CheckHighland() {
   tree->SetBranchAddress("sigma_lat", &sigma_lat);
   tree->SetBranchAddress("sigma_lat_err", &sigma_lat_err);
 
-  //TString pdfname = "~/check_highland_dax_thetax0.pdf";
-  TString pdfname = "~/check_highland_day_thetax0.pdf";
+  TString pdfname = "~/check_highland_dax_thetax0.pdf";
+  //TString pdfname = "~/check_highland_day_thetax0.pdf";
   //TString pdfname = "~/check_highland_dthetalat.pdf";
+  //TString pdfname = "~/check_highland_dangrad_highmom.pdf";
   TCanvas *c = new TCanvas("c", "c");
   c->Print(pdfname + "[", "pdf");
 
@@ -36,7 +38,7 @@ void CheckHighland() {
 
     tree->GetEntry(ientry);
 
-    if (momentum == 50) continue;
+    if (momentum < 1000) continue;
     Int_t imomentum = momentum / 50 - 2;
     Int_t isideview = sideview / 5;
     Int_t itopview = topview / 5;
@@ -63,6 +65,10 @@ void CheckHighland() {
       Double_t tangent = TMath::Hypot(TMath::Tan(isideview * 5. * TMath::DegToRad()),
 				      TMath::Tan(itopview  * 5. * TMath::DegToRad()));
       Double_t unit_path_length = TMath::Hypot(tangent, 1.);
+
+
+
+
       unit_path_length_vec.push_back(unit_path_length);
       unit_path_length_err_vec.push_back(0.);
 
@@ -78,10 +84,10 @@ void CheckHighland() {
       TGraphErrors *ge = new TGraphErrors(29, x, y, xe, ye);
       ge->SetMarkerStyle(10);
       //ge->GetYaxis()->SetRangeUser(1., 8.);
-      ge->SetTitle(Form("#sigma_{rad} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{rad} x p#betac [MeV]",
-      		itopview * 5, isideview * 5));
-      //ge->SetTitle(Form("#sigma_{x} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{x} x p#betac [MeV]",
-      //			itopview * 5, isideview * 5));      
+      //ge->SetTitle(Form("#sigma_{rad} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{rad} x p#betac [MeV]",
+      //		itopview * 5, isideview * 5));
+      ge->SetTitle(Form("#sigma_{x} x p#betac (#theta_{x} = %d, #theta_{y} = %d);p#beta [MeV/c];#sigma_{x} x p#betac [MeV]",
+      			itopview * 5, isideview * 5));      
       TF1 *constant = new TF1("constant", "[0]");
       c->cd();
       ge->Draw("AP");

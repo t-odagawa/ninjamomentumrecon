@@ -44,7 +44,8 @@ int main (int argc, char *argv[]) {
     
     
     TCanvas *c = new TCanvas("c", "c");
-    TString pdfname = "bethe_bloch_fit.pdf";
+    //TString pdfname = "bethe_bloch_fit.pdf";
+    TString pdfname = "bethe_bloch_fit_new.pdf";
     c->Print(pdfname + "[", "pdf");
 
     Double_t momentum, sideview, topview;
@@ -71,7 +72,7 @@ int main (int argc, char *argv[]) {
     TH2D *hist_bethe_bloch_iron  = new TH2D("hist_bethe_bloch_iron",  ";beta;Energy deposit [MeV/unit];", 1000, 0, 1, 1000, 0, 10);
     TH2D *hist_bethe_bloch_water = new TH2D("hist_bethe_bloch_water", ";beta;Energy deposit [MeV/unit];", 1000, 0, 1, 1000, 0, 10);
 
-    TString filename = "/home/t2k/odagawa/data/mc_data/particlegun/particlegun_various_energy/particlegun_muon_merge.root";
+    TString filename = "/home/t2k/odagawa/data/mc_data/particlegun/particlegun_for_bethebloch/particlegun_muon_merge.root";
     B2Reader reader(filename);
     
     while (reader.ReadNextSpill() > 0) {
@@ -118,7 +119,7 @@ int main (int argc, char *argv[]) {
 	enedep = energy_first - energy_next;
 	enedep /= dz;
 
-	if (enedep > 3 && beta > 0.7) {
+	if (beta > 0.9) {
 	  BOOST_LOG_TRIVIAL(debug) << "Momentum difference exceeds 100 MeV/c : "
 				   << "Entry : " << reader.GetEntryNumber();
 	  //std::exit(1);

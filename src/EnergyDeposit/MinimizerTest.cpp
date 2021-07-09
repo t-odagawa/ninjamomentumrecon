@@ -22,31 +22,78 @@
 namespace logging = boost::log;
 
 // Function to be minimized
-// par[0]    : reconstructed pbeta obtained from minimum log likelihood
-// par[1]    : Ncell (number of skipped film between the pair)
-// par[2]    : direction (1 or -1)
-// par[3]    : number of pairs of the basetracks
-// par[4-N]  : upstream angle of each pair
-// par[N+1-] : angle differences between basetracks
+// par[0]           : reconstructed pbeta obtained from minimum log likelihood
+// par[1]           : Ncell (number of skipped film between the pair)
+// par[2]           : particle id (muon, charged pion, proton)
+// par[3]           : direction (1 or -1)
+// par[4]           : number of pairs of the basetracks ( = N )
+// por[   5 -  N+4] : basetrack distance
+// par[ N+5 - 2N+4] : unit path length of each pair for MCS calculation
+// par[2N+5 - 3N+4] : upstream plate id
+// par[3N+5 - 4N+4] : radial angle differences between basetracks
+// par[4N+5 - 5N+4] : lateral angle differences between basetracks
 void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
-  // Log likelihood
-  Double_t ll = 0.; // constant (= n * log(2pi) / 2) is ignored
 
+  // Initialzation of parameters
   // Momentum
   Double_t pbeta = par[0];
+  // Ncell
+  UInt_t ncell = (UInt_t)par[1];
+  // particle id
+  Int_t particle_id = (Int_t)par[2];
+  // direction
+  Int_t direction = (Int_t)par[3];
+  // number of pairs
+  const UInt_t number_of_pairs = (UInt_t)par[4];
+  // basetrack distance
+  std::vector<Double_t> basetrack_distance = {};
+  basetrack_distance.resize(number_of_pairs);
+  // unit_path_length
+  std::vector<Double_t> unit_path_length = {};
+  unit_path_length.resize(number_of_pairs);
+  // upstream plate id
+  std::vector<Int_t> plate_id = {};
+  plate_id.resize(number_of_pairs);
+  // radial angle differences
+  std::vector<Double_t> radial_angle_difference = {};
+  radial_angle_difference.resize(number_of_pairs);
+  // lateral angle differences
+  std::vector<Double_t> lateral_angle_difference = {};
+  lateral_angle_difference.resize(number_of_pairs);
+  for(Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
+    basetrack_distance.at(ipairs) = par[5 + ipairs];
+    unit_path_length.at(ipairs) = par[5 + number_of_pairs + ipairs];
+    plate_id.at(ipairs) = (Int_t)par[5 + 2 * number_of_pairs + ipairs];
+    radial_angle_difference.at(ipairs) = par[5 + 3 * number_of_pairs + ipairs];
+    lateral_angle_difference.at(ipairs) = par[5 + 4 * number_of_pairs + ipairs];
+  }
   
-  for (Int_t ifilm = 0; ifilm < (UInt_t)par[3]; ifilm++) {
+  // Calculation of negative log likelihood
 
-    Double_t sigma = SigmaAtIfilm(pbeta, (UInt_t)par[1], par[4 + ifilm]);
+  // Negative log likelihood
+  Double_t ll = 0.; // constant (= n * log(2pi) / 2) is ignored
 
-    if (TMath::Abs(par[4 + (UInt_t)par[3] + ifilm]) > 3. * sigma) continue;
+  for (Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
+    Double_t sigma = SigmaAtIfilm(pbeta, ncell, unit_path_length.at(ipairs));
+    if (TMath::Abs(radial_angle_difference.at(ipairs)) > 3. * sigma ||
+	TMath::Abs(lateral_angle_difference.at(ipairs)) > 3. * sigma ) continue;
 
-    ll += 2 * TMath::Log(sigma) + par[4 + (UInt_t)par[3] + ifilm] * par[4 + (UInt_t)par[3] + ifilm] / sigma / sigma;
+    //ll += 2 * TMath::Log(sigma) + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / sigma / sigma;
+    ll += 2 * TMath::Log(sigma) + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / sigma / sigma;
 
-    Double_t energy = CalculateEnergyFromPBeta(pbeta, muon_mass);
-    Double_t beta = CalculateBetaFromPBeta(pbeta, muon_mass);
-    energy = energy - par[2] * par[1] * (BetheBlochIron(beta) + BetheBlochWater(beta));
-    pbeta = CalculatePBetaFromEnergy(energy, muon_mass);
+    Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+    Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+    energy = energy - direction * ncell * (BetheBlochIron(beta) + BetheBlochWater(beta)) * basetrack_distance.at(ipairs);
+    /*
+      if (plate_id.at(ipairs) < 15)
+      energy = energy - direction * ncell * (BetheBlochIron(beta));
+      else if (plate_id.at(ipairs) % 2 == 1) 
+      energy = energy - direction * ncell * (BetheBlochWater(beta));
+      else 
+      energy = energy - direction * ncell * (BetheBlochWater(beta));
+    */
+    pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
+
   }
   
   f = ll;
@@ -107,50 +154,70 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters() {
 }
 
 Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
-  if (ncell != 1) std::exit(1);
+  //if (ncell != 1) std::exit(1);
   Double_t beta = 1.;
   Double_t radiation_length = calculate_radiation_length(ncell, dz);
   return 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
 }
   
 
-std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> angle, std::vector<Double_t> angle_difference) {
+std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell,
+					 Int_t particle_id,
+					 Int_t direction,
+					 std::vector<Double_t> basetrack_distance,
+					 std::vector<Double_t> unit_path_length,
+					 std::vector<Int_t> plate_id,
+					 std::vector<Double_t> radial_angle_difference,
+					 std::vector<Double_t> lateral_angle_difference) {
 
-  if (angle.size() != angle_difference.size()) {
-    BOOST_LOG_TRIVIAL(error) << "Angle vector and angle difference vector size different";
-    BOOST_LOG_TRIVIAL(error) << "Angle size : " << angle.size()			     
-			     << "Angle difference size : " << angle_difference.size();
+  if (basetrack_distance.size() != unit_path_length.size() ||
+      basetrack_distance.size() != plate_id.size() ||
+      basetrack_distance.size() != radial_angle_difference.size() ||
+      basetrack_distance.size() != lateral_angle_difference.size()) {
+    BOOST_LOG_TRIVIAL(error) << "Vector size different";
+    BOOST_LOG_TRIVIAL(error) << "Basetrack Distance : " << basetrack_distance.size() << ", "
+			     << "Unit path length size : " << unit_path_length.size() << ", "
+			     << "Plate size : " << plate_id.size() << ", "
+			     << "Radial angle difference size : " << radial_angle_difference.size() << ", "
+			     << "Lateral angle difference size : " << lateral_angle_difference.size();
     std::exit(1);
   }
 
-  const UInt_t num_of_param = 4 + angle.size() + angle_difference.size();
+  const UInt_t num_of_param = 5 + 5 * unit_path_length.size();
 
   TMinuit *min = new TMinuit(num_of_param); // TMinuit(n), n = number of parameters
   min->SetPrintLevel(-1);
   min->SetFCN(LogLikelihood); // minimize LogLikelihood function
   int ierflg = 0; // output level (0 = normal)
   
-
   // Parameter Names
   TString parname[num_of_param];
-  parname[0] = "Reconstructed momentum";
+  parname[0] = "Reconstructed pbeta";
   parname[1] = "Ncell";
-  parname[2] = "Track direction";
-  parname[3] = "Number of track pairs";
-  for (Int_t ipar = 0; ipar < angle.size(); ipar++) {
-    parname[4 + ipar] = Form("Unit path length%d", ipar);
-    parname[4 + angle.size() + ipar] = Form("Angle difference %d", ipar);
+  parname[2] = "Particle id";
+  parname[3] = "Track direction";
+  parname[4] = "Number of track pairs";
+  for (Int_t ipar = 0; ipar < basetrack_distance.size(); ipar++) {
+    parname[5 +                                 ipar] = Form("Basetrack distance %d",       ipar);
+    parname[5 + 1 * basetrack_distance.size() + ipar] = Form("Unit path length %d",         ipar);
+    parname[5 + 2 * basetrack_distance.size() + ipar] = Form("Plate id %d",                 ipar);
+    parname[5 + 3 * basetrack_distance.size() + ipar] = Form("Radial angle difference %d",  ipar);
+    parname[5 + 4 * basetrack_distance.size() + ipar] = Form("Lateral angle difference %d", ipar);
   }
 
   // Initial values
   Double_t vstart[num_of_param];
-  vstart[0] = 1000;
+  vstart[0] = 500;
   vstart[1] = ncell;
-  vstart[2] = 1;
-  vstart[3] = angle.size();
-  for (Int_t ipar = 0; ipar < angle.size(); ipar++) {
-    vstart[4 + ipar] = angle.at(ipar);
-    vstart[4 + angle.size() + ipar] = angle_difference.at(ipar);
+  vstart[2] = particle_id;
+  vstart[3] = direction;
+  vstart[4] = unit_path_length.size();
+  for (Int_t ipar = 0; ipar < unit_path_length.size(); ipar++) {
+    vstart[5 +                                 ipar] = basetrack_distance.at(ipar);
+    vstart[5 + 1 * basetrack_distance.size() + ipar] = unit_path_length.at(ipar);
+    vstart[5 + 2 * basetrack_distance.size() + ipar] = plate_id.at(ipar);
+    vstart[5 + 3 * basetrack_distance.size() + ipar] = radial_angle_difference.at(ipar);
+    vstart[5 + 4 * basetrack_distance.size() + ipar] = lateral_angle_difference.at(ipar);
   }
   
   // Step
@@ -162,7 +229,7 @@ std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> ang
 
   // Parameter setting
   // Bethe-Bloch is applicable to pbeta > ~20 (beta > 0.4)
-  min->mnparm(0, parname[0], vstart[0], step[0], 20, 2000, ierflg);
+  min->mnparm(0, parname[0], vstart[0], step[0], 20, 3000, ierflg);
   for (Int_t ipar = 1; ipar < num_of_param; ipar++) {
     min->mnparm(ipar, parname[ipar], vstart[ipar], step[ipar], 0, 0, ierflg);
   }
@@ -189,7 +256,7 @@ std::array<Double_t, 2> ReconstructPBeta(UInt_t ncell, std::vector<Double_t> ang
   min->GetParameter(0, rec_mom, rec_mom_err);
   std::array<Double_t,2> return_array = {rec_mom, rec_mom_err};
 
-  BOOST_LOG_TRIVIAL(info) << "Reconstructed Momentum = "
+  BOOST_LOG_TRIVIAL(trace) << "Reconstructed Momentum = "
 			   << rec_mom << " +/- "
 			   << rec_mom_err << " [MeV/c]";
   
@@ -205,6 +272,7 @@ int main (int argc, char *argv[]) {
   logging::core::get()->set_filter
     (
      logging::trivial::severity >= logging::trivial::info
+     //logging::trivial::severity >= logging::trivial::trace
      //logging::trivial::severity >= logging::trivial::debug
      );
   
@@ -226,10 +294,12 @@ int main (int argc, char *argv[]) {
 
     Double_t true_pbeta, recon_pbeta;
     Double_t recon_pbeta_err;
-    //Double_t log_likelihood; // any other variables?
+    Double_t log_likelihood[3][2]; // 3 particles (mu, pi, p), 2 directions (up, down)
+    // any other variables?
     otree->Branch("true_pbeta",  &true_pbeta,  "true_pbeta/D");
     otree->Branch("recon_pbeta", &recon_pbeta, "recon_pbeta/D");
     otree->Branch("recon_pbeta_err", &recon_pbeta_err, "recon_pbeta_err/D");
+    otree->Branch("log_likelihood", log_likelihood, "log_likelihood[3][2]/D");
     
     while (reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
@@ -251,23 +321,35 @@ int main (int argc, char *argv[]) {
       std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
 
       Int_t track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
+      Int_t particle_pdg_tmp_ = emulsions.at(0)->GetParentTrack().GetParticlePdg();
       Int_t ecc_tmp_ = emulsions.at(0)->GetEcc();
-      true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), muon_mass);
+      if (particle_pdg_tmp_ == 13)
+	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_MUON_MASS);
+      else if (particle_pdg_tmp_ == 2212)
+	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PROTON_MASS);
+      else if (std::abs(particle_pdg_tmp_) == 211)
+	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PION_MASS);
+
       TVector3 vertex_tangent = emulsions.at(0)->GetTangent().GetValue();
       Double_t momentum_difference_max = 0.;
 
       // input parameters for TMinuit
       const Int_t ncell = std::atoi(argv[3]); // Ncell will be sweeped in the next step
-      std::vector<Double_t> angle = {};
-      std::vector<Double_t> angle_difference = {};
+      std::vector<Double_t> basetrack_distance = {};
+      std::vector<Double_t> unit_path_length = {};
+      std::vector<Int_t> plate_id = {};
+      std::vector<Double_t> radial_angle_difference = {};
+      std::vector<Double_t> lateral_angle_difference = {};
 
       for (Int_t iemulsion_up = 0; iemulsion_up < emulsions.size(); iemulsion_up++) {
-	// lateral angle differences are pushed back to the vector
-	// always use the upstream film in a tracking unit as a start film
+	// always use the upstream film in a tracking unit as a start film for now
 	const auto emulsion_up = emulsions.at(iemulsion_up);
 	if (emulsion_up->GetPlate()%2 == 1) continue; 
+
 	TVector3 tangent_up = emulsion_up->GetTangent().GetValue();
-	
+	tangent_up = (1. / tangent_up.Z()) * tangent_up;
+	TVector3 position_up = emulsion_up->GetAbsolutePosition().GetValue();
+
 	for (Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < emulsions.size(); iemulsion_down++) {
 	  const auto emulsion_down = emulsions.at(iemulsion_down);
 	  Int_t plate_difference = emulsion_up->GetPlate() - emulsion_down->GetPlate();
@@ -277,27 +359,39 @@ int main (int argc, char *argv[]) {
 
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
-	    angle.push_back(tangent_up.Mag());
-	    /*
-	    angle_difference.push_back(TMath::ATan(get_angle_difference_lateral(tangent_up,
-										tangent_down,
-										vertex_tangent)));
-	    */
-	    angle_difference.push_back(TMath::ATan(get_tangent_difference_radial(tangent_up,
-										 tangent_down)));
-	    BOOST_LOG_TRIVIAL(debug) << " film " << emulsion_up->GetPlate() << " and"
-				     << " film " << emulsion_down->GetPlate()
-				     << " angle difference is " << angle_difference.back() << ", "
-				     << " initial angle is " << angle.back();
+	    tangent_down = (1. / tangent_down.Z()) * tangent_down;
+	    TVector3 position_down = emulsion_down->GetAbsolutePosition().GetValue();
+	    TVector3 displacement = position_down - position_up;
+
+	    basetrack_distance.push_back(displacement.Mag() / displacement.Z());
+	    unit_path_length.push_back((1. / displacement.Z() / tangent_up.Mag()) * (displacement * tangent_up));
+	    plate_id.push_back(emulsion_up->GetPlate());
+	    radial_angle_difference.push_back(get_angle_difference_radial_new(tangent_up, tangent_down));
+	    lateral_angle_difference.push_back(get_angle_difference_lateral_new(tangent_up, tangent_down));
+
+	    BOOST_LOG_TRIVIAL(debug) << " Film " << emulsion_up->GetPlate() << " and"
+				     << " Film " << emulsion_down->GetPlate()
+				     << " Radial angle difference is " << radial_angle_difference.back() << ", "
+				     << " Lateral angle difference is " << lateral_angle_difference.back() << ", "
+				     << " Unit path length is " << unit_path_length.back();
 	    break;
 	  }
 	}
       }
 
-
-      std::array<Double_t,2> result_array = ReconstructPBeta(ncell, angle, angle_difference);
+      std::array<Double_t, 2> result_array = {};
+      Int_t particle_id = 0;
+      Int_t direction = 1;
+      result_array = ReconstructPBeta(ncell, particle_id, direction,
+				      basetrack_distance,
+				      unit_path_length,
+				      plate_id,
+				      radial_angle_difference,
+				      lateral_angle_difference);
+      
       recon_pbeta = result_array.at(0);
       recon_pbeta_err = result_array.at(1);
+
       otree->Fill();
     }
     

@@ -29,5 +29,11 @@ double get_tangent_difference_lateral(TVector3 tangent_up, TVector3 tangent_down
 
 double get_angle_difference_lateral(TVector3 tangent_up, TVector3 tangent_down, TVector3 vertex_tangent);
 
+double get_angle_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
+
 double get_tangent_difference_radial(TVector3 tangent_up, TVector3 tangent_down);
+
+double get_angle_difference_lateral_new(TVector3 tangent_up, TVector3 tangent_down);
+
+double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_down);
 #endif
