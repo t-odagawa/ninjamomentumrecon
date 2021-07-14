@@ -57,9 +57,11 @@ enum { kNinjaMcsForward = 1,
 } NinjaMcsDirection;
 
 ///> Error of angle difference
-const static double D_ANG_ERROR = 0.0022;
-///> Error of position difference
-const static double D_POS_ERROR = 0.006; // mm
+const static double D_ANG_ERROR = 3.e-3;
+///> Error of x/y position difference
+const static double D_POS_XY_ERROR = 6.e-3; // mm
+///> Error of z position difference
+const static double D_POS_Z_ERROR = 4.e-3; // mm
 
 ///> Minimum number of intervals for plate pairs
 const static int MIN_NUM_SKIP = 1;
@@ -71,5 +73,28 @@ const static int MAX_NUM_ECC_PLATE = 133;
 std::vector<Double_t> get_true_pbeta(const B2SpillSummary &spill_summary, int particle_id);
 
 bool emulsion_compare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs);
+
+TVector3 smear_position_vector(TVector3 &position);
+
+TVector3 smear_tangent_vector(TVector3 &tangent);
+/*
+tangent (x, y, z) -> tangent (rad, lat, z)
+rad, lat をsmear -> rad', lat' (新しい座標系ではない)
+tangent (rad', lat') -> tangent(x', y', z)
+
+これをそのまま新しい座標系で delta theta_rad, delta theta_lat に変換すれば
+smear された角度差になる
+
+radial/lateral angle accuracy はどうやって求める？
+Data driven? 前の座標系の radial/lateral の幅を信じて，計算してみる？
+
+iron  xy position accuracy : ~ .3 um (alignment?)
+iron  z  position accuracy : ~ 4 um
+water xy position accuracy : 
+water z  position accuracy : 
+radial angle accuracy : sqrt(2) / 210 um * sqrt (xy pos acc^2 + (tan theta)^2 * z pos acc^2)
+lateral angle accuracy : sqrt(2) / 210 um * xy pos acc
+*/
+
 
 #endif

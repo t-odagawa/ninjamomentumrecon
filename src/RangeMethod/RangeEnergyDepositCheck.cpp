@@ -64,12 +64,12 @@ int main (int argc, char *argv[]) {
     
     std::vector<std::string> all_matched_files;
     
-    boost::filesystem::directory_iterator end_itr;
-    for( boost::filesystem::directory_iterator i( target_directory_path ); i != end_itr; ++i )
+    fs::directory_iterator end_itr;
+    for( fs::directory_iterator i( target_directory_path ); i != end_itr; ++i )
       {
 	
 	// Skip if not a file
-	if ( !boost::filesystem::is_regular_file( i->status() ) ) continue;
+	if ( !fs::is_regular_file( i->status() ) ) continue;
 	
 	if ( i->path().extension().string() != root_extension) continue;
 	

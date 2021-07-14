@@ -158,7 +158,7 @@ double calculate_radiation_length(int skip, double dz) {
     rad_length += num_layers * dz * MATERIAL_THICK[material] / RAD_LENGTH[material];
   }
 
-  BOOST_LOG_TRIVIAL(debug) << "Radiation length = " << rad_length << "X0";
+  // BOOST_LOG_TRIVIAL(debug) << "Radiation length = " << rad_length << "X0";
   return rad_length;
 
 }
@@ -195,7 +195,7 @@ double get_tangent_difference_radial(TVector3 tangent_up, TVector3 tangent_down)
 }
 
 
-double get_angle_difference_lateral_new(TVector3 tangent_up, TVector3 tangent_down) {
+double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_down) {
   double a = ( - tangent_up.X() * tangent_down.X() - tangent_up.Y() * tangent_down.Y()
 	       + tangent_up.X() * tangent_up.X()   + tangent_up.Y() * tangent_up.Y())
     / std::sqrt( ( tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y() ) 
@@ -205,7 +205,7 @@ double get_angle_difference_lateral_new(TVector3 tangent_up, TVector3 tangent_do
   return std::atan(a / b);
 }
 
-double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_down) {
+double get_angle_difference_lateral_new(TVector3 tangent_up, TVector3 tangent_down) {
   double a = ( - tangent_up.Y() * tangent_down.X() + tangent_up.X() * tangent_down.Y() )
     / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y());
   double b = ( tangent_up.X() * tangent_down.X() + tangent_up.Y() * tangent_down.Y() + 1.)

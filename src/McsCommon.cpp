@@ -17,3 +17,7 @@ bool emulsion_compare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs
   else 
     return lhs->GetPlate() > rhs->GetPlate();
 }
+
+TVector3 smear_position_vector(TVector3 &position) {
+
+}
