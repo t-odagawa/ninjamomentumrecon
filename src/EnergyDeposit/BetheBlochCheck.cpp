@@ -14,7 +14,9 @@
 
 // ROOT includes
 #include <TStyle.h>
+#include <TPad.h>
 #include <TCanvas.h>
+#include <TLine.h>
 #include <TFile.h>
 #include <TH2D.h>
 #include <TF1.h>
@@ -33,8 +35,8 @@ int main (int argc, char *argv[]) {
 
   logging::core::get()->set_filter
     (
-     // logging::trivial::severity >= logging::trivial::info
-     logging::trivial::severity >= logging::trivial::debug
+     logging::trivial::severity >= logging::trivial::info
+     //logging::trivial::severity >= logging::trivial::debug
      );
   
   BOOST_LOG_TRIVIAL(info) << "==========Bethe Bloch Fit Start==========";
@@ -74,15 +76,24 @@ int main (int argc, char *argv[]) {
 
     // Output root file
     TFile *ofile = new TFile(argv[1],"recreate");
-    TTree *otree = new TTree("tree", "tree");
-    Double_t momentum_first, energy_first, momentum_next, energy_next;
+    TTree *otree = new TTree("o_tree", "o_tree");
+    TTree *paramtree = new TTree("p_tree", "p_tree");
+    Double_t iron_edep;
+    Double_t iron_edep_err;
+    Double_t water_edep;
+    Double_t water_edep_err;
     Double_t beta;
-    Double_t dz;
-    Double_t enedep;
+    otree->Branch("iron_edep", &iron_edep, "iron_edep/D");
+    otree->Branch("iron_edep_err", &iron_edep_err, "iron_edep_err/D");
+    otree->Branch("water_edep", &water_edep, "water_edep/D");
+    otree->Branch("water_edep_err", &water_edep_err, "water_edep_err/D");
+    otree->Branch("beta", &beta, "beta/D");
+
+
     std::vector<Double_t> iron_param = {};
     std::vector<Double_t> water_param = {};
-    otree->Branch("iron_param", &iron_param);
-    otree->Branch("water_param", &water_param);
+    paramtree->Branch("iron_param", &iron_param);
+    paramtree->Branch("water_param", &water_param);
 
     // Output pdf
     TCanvas *c = new TCanvas("c", "c");
@@ -90,11 +101,14 @@ int main (int argc, char *argv[]) {
     c->Print(pdfname + "[", "pdf");
 
 
-    std::vector<Double_t> enedep_iron, enedep_err_iron;
-    std::vector<Double_t> enedep_water, enedep_err_water;
+    std::vector<Double_t> iron_edep_vec, iron_edep_err_vec;
+    std::vector<Double_t> water_edep_vec, water_edep_err_vec;
     std::vector<Double_t> beta_vec, beta_err_vec;
 
     TF1 *f_landau = new TF1("f_landau", "landau");
+    TLine *line_mean = new TLine();
+    line_mean->SetLineColor(kRed);
+    line_mean->SetLineWidth(3);
 
     // Loop for input files    
     for (auto filename : all_matched_files) {
@@ -104,7 +118,7 @@ int main (int argc, char *argv[]) {
       TH1D *hist_enedep_iron  = new TH1D("hist_enedep_iron",  "Energy Deposit Iron " + (TString)filename,  300, 0., 3.);
       TH1D *hist_enedep_water = new TH1D("hist_enedep_water", "Energy Deposit Water " + (TString)filename, 300, 0., 3.);
 
-      double beta = 0;
+      beta = 0;
       int nbeta = 0;
 
       while (reader.ReadNextSpill() > 0) {
@@ -133,16 +147,16 @@ int main (int argc, char *argv[]) {
 	  // Use only energy deposit inside the tracking unit
 	  if (emulsion == emulsions.back()) continue;
 	  
-	  momentum_first = emulsion->GetMomentum().GetValue().Mag();
-	  energy_first = std::hypot(momentum_first, muon_mass);
-	  momentum_next = emulsions.at(iemulsion+1)->GetMomentum().GetValue().Mag();
-	  energy_next = std::hypot(momentum_next, muon_mass);
+	  Double_t momentum_first = emulsion->GetMomentum().GetValue().Mag();
+	  Double_t energy_first = std::hypot(momentum_first, muon_mass);
+	  Double_t momentum_next = emulsions.at(iemulsion+1)->GetMomentum().GetValue().Mag();
+	  Double_t energy_next = std::hypot(momentum_next, muon_mass);
 	  beta += momentum_first / energy_first;
 	  nbeta++;
 	  
-	  dz = emulsion->GetTangent().GetValue().Mag();
+	  Double_t dz = emulsion->GetTangent().GetValue().Mag();
 	  //enedep = emulsion->GetEdepSum();
-	  enedep = energy_first - energy_next;
+	  Double_t enedep = energy_first - energy_next;
 	  enedep /= dz;
 
 	  BOOST_LOG_TRIVIAL(debug) << "Upstream plate : " << emulsion->GetPlate() << ", "
@@ -159,71 +173,103 @@ int main (int argc, char *argv[]) {
 	  	 
 	}
 
-
       }
 
       c->cd();
+
+      // Iron energy deposit
       hist_enedep_iron->Draw("");
+      iron_edep = hist_enedep_iron->GetMean();
+      iron_edep_err = hist_enedep_iron->GetMeanError();
+
+      f_landau->SetParameter(1, 0.5);
       hist_enedep_iron->Fit(f_landau);
       f_landau->Draw("SAME");
+      gPad->Update(); // Call this function before GetUymin()/GetUymax()
+      line_mean->DrawLine(iron_edep, gPad->GetUymin(),
+			  iron_edep, gPad->GetUymax());
       c->SaveAs(pdfname, "pdf");
+      
+      //iron_edep_vec.push_back(f_landau->GetParameter(1));
+      //iron_edep_err_vec.push_back(f_landau->GetParError(1));
+      iron_edep_vec.push_back(iron_edep);
+      iron_edep_err_vec.push_back(iron_edep_err);
 
-      enedep_iron.push_back(f_landau->GetParameter(1));
-      enedep_err_iron.push_back(f_landau->GetParError(1));
-
+      // Water energy deposit
       hist_enedep_water->Draw("");
+      water_edep = hist_enedep_water->GetMean();
+      water_edep_err = hist_enedep_water->GetMeanError();
+
+      f_landau->SetParameter(1, 0.5);
       hist_enedep_water->Fit(f_landau);
       f_landau->Draw("SAME");
+      gPad->Update();
+      line_mean->DrawLine(water_edep, gPad->GetUymin(),
+			  water_edep, gPad->GetUymax());
       c->SaveAs(pdfname, "pdf");
 
-      enedep_water.push_back(f_landau->GetParameter(1));
-      enedep_err_water.push_back(f_landau->GetParError(1));
+      //water_edep_vec.push_back(f_landau->GetParameter(1));
+      //water_edep_err_vec.push_back(f_landau->GetParError(1));
+      water_edep_vec.push_back(water_edep);
+      water_edep_err_vec.push_back(water_edep_err);
 
-      beta_vec.push_back(beta / nbeta);
+      // Beta
+      beta /= (Double_t)nbeta;
+      beta_vec.push_back(beta);
       beta_err_vec.push_back(0.);
 
       //if (filename == all_matched_files.at(1))
       //break;
 
+      otree->Fill();
+
     }
 
-    TF1 *f_bethe_bloch = new TF1("f_bethe_bloch", "[0] / x / x * (log (x / (1 - x * x)) + [1]) + [2]");
-    f_bethe_bloch->SetParLimits(0, 0., 100.);
+    TF1 *f_bethe_bloch = new TF1("f_bethe_bloch", "[0] * ( (log(x*x / (1-x*x)) + [1]) / x / x - 1 )");
     const Int_t number_of_files = all_matched_files.size();
     TGraphErrors *ge_iron = new TGraphErrors(number_of_files,
-					     &beta_vec[0], &enedep_iron[0],
-					     &beta_err_vec[0], &enedep_err_iron[0]);
+					     &beta_vec[0], &iron_edep_vec[0],
+					     &beta_err_vec[0], &iron_edep_err_vec[0]);
     ge_iron->SetTitle("Bethe Bloch function across one iron plate;#beta;Energy deposit [MeV/unit]");
     ge_iron->GetYaxis()->SetRangeUser(0., 5.);
     TGraphErrors *ge_water = new TGraphErrors(number_of_files,
-					      &beta_vec[0], &enedep_water[0],
-					      &beta_err_vec[0], &enedep_err_water[0]);
+					      &beta_vec[0], &water_edep_vec[0],
+					      &beta_err_vec[0], &water_edep_err_vec[0]);
     ge_water->SetTitle("Bethe Bloch fuction across one water layer;#beta;Energy deposit [MeV/unit]");
     ge_water->GetYaxis()->SetRangeUser(0., 5.);
 
     c->cd();
+
+    // Iron energy deposit fitting
     ge_iron->Draw("AP");
     c->SaveAs(pdfname, "pdf");
-    ge_iron->Fit(f_bethe_bloch, "", "", 0.7, 1.);
+
+    ge_iron->Fit(f_bethe_bloch, "", "", 0.6, 0.9);
+    //ge_iron->Fit(f_bethe_bloch, "", "");
     f_bethe_bloch->Draw("SAME");
-    for (Int_t i = 0; i < 3; i++)
+    for (Int_t i = 0; i < 2; i++)
       iron_param.push_back(f_bethe_bloch->GetParameter(i));
     c->SaveAs(pdfname, "pdf");
 
+    // Water energy deposit fitting
     ge_water->Draw("AP");
     c->SaveAs(pdfname, "pdf");
-    ge_water->Fit(f_bethe_bloch, "", "", 0.7, 1.);
+    ge_water->Fit(f_bethe_bloch, "", "", 0.6, 0.9);
+    //ge_water->Fit(f_bethe_bloch, "", "");
     f_bethe_bloch->Draw("SAME");
-    for (Int_t i = 0; i < 3; i++)
+    for (Int_t i = 0; i < 2; i++)
       water_param.push_back(f_bethe_bloch->GetParameter(i));
     c->SaveAs(pdfname, "pdf");
 
     c->SaveAs(pdfname + "]" , "pdf");
     
     ofile->cd();
+    ge_iron->SetName("ge_iron");
     ge_iron->Write();
+    ge_water->SetName("ge_water");
     ge_water->Write();
-    otree->Fill();
+    paramtree->Fill();
+    paramtree->Write();
     otree->Write();
     ofile->Close();
     

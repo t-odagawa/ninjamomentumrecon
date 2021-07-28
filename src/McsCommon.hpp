@@ -56,6 +56,10 @@ enum { kNinjaMcsForward = 1,
        kNumberOfNinjaMcsDirections = 2
 } NinjaMcsDirection;
 
+const static int MCS_DIRECTION[kNumberOfNinjaMcsDirections] = { kNinjaMcsForward,
+								kNinjaMcsBackward
+};
+
 ///> Error of angle difference
 const static double D_ANG_ERROR = 3.e-3;
 ///> Error of x/y position difference

@@ -26,6 +26,14 @@ Double_t CalculateMomentumFromPBeta(Double_t pbeta, Double_t mass);
 
 Double_t CalculateMomentumFromEnergy(Double_t energy, Double_t mass);
 
+Double_t EnergyDepositIron(Double_t beta);
+
+std::vector<Double_t> CalculateEnergyDepositIronParameters();
+
+Double_t EnergyDepositWater(Double_t beta);
+
+std::vector<Double_t> CalculateEnergyDepositWaterParameters();
+
 Double_t BetheBlochIron(Double_t beta);
 
 std::array<Double_t, 3> CalculateBetheBlochIronParameters();
@@ -34,7 +42,7 @@ Double_t BetheBlochWater(Double_t beta);
 
 std::array<Double_t, 3> CalculateBetheBlochWaterParameters();
 
-Double_t SigmaAtIfilm(Double_t momentum, UInt_t ncell, Double_t dz);
+Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz);
 
 std::array<Double_t, 2> ReconstructPBeta(Double_t initial_pbeta,
 					 UInt_t ncell,

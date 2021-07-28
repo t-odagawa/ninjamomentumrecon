@@ -151,6 +151,8 @@ double calculate_radiation_length(int skip, double dz) {
       num_layers = 4 * skip - 2;
       break;
     case kNinjaBase :
+      num_layers = 2 * skip - 1;
+      break;
     case kNinjaPacking :
       num_layers = 2 * skip - 2;
       break;
@@ -199,7 +201,7 @@ double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_dow
   double a = ( - tangent_up.X() * tangent_down.X() - tangent_up.Y() * tangent_down.Y()
 	       + tangent_up.X() * tangent_up.X()   + tangent_up.Y() * tangent_up.Y())
     / std::sqrt( ( tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y() ) 
-		 * tangent_up.Mag2());
+		 * tangent_up.Mag2() );
   double b = (tangent_up.X() * tangent_down.X() + tangent_up.Y() * tangent_down.Y() + 1.)
     / tangent_up.Mag();
   return std::atan(a / b);

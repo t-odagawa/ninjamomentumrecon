@@ -61,11 +61,11 @@ void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t
   std::vector<Double_t> lateral_angle_difference = {};
   lateral_angle_difference.resize(number_of_pairs);
   for(Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
-    basetrack_distance.at(ipairs) = par[5 + ipairs];
-    unit_path_length.at(ipairs) = par[5 + number_of_pairs + ipairs];
-    plate_id.at(ipairs) = (Int_t)par[5 + 2 * number_of_pairs + ipairs];
-    radial_angle_difference.at(ipairs) = par[5 + 3 * number_of_pairs + ipairs];
-    lateral_angle_difference.at(ipairs) = par[5 + 4 * number_of_pairs + ipairs];
+    basetrack_distance.at(ipairs)       =        par[5                       + ipairs];
+    unit_path_length.at(ipairs)         =        par[5 + 1 * number_of_pairs + ipairs];
+    plate_id.at(ipairs)                 = (Int_t)par[5 + 2 * number_of_pairs + ipairs];
+    radial_angle_difference.at(ipairs)  =        par[5 + 3 * number_of_pairs + ipairs];
+    lateral_angle_difference.at(ipairs) =        par[5 + 4 * number_of_pairs + ipairs];
   }
     
   f = FuncLogLikelihood(pbeta, ncell, particle_id, direction,
@@ -114,24 +114,25 @@ Double_t FuncLogLikelihood(Double_t pbeta,
 
   for (Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
 
-    Double_t sigma = SigmaAtIfilm(pbeta, ncell, unit_path_length.at(ipairs));
+    // unit path length is not used for now (basetrack_distance ~ unit_path_length)
+    //Double_t sigma = SigmaAtIfilm(pbeta, ncell, unit_path_length.at(ipairs)); 
+    Double_t sigma = SigmaAtIfilm(pbeta, ncell, basetrack_distance.at(ipairs));
 
     if (TMath::Abs(radial_angle_difference.at(ipairs)) < 3. * sigma &&
-	TMath::Abs(lateral_angle_difference.at(ipairs)) < 3. * sigma ) {
+    	TMath::Abs(lateral_angle_difference.at(ipairs)) < 3. * sigma ) {
       ll += 2 * TMath::Log(sigma) + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / sigma / sigma;
       //ll += 2 * TMath::Log(sigma) + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / sigma / sigma;
     }
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
-    energy = energy - direction * ncell * (BetheBlochIron(beta) + BetheBlochWater(beta)) * basetrack_distance.at(ipairs);
 
     // Consider energy deposit (upstream -> downstream)
-    if (plate_id.at(ipairs) >= 16)
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * (BetheBlochIron(beta) + BetheBlochWater(beta));
+    if (plate_id.at(ipairs) > 16)
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * (EnergyDepositIron(beta) + EnergyDepositWater(beta));
     // if else (plate_id.at(ipairs) > 15 && plate_id.at(ipairs)%2 == 1)
     else 
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * BetheBlochIron(beta);
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
 
     pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
 
@@ -175,13 +176,55 @@ Double_t CalculateMomentumFromEnergy(Double_t energy, Double_t mass) {
   return TMath::Sqrt(energy * energy - mass * mass);
 }
 
+Double_t EnergyDepositIron(Double_t beta) {
+  std::vector<Double_t> funcpar = CalculateEnergyDepositIronParameters();
+  Double_t enedep = 0;
+  for (Int_t i = 0; i < funcpar.size(); i++)
+    enedep += funcpar.at(i) * TMath::Power(beta, i);
+  return enedep;
+}
+
+std::vector<Double_t> CalculateEnergyDepositIronParameters() {
+  std::vector<Double_t> return_vec;
+  Double_t fit_result[5] = {11.3616,
+			    -41.0421,
+			    63.9158,
+			    -47.3527,
+			    13.7393};
+  for(Int_t i = 0; i < 5; i++)
+    return_vec.push_back(fit_result[i]);
+  return return_vec;
+}
+
+Double_t EnergyDepositWater(Double_t beta) {
+  std::vector<Double_t> funcpar = CalculateEnergyDepositWaterParameters();
+  Double_t enedep = 0;
+  for (Int_t i = 0; i < funcpar.size(); i++)
+    enedep += funcpar.at(i) * TMath::Power(beta, i);
+  return enedep;
+}
+
+std::vector<Double_t> CalculateEnergyDepositWaterParameters() {
+  std::vector<Double_t> return_vec;
+  Double_t fit_result[5] = {16.677,
+			    -68.1774,
+			    114.435,
+			    -88.6891,
+			    26.3072};
+  for(Int_t i = 0; i < 5; i++)
+    return_vec.push_back(fit_result[i]);
+  return return_vec;
+}
+
+// Bethe bloch function are not used
 Double_t BetheBlochIron(Double_t beta) {
   std::array<Double_t, 3> funcpar = CalculateBetheBlochIronParameters();
   return funcpar.at(0) / beta / beta * (TMath::Log(beta / TMath::Sqrt(1 - beta * beta)) + funcpar.at(1)) + funcpar.at(2);
 }
 
 std::array<Double_t, 3> CalculateBetheBlochIronParameters() {
-  std::array<Double_t, 3> return_array = {0.0170, 26.96, 0.0890};
+  //std::array<Double_t, 3> return_array = {0.0170, 26.96, 0.0890};
+  std::array<Double_t, 3> return_array = {0.0121, 33.18, 0.0481};
   return return_array;
 }
 
@@ -191,7 +234,8 @@ Double_t BetheBlochWater(Double_t beta) {
 }
 
 std::array<Double_t, 3> CalculateBetheBlochWaterParameters() {
-  std::array<Double_t, 3> return_array = {0.0119, 35.39, 0.0724};
+  //std::array<Double_t, 3> return_array = {0.0119, 35.39, 0.0724};
+  std::array<Double_t, 3> return_array = {0.0088, 43.12, 0.0224};
   return return_array;
 }
 
@@ -199,6 +243,7 @@ Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
   Double_t beta = 1.;
   Double_t radiation_length = calculate_radiation_length(ncell, dz);
   return 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
+  //return 14.0 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
 }
   
 
@@ -278,7 +323,7 @@ std::array<Double_t, 2> ReconstructPBeta(Double_t initial_pbeta,
   
   // Execute minimizer (migrad method)
   arglist[0] = 1000; // maximum number of calls
-  arglist[1] = 1; // tolerance
+  arglist[1] = .1; // tolerance
   min->mnexcm("MIGRAD", arglist, 2, ierflg);
   
   Double_t rec_mom, rec_mom_err;
@@ -307,9 +352,9 @@ int main (int argc, char *argv[]) {
   
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Start==========";
 
-  if (argc != 4) {
+  if (argc != 5) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input particle gun MC file name> <output root file name> <ncell>";
+			     << " <input particle gun MC file name> <output root file name> <ncell> <initial pbeta bias>";
     std::exit(1);
   }
     
@@ -348,8 +393,6 @@ int main (int argc, char *argv[]) {
 	if (emulsion->GetParentTrack().GetParticlePdg() != 13) continue; // only muon
 	if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue; // only ECC films
 	if (emulsion->GetEcc() != 4) continue; // only ECC5
-	if (emulsion->GetPlate() < 4) continue; // ISS is not used
-	//if (emulsion->GetPlate() < 15) continue;
 	emulsions.push_back(emulsion);
       }
 
@@ -384,6 +427,7 @@ int main (int argc, char *argv[]) {
 
 	const auto emulsion_up = emulsions.at(iemulsion_up);
 	// Only use films across one iron plate
+	if (emulsion_up->GetPlate() <= 3) continue;
 	if (emulsion_up->GetPlate()%2 == 1 &&
 	    emulsion_up->GetPlate() >= 15) continue; 
 
@@ -394,9 +438,6 @@ int main (int argc, char *argv[]) {
 	for (Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < emulsions.size(); iemulsion_down++) {
 	  const auto emulsion_down = emulsions.at(iemulsion_down);
 	  Int_t plate_difference = emulsion_up->GetPlate() - emulsion_down->GetPlate();
-	  Int_t momentum_difference = emulsion_up->GetMomentum().GetValue().Mag()
-	    - emulsion_down->GetMomentum().GetValue().Mag();
-	  if (momentum_difference > momentum_difference_max) momentum_difference_max = momentum_difference;
 
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
@@ -414,6 +455,7 @@ int main (int argc, char *argv[]) {
 				     << " Film " << emulsion_down->GetPlate()
 				     << " Radial angle difference is " << radial_angle_difference.back() << ", "
 				     << " Lateral angle difference is " << lateral_angle_difference.back() << ", "
+				     << " Base track distance is " << basetrack_distance.back() << ", "
 				     << " Unit path length is " << unit_path_length.back();
 	    break;
 	  }
@@ -431,15 +473,16 @@ int main (int argc, char *argv[]) {
       TVector3 vertex_tangent = emulsions.at(0)->GetTangent().GetValue();
       Double_t radiation_length = calculate_radiation_length(ncell, vertex_tangent.Mag());
       initial_pbeta = 13.6 / angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
+      const Double_t initial_pbeta_bias = std::atof(argv[4]);
+      initial_pbeta *= initial_pbeta_bias;
       
       Int_t particle_id = 0;
       Int_t direction;
       std::array<std::array<Double_t, 2>, 2> result_array = {};
       for (Int_t idirection = 0; idirection < kNumberOfNinjaMcsDirections; idirection++) {
 
-	if (idirection == 0) direction = kNinjaMcsForward;
-	else if (idirection == 1) break;
-	//else if (idirection == 1) direction = kNinjaMcsBackward;
+	if (idirection != 0) break;
+	direction = MCS_DIRECTION[idirection];
 
 	result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
 						       basetrack_distance,
@@ -447,8 +490,16 @@ int main (int argc, char *argv[]) {
 						       plate_id,
 						       radial_angle_difference,
 						       lateral_angle_difference);
-	
-	log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0), ncell, particle_id, direction,
+	/*
+	result_array.at(idirection) = ReconstructPBeta(result_array.at(idirection).at(0), ncell, particle_id, direction,
+						       basetrack_distance,
+						       unit_path_length,
+						       plate_id,
+						       radial_angle_difference,
+						       lateral_angle_difference);
+	*/
+	log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0),
+								    ncell, particle_id, direction,
 								    basetrack_distance,
 								    unit_path_length,
 								    plate_id,
