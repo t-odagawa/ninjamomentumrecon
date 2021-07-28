@@ -121,7 +121,7 @@ Double_t FuncLogLikelihood(Double_t pbeta,
     if (TMath::Abs(radial_angle_difference.at(ipairs)) < 3. * sigma &&
     	TMath::Abs(lateral_angle_difference.at(ipairs)) < 3. * sigma ) {
       ll += 2 * TMath::Log(sigma) + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / sigma / sigma;
-      //ll += 2 * TMath::Log(sigma) + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / sigma / sigma;
+      ll += 2 * TMath::Log(sigma) + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / sigma / sigma;
     }
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
@@ -240,10 +240,11 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters() {
 }
 
 Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
+  const Double_t scale_factor = 1.0348;
   Double_t beta = 1.;
   Double_t radiation_length = calculate_radiation_length(ncell, dz);
-  return 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
-  //return 14.0 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
+  return scale_factor * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
+  //return 14.07 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
 }
   
 
@@ -393,6 +394,7 @@ int main (int argc, char *argv[]) {
 	if (emulsion->GetParentTrack().GetParticlePdg() != 13) continue; // only muon
 	if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue; // only ECC films
 	if (emulsion->GetEcc() != 4) continue; // only ECC5
+	//if (emulsion->GetPlate() <= 14) continue; // only ECC5 w/o Iron ECC
 	emulsions.push_back(emulsion);
       }
 
@@ -475,7 +477,7 @@ int main (int argc, char *argv[]) {
       initial_pbeta = 13.6 / angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
       const Double_t initial_pbeta_bias = std::atof(argv[4]);
       initial_pbeta *= initial_pbeta_bias;
-      
+
       Int_t particle_id = 0;
       Int_t direction;
       std::array<std::array<Double_t, 2>, 2> result_array = {};
@@ -490,14 +492,7 @@ int main (int argc, char *argv[]) {
 						       plate_id,
 						       radial_angle_difference,
 						       lateral_angle_difference);
-	/*
-	result_array.at(idirection) = ReconstructPBeta(result_array.at(idirection).at(0), ncell, particle_id, direction,
-						       basetrack_distance,
-						       unit_path_length,
-						       plate_id,
-						       radial_angle_difference,
-						       lateral_angle_difference);
-	*/
+
 	log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0),
 								    ncell, particle_id, direction,
 								    basetrack_distance,
