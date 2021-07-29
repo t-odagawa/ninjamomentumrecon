@@ -241,6 +241,7 @@ std::array<Double_t, 3> CalculateBetheBlochWaterParameters() {
 
 Double_t SigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
   const Double_t scale_factor = 1.0348;
+  //const Double_t scale_factor = 1.0;
   Double_t beta = 1.;
   Double_t radiation_length = calculate_radiation_length(ncell, dz);
   return scale_factor * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
@@ -444,8 +445,14 @@ int main (int argc, char *argv[]) {
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
 	    tangent_down = (1. / tangent_down.Z()) * tangent_down;
+	    // smear
+	    //tangent_up = smear_tangent_vector(tangent_up, kNinjaIron);
+	    //tangent_down = smear_tangent_vector(tangent_down, kNinjaIron);
+
 	    TVector3 position_down = emulsion_down->GetAbsolutePosition().GetValue();
 	    TVector3 displacement = position_down - position_up;
+	    // smear
+	    displacement = smear_position_vector(displacement, kNinjaIron);
 
 	    basetrack_distance.push_back(displacement.Mag() / displacement.Z());
 	    unit_path_length.push_back((1. / displacement.Z() / tangent_up.Mag()) * (displacement * tangent_up));
@@ -472,7 +479,11 @@ int main (int argc, char *argv[]) {
       }
       angle_difference_rms /= (2. * radial_angle_difference.size());
       angle_difference_rms = TMath::Sqrt(angle_difference_rms);
+
       TVector3 vertex_tangent = emulsions.at(0)->GetTangent().GetValue();
+      // smear 
+      //vertex_tangent = smear_tangent_vector(vertex_tangent, kNinjaIron);
+
       Double_t radiation_length = calculate_radiation_length(ncell, vertex_tangent.Mag());
       initial_pbeta = 13.6 / angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
       const Double_t initial_pbeta_bias = std::atof(argv[4]);

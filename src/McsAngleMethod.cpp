@@ -198,10 +198,11 @@ double get_tangent_difference_radial(TVector3 tangent_up, TVector3 tangent_down)
 
 
 double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_down) {
+
   if (std::fabs(tangent_up.X()) < 1e-2 &&
       std::fabs(tangent_up.Y()) < 1e-2)
-    return tangent_down.Y();
-
+    return std::atan(tangent_down.Y()) - std::atan(tangent_up.Y());
+  
   double a = ( - tangent_up.X() * tangent_down.X() - tangent_up.Y() * tangent_down.Y()
 	       + tangent_up.X() * tangent_up.X()   + tangent_up.Y() * tangent_up.Y())
     / std::sqrt( ( tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y() ) 
@@ -212,10 +213,11 @@ double get_angle_difference_radial_new(TVector3 tangent_up, TVector3 tangent_dow
 }
 
 double get_angle_difference_lateral_new(TVector3 tangent_up, TVector3 tangent_down) {
+  
   if (std::fabs(tangent_up.X()) < 1e-2 &&
       std::fabs(tangent_up.Y()) < 1e-2)
-    return tangent_down.X();
-
+    return std::atan(tangent_down.X()) - std::atan(tangent_up.X());
+  
   double a = ( - tangent_up.Y() * tangent_down.X() + tangent_up.X() * tangent_down.Y() )
     / std::sqrt(tangent_up.X() * tangent_up.X() + tangent_up.Y() * tangent_up.Y());
   double b = ( tangent_up.X() * tangent_down.X() + tangent_up.Y() * tangent_down.Y() + 1.)

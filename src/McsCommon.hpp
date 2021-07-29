@@ -78,9 +78,14 @@ std::vector<Double_t> get_true_pbeta(const B2SpillSummary &spill_summary, int pa
 
 bool emulsion_compare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs);
 
-TVector3 smear_position_vector(TVector3 &position);
+TVector3 smear_position_vector(TVector3 &position, Int_t material);
 
-TVector3 smear_tangent_vector(TVector3 &tangent);
+TVector3 smear_tangent_vector(TVector3 &tangent, Int_t material);
+
+Double_t radial_angle_accuracy(Double_t tangent_theta, Int_t material);
+
+Double_t lateral_angle_accuracy(Int_t material);
+
 /*
 tangent (x, y, z) -> tangent (rad, lat, z)
 rad, lat をsmear -> rad', lat' (新しい座標系ではない)
@@ -91,11 +96,11 @@ smear された角度差になる
 
 radial/lateral angle accuracy はどうやって求める？
 Data driven? 前の座標系の radial/lateral の幅を信じて，計算してみる？
+*/
 
-iron  xy position accuracy : ~ .3 um (alignment?)
-iron  z  position accuracy : ~ 4 um
-water xy position accuracy : 
-water z  position accuracy : 
+const static double xy_position_accuracy[2] = {0.3e-3, 0.3e-3}; // mm (0.3 um)
+const static double z_position_accuracy[2] = {4.e-3, 4.e-3}; // mm (4 um)
+/*
 radial angle accuracy : sqrt(2) / 210 um * sqrt (xy pos acc^2 + (tan theta)^2 * z pos acc^2)
 lateral angle accuracy : sqrt(2) / 210 um * xy pos acc
 */
