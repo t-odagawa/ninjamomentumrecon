@@ -2,7 +2,8 @@ void CheckAlphaDifference() {
 
   gStyle->SetOptStat(0);
 
-  TString filename1 = "/home/t2k/odagawa/data/mc_data/particlegun/pbeta_recon/test20210726/test_500_0_0_new_rad_1.0.root";
+  //TString filename1 = "/home/t2k/odagawa/data/mc_data/particlegun/pbeta_recon/test20210726/test_500_0_0_new_rad_1.0.root";
+  TString filename1 = "/home/t2k/odagawa/data/plots/mcs_test/test_500_0_0_new_rad_lat_1.0_scalecor_w_iron_fixcut_nominimum.root";
   TFile *file1 = new TFile(filename1, "read");
   TTree *tree1 = (TTree*)file1->Get("tree");
   Double_t recon_pbeta_1;
@@ -12,7 +13,8 @@ void CheckAlphaDifference() {
   tree1->SetBranchAddress("true_pbeta", &true_pbeta_1);
   tree1->SetBranchAddress("initial_pbeta", &initial_pbeta_1);
 
-  TString filename2 = "/home/t2k/odagawa/data/mc_data/particlegun/pbeta_recon/test20210726/test_500_0_0_new_rad_1.1.root";
+  //TString filename2 = "/home/t2k/odagawa/data/mc_data/particlegun/pbeta_recon/test20210726/test_500_0_0_new_rad_1.1.root";
+  TString filename2 = "/home/t2k/odagawa/data/plots/mcs_test/test_500_0_0_new_rad_lat_1.1_scalecor_w_iron_fixcut_nominimum.root";
   TFile *file2 = new TFile(filename2, "read");
   TTree *tree2 = (TTree*)file2->Get("tree");
   Double_t recon_pbeta_2;
@@ -67,12 +69,12 @@ void CheckAlphaDifference() {
   // line->DrawLine(0, 0, max_pbeta, max_pbeta);
   c->Update();
 
-  hist_pbeta->Draw("hist");
-  hist_pbeta->Fit(gaus,"","",-0.5, 0.5);
+  //hist_pbeta->Draw("hist");
+  //hist_pbeta->Fit(gaus,"","",-0.5, 0.5);
 
-  hist_recon_initial->Draw("colz");
-  line->DrawLine(0, 0, max_pbeta, max_pbeta);
+  //hist_recon_initial->Draw("colz");
+  //line->DrawLine(0, 0, max_pbeta, max_pbeta);
   TCanvas *c2 = new TCanvas("c2", "c2");
   hist_recon_initial_nonmatch->Draw("colz");
-  line->DrawLine(0, 0, max_pbeta, max_pbeta * 1.03);
+  line->DrawLine(0, 0, max_pbeta, max_pbeta);
 }

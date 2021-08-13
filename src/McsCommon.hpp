@@ -78,32 +78,21 @@ std::vector<Double_t> get_true_pbeta(const B2SpillSummary &spill_summary, int pa
 
 bool emulsion_compare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs);
 
-TVector3 smear_position_vector(TVector3 &position, Int_t material);
+TVector3 smear_distance_vector(TVector3 &distance, Int_t material);
 
 TVector3 smear_tangent_vector(TVector3 &tangent, Int_t material);
 
-Double_t radial_angle_accuracy(Double_t tangent_theta, Int_t material);
+Double_t radial_tangent_accuracy(Double_t tangent_theta, Int_t material);
 
-Double_t lateral_angle_accuracy(Int_t material);
+Double_t lateral_tangent_accuracy(Int_t material);
 
-/*
-tangent (x, y, z) -> tangent (rad, lat, z)
-rad, lat をsmear -> rad', lat' (新しい座標系ではない)
-tangent (rad', lat') -> tangent(x', y', z)
+Double_t new_radial_tangent_accuracy(Double_t tangent_theta, Int_t material);
 
-これをそのまま新しい座標系で delta theta_rad, delta theta_lat に変換すれば
-smear された角度差になる
+Double_t new_lateral_tangent_accuracy(Double_t tangent_theta, Int_t material);
 
-radial/lateral angle accuracy はどうやって求める？
-Data driven? 前の座標系の radial/lateral の幅を信じて，計算してみる？
-*/
-
+const static double xy_align_accuracy[2] = {0.3e-3, 0.3e-3}; // mm (0.3 um)
+const static double z_align_accuracy[2] = {6.e-3, 1.e-2}; // mm (6 um, 10 um)
 const static double xy_position_accuracy[2] = {0.3e-3, 0.3e-3}; // mm (0.3 um)
 const static double z_position_accuracy[2] = {4.e-3, 4.e-3}; // mm (4 um)
-/*
-radial angle accuracy : sqrt(2) / 210 um * sqrt (xy pos acc^2 + (tan theta)^2 * z pos acc^2)
-lateral angle accuracy : sqrt(2) / 210 um * xy pos acc
-*/
-
 
 #endif
