@@ -500,7 +500,7 @@ int main (int argc, char *argv[]) {
 	    TVector3 position_down = emulsion_down->GetAbsolutePosition().GetValue();
 	    TVector3 displacement = position_down - position_up;
 	    if (smear_flag) { // smear
-	      // displacement = smear_distance_vector(displacement, kNinjaIron);
+	      displacement = smear_distance_vector(displacement, kNinjaIron);
 	    }
 	    basetrack_distance.push_back(displacement.Mag() / 850.e-3); // Nominal distance = 500 + 350 um
 
@@ -509,7 +509,7 @@ int main (int argc, char *argv[]) {
 	      TVector3 position_2pl_down = emulsion_2pl_down->GetAbsolutePosition().GetValue();
 	      TVector3 water_displacement = position_2pl_down - position_down;
 	      if (smear_flag) { // smear
-		// water_displacement = smear_distance_vector(water_displacement, kNinjaWater);
+		water_displacement = smear_distance_vector(water_displacement, kNinjaWater);
 	      }
 	      water_basetrack_distance.push_back(water_displacement.Mag() / 2.868); // Nominal distance = 2300 + 109 * 2 + 350 um
 	    } else {
