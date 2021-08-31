@@ -341,6 +341,7 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
 
   // Parameter setting
   // Bethe-Bloch is applicable to pbeta > ~20 (beta > 0.4)
+  // Pbeta range may be better to set depending on initial_pbeta
   min->mnparm(0, parname[0], vstart[0], step[0], 20, 5000, ierflg);
   for (Int_t ipar = 1; ipar < num_of_param; ipar++) {
     min->mnparm(ipar, parname[ipar], vstart[ipar], step[ipar], 0, 0, ierflg);
@@ -477,7 +478,8 @@ int main (int argc, char *argv[]) {
 
 	const auto emulsion_up = emulsions.at(iemulsion_up);
 	// Only use films across one iron plate
-	if (emulsion_up->GetPlate() <= 3) continue;
+	 if (emulsion_up->GetPlate() <= 3) continue;
+	//if (emulsion_up->GetPlate() <= 70) continue;
 	if (emulsion_up->GetPlate()%2 == 1 &&
 	    emulsion_up->GetPlate() >= 15) continue; 
 
@@ -571,7 +573,7 @@ int main (int argc, char *argv[]) {
       Double_t radial_cut_value, lateral_cut_value;
       radial_cut_value = 3. * radial_angle_difference_rms;
       lateral_cut_value = 3. * lateral_angle_difference_rms;
-
+      // It is better if cut value is too small, accept all angle differences
       Double_t radiation_length = calculate_radiation_length(ncell, vertex_tangent.Mag());
       initial_pbeta = scale_factor * 13.6 / radial_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
       const Double_t initial_pbeta_bias = std::atof(argv[4]);
