@@ -162,3 +162,4 @@ set(NINJA_MOMRECON_LIBRARIES ${ROOT_LIBRARIES} ${Boost_LIBRARIES} ${B2MC_LIBRARY
 add_subdirectory(src)
 add_subdirectory(src/EnergyDeposit)
 add_subdirectory(src/RangeMethod)
+add_subdirectory(src/FileConvert)
