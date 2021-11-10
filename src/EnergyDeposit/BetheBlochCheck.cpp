@@ -115,8 +115,12 @@ int main (int argc, char *argv[]) {
 
       B2Reader reader(target_directory_path + filename);
 
-      TH1D *hist_enedep_iron  = new TH1D("hist_enedep_iron",  "Energy Deposit Iron " + (TString)filename,  300, 0., 3.);
-      TH1D *hist_enedep_water = new TH1D("hist_enedep_water", "Energy Deposit Water " + (TString)filename, 300, 0., 3.);
+      TH1D *hist_enedep_iron  = new TH1D("hist_enedep_iron",
+					 "Energy Deposit Iron "  + (TString)filename + ";Energy deposit [MeV];Entries",
+					 300, 0., 3.);
+      TH1D *hist_enedep_water = new TH1D("hist_enedep_water",
+					 "Energy Deposit Water " + (TString)filename + ";Energy deposit [MeV];Entries",
+					 300, 0., 3.);
 
       beta = 0;
       int nbeta = 0;
@@ -184,7 +188,7 @@ int main (int argc, char *argv[]) {
 
       f_landau->SetParameter(1, 0.5);
       hist_enedep_iron->Fit(f_landau);
-      f_landau->Draw("SAME");
+      //f_landau->Draw("SAME");
       gPad->Update(); // Call this function before GetUymin()/GetUymax()
       line_mean->DrawLine(iron_edep, gPad->GetUymin(),
 			  iron_edep, gPad->GetUymax());
@@ -202,7 +206,7 @@ int main (int argc, char *argv[]) {
 
       f_landau->SetParameter(1, 0.5);
       hist_enedep_water->Fit(f_landau);
-      f_landau->Draw("SAME");
+      //f_landau->Draw("SAME");
       gPad->Update();
       line_mean->DrawLine(water_edep, gPad->GetUymin(),
 			  water_edep, gPad->GetUymax());
@@ -231,12 +235,12 @@ int main (int argc, char *argv[]) {
 					     &beta_vec[0], &iron_edep_vec[0],
 					     &beta_err_vec[0], &iron_edep_err_vec[0]);
     ge_iron->SetTitle("Bethe Bloch function across one iron plate;#beta;Energy deposit [MeV/unit]");
-    ge_iron->GetYaxis()->SetRangeUser(0., 5.);
+    ge_iron->GetYaxis()->SetRangeUser(0.5, 2.);
     TGraphErrors *ge_water = new TGraphErrors(number_of_files,
 					      &beta_vec[0], &water_edep_vec[0],
 					      &beta_err_vec[0], &water_edep_err_vec[0]);
     ge_water->SetTitle("Bethe Bloch fuction across one water layer;#beta;Energy deposit [MeV/unit]");
-    ge_water->GetYaxis()->SetRangeUser(0., 5.);
+    ge_water->GetYaxis()->SetRangeUser(0.5, 2.);
 
     c->cd();
 
@@ -244,6 +248,8 @@ int main (int argc, char *argv[]) {
     ge_iron->Draw("AP");
     c->SaveAs(pdfname, "pdf");
 
+    f_bethe_bloch->SetParameter(0, 6.e-2);
+    f_bethe_bloch->SetParameter(1, 8.);
     ge_iron->Fit(f_bethe_bloch, "", "", 0.6, 0.9);
     //ge_iron->Fit(f_bethe_bloch, "", "");
     f_bethe_bloch->Draw("SAME");
