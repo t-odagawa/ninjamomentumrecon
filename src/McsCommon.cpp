@@ -79,15 +79,8 @@ Double_t lateral_tangent_accuracy(Int_t material) {
 
 Double_t new_radial_tangent_accuracy(Double_t tangent_theta, Int_t material) {
   return 5.e-3;
-  // return std::sqrt(2) / 210.e-3 / std::sqrt(1 + tangent_theta * tangent_theta) * xy_position_accuracy[material];
 }
 
 Double_t new_lateral_tangent_accuracy(Double_t tangent_theta, Int_t material) {
   return 2.e-3;
-  /*
-  return std::sqrt(2) / 210.e-3 / std::sqrt(1 + xy_position_accuracy[material] * xy_position_accuracy[material]
-					    / z_position_accuracy[material] / z_position_accuracy[material]
-					    * tangent_theta * tangent_theta)
-    * xy_position_accuracy[material];
-    */
 }

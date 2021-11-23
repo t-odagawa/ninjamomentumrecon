@@ -156,7 +156,6 @@ Double_t FuncLogLikelihood(Double_t pbeta,
       ll += 2 * TMath::Log(lateral_sigma)
 	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
     }
-    // else break;
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
@@ -262,16 +261,128 @@ Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
 
 Double_t RadialSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent) {
   Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz);
-  Double_t radial_accuracy = new_radial_tangent_accuracy(tangent, kNinjaIron);
-  return std::hypot(sigma_highland, radial_accuracy);
+  Double_t tangent_xy = TMath::Sqrt(tangent * tangent - 1);
+  Double_t radial_precision = RadialAnglePrecision(tangent_xy);
+  return TMath::Hypot(sigma_highland, radial_precision);
 }
-
 
 Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent) {
   Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz);
-  Double_t lateral_accuracy = new_lateral_tangent_accuracy(tangent, kNinjaIron);
-  return std::hypot(sigma_highland, lateral_accuracy);
+  Double_t tangent_xy = TMath::Sqrt(tangent * tangent - 1);
+  Double_t lateral_precision = LateralAnglePrecision(tangent_xy);
+  return TMath::Hypot(sigma_highland, lateral_precision);
 }
+
+std::pair<Int_t, Int_t> GetMinMaxPlot(Double_t tangent) {
+
+  std::pair<Int_t, Int_t> min_max_pair;
+  if (tangent < 0.05) {min_max_pair.first = 0.; min_max_pair.second = 0.05;}
+  else if (tangent < 0.15) {min_max_pair.first = 0.05; min_max_pair.second = 0.15;}
+  else if (tangent < 0.25) {min_max_pair.first = 0.15; min_max_pair.second = 0.25;}
+  else if (tangent < 0.35) {min_max_pair.first = 0.25; min_max_pair.second = 0.35;}
+  else if (tangent < 0.45) {min_max_pair.first = 0.35; min_max_pair.second = 0.45;}
+  else if (tangent < 0.55) {min_max_pair.first = 0.45; min_max_pair.second = 0.55;}
+  else if (tangent < 0.65) {min_max_pair.first = 0.55; min_max_pair.second = 0.65;}
+  else if (tangent < 0.75) {min_max_pair.first = 0.65; min_max_pair.second = 0.75;}
+  else if (tangent < 0.85) {min_max_pair.first = 0.75; min_max_pair.second = 0.85;}
+  else if (tangent < 0.95) {min_max_pair.first = 0.85; min_max_pair.second = 0.95;}
+  else if (tangent < 1.05) {min_max_pair.first = 0.95; min_max_pair.second = 1.05;}
+  else if (tangent < 1.15) {min_max_pair.first = 1.05; min_max_pair.second = 1.15;}
+  else if (tangent < 1.25) {min_max_pair.first = 1.15; min_max_pair.second = 1.25;}
+  else if (tangent < 1.35) {min_max_pair.first = 1.25; min_max_pair.second = 1.35;}
+  else if (tangent < 1.55) {min_max_pair.first = 1.35; min_max_pair.second = 1.55;}
+  else if (tangent < 1.85) {min_max_pair.first = 1.55; min_max_pair.second = 1.85;}
+  else if (tangent < 2.15) {min_max_pair.first = 1.85; min_max_pair.second = 2.15;}
+  else if (tangent < 2.45) {min_max_pair.first = 2.15; min_max_pair.second = 2.45;}
+  else if (tangent < 2.75) {min_max_pair.first = 2.45; min_max_pair.second = 2.75;}
+  else if (tangent < 3.05) {min_max_pair.first = 2.75; min_max_pair.second = 3.05;}
+  else if (tangent < 3.35) {min_max_pair.first = 3.05; min_max_pair.second = 3.35;}
+  else if (tangent < 3.65) {min_max_pair.first = 3.35; min_max_pair.second = 3.65;}
+  else if (tangent < 3.95) {min_max_pair.first = 3.65; min_max_pair.second = 3.95;}
+  else if (tangent < 4.25) {min_max_pair.first = 3.95; min_max_pair.second = 4.25;}
+  else if (tangent < 4.55) {min_max_pair.first = 4.25; min_max_pair.second = 4.55;}
+  else if (tangent < 4.85) {min_max_pair.first = 4.55; min_max_pair.second = 4.85;}
+  else if (tangent < 5.)   {min_max_pair.first = 4.85; min_max_pair.second = 5.;}
+
+  return min_max_pair;
+
+}
+
+Double_t GetRadialPlot(Double_t tangent) {
+  if (tangent < 0.1) return 0.00171;
+  else if (tangent < 0.2) return 0.00234;
+  else if (tangent < 0.3) return 0.00335;
+  else if (tangent < 0.4) return 0.00424;
+  else if (tangent < 0.5) return 0.00505;
+  else if (tangent < 0.6) return 0.00550;
+  else if (tangent < 0.7) return 0.00596;
+  else if (tangent < 0.8) return 0.00623;
+  else if (tangent < 0.9) return 0.00628;
+  else if (tangent < 1.0) return 0.00643;
+  else if (tangent < 1.1) return 0.00654;
+  else if (tangent < 1.2) return 0.00642;
+  else if (tangent < 1.3) return 0.00642;
+  else if (tangent < 1.4) return 0.00628;
+  else if (tangent < 1.7) return 0.00604;
+  else if (tangent < 2.0) return 0.00557;
+  else if (tangent < 2.3) return 0.00501;
+  else if (tangent < 2.6) return 0.00457;
+  else if (tangent < 2.9) return 0.00437;
+  else if (tangent < 3.2) return 0.00431;
+  else if (tangent < 3.5) return 0.00418;
+  else if (tangent < 3.8) return 0.00409;
+  else if (tangent < 4.1) return 0.00399;
+  else if (tangent < 4.4) return 0.00387;
+  else if (tangent < 4.7) return 0.00380;
+  else if (tangent < 5.0) return 0.00368;
+  else return 0.00368;
+}
+
+Double_t GetLateralPlot(Double_t tangent) {
+  if (tangent < 0.1) return 0.00131;
+  else if (tangent < 0.2) return 0.00130;
+  else if (tangent < 0.3) return 0.00131;
+  else if (tangent < 0.4) return 0.00129;
+  else if (tangent < 0.5) return 0.00129;
+  else if (tangent < 0.6) return 0.00119;
+  else if (tangent < 0.7) return 0.00110;
+  else if (tangent < 0.8) return 0.00102;
+  else if (tangent < 0.9) return 0.000952;
+  else if (tangent < 1.0) return 0.000889;
+  else if (tangent < 1.1) return 0.000822;
+  else if (tangent < 1.2) return 0.000765;
+  else if (tangent < 1.3) return 0.000707;
+  else if (tangent < 1.4) return 0.000663;
+  else if (tangent < 1.7) return 0.000587;
+  else if (tangent < 2.0) return 0.000496;
+  else return 0.000496;
+}
+
+Double_t RadialAnglePrecision(Double_t tangent) {
+  auto min_max_pair = GetMinMaxPlot(tangent);
+  if (min_max_pair.first < 0.05)
+    return GetRadialPlot(min_max_pair.first);
+  else if (min_max_pair.second > 4.85) 
+    return GetRadialPlot(min_max_pair.second);
+  else 
+    return GetRadialPlot(min_max_pair.first) + 
+      (GetRadialPlot(min_max_pair.second) - GetRadialPlot(min_max_pair.first)) / 
+      (min_max_pair.second - min_max_pair.first) * (tangent - min_max_pair.first);
+}
+
+Double_t LateralAnglePrecision(Double_t tangent) {
+  auto min_max_pair = GetMinMaxPlot(tangent);
+  if (min_max_pair.first < 0.05)
+    return GetLateralPlot(min_max_pair.first);
+  else if (min_max_pair.second > 1.85) 
+    return GetLateralPlot(min_max_pair.second);
+  else 
+    return GetLateralPlot(min_max_pair.first) + 
+      (GetLateralPlot(min_max_pair.second) - GetLateralPlot(min_max_pair.first)) / 
+      (min_max_pair.second - min_max_pair.first) * (tangent - min_max_pair.first);
+
+}
+
 
 std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
 					 UInt_t ncell,
@@ -342,7 +453,7 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
   // Parameter setting
   // Bethe-Bloch is applicable to pbeta > ~20 (beta > 0.4)
   // Pbeta range may be better to set depending on initial_pbeta
-  min->mnparm(0, parname[0], vstart[0], step[0], 20, 5000, ierflg);
+  min->mnparm(0, parname[0], vstart[0], step[0], 20, 100000, ierflg);
   for (Int_t ipar = 1; ipar < num_of_param; ipar++) {
     min->mnparm(ipar, parname[ipar], vstart[ipar], step[ipar], 0, 0, ierflg);
   }
@@ -371,7 +482,7 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
   fit_status = min->GetStatus();
   std::array<Double_t,3> return_array = {rec_mom, rec_mom_err, (Double_t)fit_status};
 
-  BOOST_LOG_TRIVIAL(trace) << "Reconstructed Momentum = "
+  BOOST_LOG_TRIVIAL(debug) << "Reconstructed Momentum = "
 			  << rec_mom << " +/- "
 			  << rec_mom_err << " [MeV/c]";
   
@@ -393,9 +504,9 @@ int main (int argc, char *argv[]) {
   
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Start==========";
 
-  if (argc != 6) {
+  if (argc != 7) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input particle gun MC file name> <output root file name> <ncell> <initial pbeta bias> <true(0)/smear(1)>";
+			     << " <input particle gun MC file name> <output root file name> <ncell> <initial pbeta bias> <true(0)/smear(1)> <MC(0)/Data(1)>";
     std::exit(1);
   }
     
@@ -429,17 +540,21 @@ int main (int argc, char *argv[]) {
     else 
       BOOST_LOG_TRIVIAL(info) << "========== Smear flag : FALSE ==========";
 
+    Int_t datatype = atoi(argv[6]);
+
     // Start pbeta reconstruction process
     while (reader.ReadNextSpill() > 0) {
-      // if (reader.GetEntryNumber() != 6594) continue;
+      // if (reader.GetEntryNumber() != 9) continue;
       auto &spill_summary = reader.GetSpillSummary();
 
       // Get emulsion tracks
       std::vector<const B2EmulsionSummary*> emulsions;
       auto it_emulsion = spill_summary.BeginEmulsion();
       while (const auto *emulsion = it_emulsion.Next()) {
-	if (emulsion->GetParentTrackId() == 0) continue; // track id should be assigned
-	if (emulsion->GetParentTrack().GetParticlePdg() != 13) continue; // only muon
+	if (datatype == B2DataType::kMonteCarlo &&
+	    emulsion->GetParentTrackId() == 0) continue; // track id should be assigned when MC
+	if (datatype == B2DataType::kMonteCarlo &&
+	    emulsion->GetParentTrack().GetParticlePdg() != 13) continue; // only muon when MC
 	if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue; // only ECC films
 	if (emulsion->GetEcc() != 4) continue; // only ECC5
 	//if (emulsion->GetPlate() <= 14) continue; // only ECC5 w/o Iron ECC
@@ -451,19 +566,17 @@ int main (int argc, char *argv[]) {
       std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
 
       // Get true information
-      Int_t track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
-      Int_t particle_pdg_tmp_ = emulsions.at(0)->GetParentTrack().GetParticlePdg();
-      Int_t ecc_tmp_ = emulsions.at(0)->GetEcc();
-      if (particle_pdg_tmp_ == 13)
-	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_MUON_MASS);
-      else if (particle_pdg_tmp_ == 2212)
-	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PROTON_MASS);
-      else if (std::abs(particle_pdg_tmp_) == 211)
-	true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PION_MASS);
-
-      // When there are in-flight interactions,
-      // the event is not suitable for the evaluation of the reconstruction
-      Double_t momentum_difference_max = 0.;
+      if (datatype == B2DataType::kMonteCarlo) {
+	Int_t track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
+	Int_t particle_pdg_tmp_ = emulsions.at(0)->GetParentTrack().GetParticlePdg();
+	Int_t ecc_tmp_ = emulsions.at(0)->GetEcc();
+	if (particle_pdg_tmp_ == 13)
+	  true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_MUON_MASS);
+	else if (particle_pdg_tmp_ == 2212)
+	  true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PROTON_MASS);
+	else if (std::abs(particle_pdg_tmp_) == 211)
+	  true_pbeta = CalculatePBetaFromMomentum(emulsions.at(0)->GetMomentum().GetValue().Mag(), MCS_PION_MASS);
+      }
 
       // input parameters for TMinuit
       const Int_t ncell = std::atoi(argv[3]); // Ncell will be sweeped in the next step
@@ -479,14 +592,13 @@ int main (int argc, char *argv[]) {
 	const auto emulsion_up = emulsions.at(iemulsion_up);
 	// Only use films across one iron plate
 	 if (emulsion_up->GetPlate() <= 3) continue;
-	//if (emulsion_up->GetPlate() <= 70) continue;
-	if (emulsion_up->GetPlate()%2 == 1 &&
-	    emulsion_up->GetPlate() >= 15) continue; 
+	 if (emulsion_up->GetPlate()%2 == 1 &&
+	     emulsion_up->GetPlate() >= 15) continue; 
 
-	TVector3 tangent_up = emulsion_up->GetTangent().GetValue();
+	TVector3 tangent_up = emulsion_up->GetTangentInDownCoordinate().GetValue();
 	tangent_up = (1. / tangent_up.Z()) * tangent_up;
-	TVector3 position_up = emulsion_up->GetAbsolutePosition().GetValue();
-
+	TVector3 position_up = emulsion_up->GetFilmPositionInDownCoordinate().GetValue();
+	// if (datatype == B2DataType::kMonteCarlo) position_up.SetZ(-850e-3);
 	for (Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < emulsions.size(); iemulsion_down++) {
 	  const auto emulsion_down = emulsions.at(iemulsion_down);
 
@@ -499,21 +611,37 @@ int main (int argc, char *argv[]) {
 	    // tangent_up = smear_tangent_vector(tangent_up, kNinjaIron);
 	    // tangent_down = smear_tangent_vector(tangent_down, kNinjaIron);
 
-	    TVector3 position_down = emulsion_down->GetAbsolutePosition().GetValue();
+	    TVector3 position_down = emulsion_down->GetFilmPosition().GetValue();
 	    TVector3 displacement = position_down - position_up;
-	    if (smear_flag) { // smear
+	    if (datatype == B2DataType::kMonteCarlo && smear_flag) { // smear
 	      displacement = smear_distance_vector(displacement, kNinjaIron);
 	    }
-	    basetrack_distance.push_back(displacement.Mag() / 850.e-3); // Nominal distance = 500 + 350 um
-
+	    switch (datatype) {
+	    case B2DataType::kMonteCarlo :
+	      basetrack_distance.push_back(displacement.Mag() / 850.e-3); // Nominal distance = 500 + 350 um
+	      break;
+	    case B2DataType::kRealData :
+	      basetrack_distance.push_back(displacement.Mag() / 850.e-3);
+	      break;
+	    }
+	    // Water distance
 	    if (emulsion_up->GetPlate() >= 18 && iemulsion_down < emulsions.size() - 1) {
 	      const auto emulsion_2pl_down = emulsions.at(iemulsion_down + 1);
-	      TVector3 position_2pl_down = emulsion_2pl_down->GetAbsolutePosition().GetValue();
-	      TVector3 water_displacement = position_2pl_down - position_down;
-	      if (smear_flag) { // smear
+	      TVector3 position_down_for_water = emulsion_down->GetFilmPositionInDownCoordinate().GetValue();
+	      // if (datatype == B2DataType::kMonteCarlo) position_down_for_water.SetZ(-2.868);
+	      TVector3 position_2pl_down = emulsion_2pl_down->GetFilmPosition().GetValue();
+	      TVector3 water_displacement = position_2pl_down - position_down_for_water;
+	      if (datatype == B2DataType::kMonteCarlo && smear_flag) { // smear
 		water_displacement = smear_distance_vector(water_displacement, kNinjaWater);
 	      }
-	      water_basetrack_distance.push_back(water_displacement.Mag() / 2.868); // Nominal distance = 2300 + 109 * 2 + 350 um
+	      switch (datatype) {
+	      case B2DataType::kMonteCarlo :
+		water_basetrack_distance.push_back(water_displacement.Mag() / 2.868); // Nominal distance = 2300 + 109 * 2 + 350 um
+		break;
+	      case B2DataType::kRealData :
+		water_basetrack_distance.push_back(water_displacement.Mag() / 2.868);
+		break;
+	      }
 	    } else {
 	      water_basetrack_distance.push_back(0.);
 	    }
@@ -522,16 +650,18 @@ int main (int argc, char *argv[]) {
 	    plate_id.push_back(emulsion_up->GetPlate());
 
 	    Double_t angle_difference_radial_new, angle_difference_lateral_new;
+	    Double_t radial_angle_precision_new = 0.;
+	    Double_t lateral_angle_precision_new = 0.;
 	    Double_t tangent_accuracy_radial_new = 0.;
 	    Double_t tangent_accuracy_lateral_new = 0.;
 	    angle_difference_radial_new = get_angle_difference_radial_new(tangent_up, tangent_down);
 	    angle_difference_lateral_new = get_angle_difference_lateral_new(tangent_up, tangent_down);
-	    if (smear_flag) { // smear
-	      tangent_accuracy_radial_new = new_radial_tangent_accuracy(tangent_up.Mag(), kNinjaIron);
-	      tangent_accuracy_lateral_new = new_lateral_tangent_accuracy(tangent_up.Mag(), kNinjaIron);
+	    if (datatype == B2DataType::kMonteCarlo && smear_flag) { // smear
+	      radial_angle_precision_new = RadialAnglePrecision(TMath::Hypot(tangent_up.X(), tangent_up.Y()));
+	      lateral_angle_precision_new = LateralAnglePrecision(TMath::Hypot(tangent_up.X(), tangent_up.Y()));
 	    }
-	    radial_angle_difference.push_back(gRandom->Gaus(angle_difference_radial_new, tangent_accuracy_radial_new));
-	    lateral_angle_difference.push_back(gRandom->Gaus(angle_difference_lateral_new, tangent_accuracy_lateral_new));
+	    radial_angle_difference.push_back(gRandom->Gaus(angle_difference_radial_new, radial_angle_precision_new));
+	    lateral_angle_difference.push_back(gRandom->Gaus(angle_difference_lateral_new, lateral_angle_precision_new));
 
 	    BOOST_LOG_TRIVIAL(debug) << " Film " << emulsion_up->GetPlate() << " and"
 				     << " Film " << emulsion_down->GetPlate()
@@ -548,7 +678,7 @@ int main (int argc, char *argv[]) {
       // Get initial pbeta value
 
       TVector3 vertex_tangent = emulsions.at(0)->GetTangent().GetValue();
-      if (smear_flag) { // smear 
+      if (datatype == B2DataType::kMonteCarlo && smear_flag) { // smear 
 	vertex_tangent = smear_tangent_vector(vertex_tangent, kNinjaIron);
       }
 
@@ -559,7 +689,7 @@ int main (int argc, char *argv[]) {
 	lateral_angle_difference_rms += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
       }
 
-      if (smear_flag) {
+      if (smear_flag || datatype == B2DataType::kRealData) {
 	radial_angle_difference_rms /= radial_angle_difference.size();
 	lateral_angle_difference_rms /= lateral_angle_difference.size();      
       } else {
@@ -568,14 +698,16 @@ int main (int argc, char *argv[]) {
       }
       radial_angle_difference_rms = TMath::Sqrt(radial_angle_difference_rms);
       lateral_angle_difference_rms = TMath::Sqrt(lateral_angle_difference_rms);
-      if (!smear_flag) lateral_angle_difference_rms = radial_angle_difference_rms; // angle difference are equivalent in true-level
+      if (datatype == B2DataType::kMonteCarlo && !smear_flag)
+	lateral_angle_difference_rms = radial_angle_difference_rms; // angle difference are equivalent in true-level
 
       Double_t radial_cut_value, lateral_cut_value;
       radial_cut_value = 3. * radial_angle_difference_rms;
       lateral_cut_value = 3. * lateral_angle_difference_rms;
       // It is better if cut value is too small, accept all angle differences
       Double_t radiation_length = calculate_radiation_length(ncell, vertex_tangent.Mag());
-      initial_pbeta = scale_factor * 13.6 / radial_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
+      initial_pbeta = scale_factor * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
+      // only used in the performance study
       const Double_t initial_pbeta_bias = std::atof(argv[4]);
       initial_pbeta *= initial_pbeta_bias;
 
@@ -590,7 +722,7 @@ int main (int argc, char *argv[]) {
 
 	result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
 						       radial_cut_value, lateral_cut_value,
-						       smear_flag,
+						       smear_flag || (datatype == B2DataType::kRealData),
 						       basetrack_distance,
 						       water_basetrack_distance,
 						       track_tangent,
@@ -601,7 +733,7 @@ int main (int argc, char *argv[]) {
 	log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0),
 								    ncell, particle_id, direction,
 								    radial_cut_value, lateral_cut_value,
-								    smear_flag,
+								    smear_flag || (datatype == B2DataType::kRealData),
 								    basetrack_distance,
 								    water_basetrack_distance,
 								    track_tangent,
@@ -617,7 +749,10 @@ int main (int argc, char *argv[]) {
 	recon_pbeta = result_array.at(1).at(0);
 	recon_pbeta_err = result_array.at(1).at(1);
       }
-
+      if (recon_pbeta > 4999){
+	BOOST_LOG_TRIVIAL(info) << reader.GetEntryNumber();
+	//std::exit(1);
+      }
       otree->Fill();
     }
     

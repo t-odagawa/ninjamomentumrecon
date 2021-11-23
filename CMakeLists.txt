@@ -65,6 +65,10 @@ set(CMAKE_INSTALL_INCDIR ${CMAKE_INSTALL_PREFIX}/include/ninja/momrecon)
 # where to look first for cmake modules
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
+if (${TEXT_MODE})
+   add_definitions(-DTEXT_MODE=ON)
+endif()
+
 if (${COORDINATE_METHOD})
    add_definitions(-DCOORDINATE_METHOD=ON)
 endif()

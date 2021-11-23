@@ -1,6 +1,6 @@
 add_executable(FileConvert
 	FileConvert.cpp
-#	FileConvert.hpp
+	FileConvert.hpp
         )
 
 target_include_directories(FileConvert PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

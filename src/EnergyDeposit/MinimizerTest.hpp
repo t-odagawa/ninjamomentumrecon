@@ -1,5 +1,7 @@
 const static Double_t muon_mass = 105.658;// MeV/c2
-const static Double_t scale_factor = 1.0348;
+//const static Double_t scale_factor = 1.0348;
+const static Double_t scale_factor = 1.0265;
+//const static Double_t scale_factor = 1.0;
 
 void LogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag);
 
@@ -42,7 +44,11 @@ std::vector<Double_t> CalculateEnergyDepositWaterParameters();
 Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz);
 Double_t RadialSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent);
 Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent);
-
+std::pair<Int_t, Int_t> GetMinMaxPlot(Double_t tangent);
+Double_t GetRadialPlot(Double_t tangent);
+Double_t GetLateralPlot(Double_t tangent);
+Double_t RadialAnglePrecision(Double_t tangent);
+Double_t LateralAnglePrecision(Double_t tangent);
 
 std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
 					 UInt_t ncell,
