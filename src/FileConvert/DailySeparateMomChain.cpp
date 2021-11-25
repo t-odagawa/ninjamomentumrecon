@@ -92,11 +92,11 @@ int main ( int argc, char *argv[] ) {
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(base_num);
       mom_chain.base_pair.reserve(base_pair_num);
-      for (int i = 0; i < base_num; i++) {
+      for ( int i = 0; i < base_num; i++ ) {
 	ifs.read((char*)& mom_basetrack, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base.push_back(mom_basetrack);
       }
-      for (int j = 0; j < base_pair_num; j++) {
+      for ( int i = 0; i < base_pair_num; i++ ) {
 	ifs.read((char*)& mom_basetrack_pair.first, sizeof(Momentum_recon::Mom_basetrack));
 	ifs.read((char*)& mom_basetrack_pair.second, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base_pair.push_back(mom_basetrack_pair);

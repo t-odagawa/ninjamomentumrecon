@@ -24,3 +24,5 @@ namespace Momentum_recon
   };
   
 }
+
+void PositionAddOffset(TVector3 &absolute_position, int ecc_id);
