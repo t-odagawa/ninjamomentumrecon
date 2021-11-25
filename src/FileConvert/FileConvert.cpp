@@ -16,7 +16,6 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <ctime>
 
 // my include
 #include "FileConvert.hpp"
@@ -42,6 +41,7 @@ int main (int argc, char *argv[]) {
   try {
     
     B2Reader reader(argv[1]);
+
 #ifdef TEXT_MODE    
     std::ifstream ifs(argv[2]);
 #else
@@ -66,18 +66,20 @@ int main (int argc, char *argv[]) {
       num_link = mom_chain.base_pair.size();
 #endif
       BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
+
+
       auto &spill_summary = writer.GetSpillSummary();
       
-      std::vector<int> rawid_vec(num_base);
-      std::vector<int> plate_vec(num_base);
-      std::vector<TVector3> film_position_vec(num_base);
-      std::vector<TVector3> tangent_vec(num_base);
-      std::vector<Double_t> vph_up_vec(num_base), vph_down_vec(num_base);
-      std::vector<Double_t> pixel_count_up_vec(num_base), pixel_count_down_vec(num_base);
+      std::vector<Int_t > rawid_vec(num_base);
+      std::vector<Int_t > plate_vec(num_base);
+      std::vector<TVector3 > film_position_vec(num_base);
+      std::vector<TVector3 > tangent_vec(num_base);
+      std::vector<Double_t > vph_up_vec(num_base), vph_down_vec(num_base);
+      std::vector<Double_t > pixel_count_up_vec(num_base), pixel_count_down_vec(num_base);
       
-      std::vector<TVector3> absolute_position_vec(num_base);
-      std::vector<TVector3> film_position_in_down_coordinate_vec(num_base);
-      std::vector<TVector3> tangent_in_down_coordinate_vec(num_base);
+      std::vector<TVector3 > absolute_position_vec(num_base);
+      std::vector<TVector3 > film_position_in_down_coordinate_vec(num_base);
+      std::vector<TVector3 > tangent_in_down_coordinate_vec(num_base);
       
       int plate, base_id;
       double tangent_x, tangent_y;
