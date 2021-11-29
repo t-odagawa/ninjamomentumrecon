@@ -4,18 +4,17 @@
 #include <boost/log/expressions.hpp>
 
 // B2 includes
-#include <B2Reader.hh>
 #include <B2Writer.hh>
 #include <B2SpillSummary.hh>
 #include <B2EmulsionSummary.hh>
 
-// ROOT includes
-
 // system includes
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 // my include
 #include "FileConvert.hpp"
@@ -51,92 +50,78 @@ void PositionAddOffset(TVector3 &absolute_position /*mm*/, int ecc_id) {
 }
 
 int main (int argc, char *argv[]) {
-  
+
   logging::core::get()->set_filter
     (
      logging::trivial::severity >= logging::trivial::info
      //logging::trivial::severity >= logging::trivial::debug
      );
-  
-  BOOST_LOG_TRIVIAL(info) << "==========MCS Convert Start==========";
-  
-  if (argc != 5) {
+
+  BOOST_LOG_TRIVIAL(info) << "==========MCS Convert w/o Muon ID Start==========";
+
+  if ( argc != 4 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <Input B2 file> <Input momch file> <Output B2 file> <ECC id (0-8)> ";
+			     << " <Input momch file> <Output B2 file> <ECC id (0-8)>";
     std::exit(1);
   }
-  
-  try {
-    
-    B2Reader reader(argv[1]);
 
-#ifdef TEXT_MODE    
-    std::ifstream ifs(argv[2]);
-#else
-    std::ifstream ifs(argv[2], std::ios::binary);
-#endif
+  try {
+
+    std::ifstream ifs(argv[1], std::ios::binary);
+
+    // filesize取得
+    ifs.seekg(0, std::ios::end);
+    int64_t eofpos = ifs.tellg();
+    ifs.clear();
+    ifs.seekg(0, std::ios::beg);
+    int64_t begpos = ifs.tellg();
+    int64_t nowpos = ifs.tellg();
+    int64_t size2 = eofpos - begpos;
+    int64_t GB = size2 / (1000 * 1000 * 1000);
+    int64_t MB = (size2 - GB * 1000 * 1000 * 1000) / (1000 * 1000);
+    int64_t KB = (size2 - GB * 1000 * 1000 * 1000 - MB * 1000 * 1000) / (1000);
+    if (GB > 0) {
+      std::cout << "FILE size :" << GB << "." << MB << " [GB]" << std::endl;
+    }
+    else {
+      std::cout << "FILE size :" << MB << "." << KB << " [MB]" << std::endl;
+    }
+
     Momentum_recon::Mom_chain mom_chain;
     Momentum_recon::Mom_basetrack mom_basetrack;
-    std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack> mom_basetrack_pair;
-    
-    B2Writer writer(argv[3], reader);
-    
-    int ecc_id = std::atoi(argv[4]);
-    
+    std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
+
+    B2Writer writer(argv[2]);
+
+    int ecc_id = std::atoi(argv[3]);
+
     int num_entry = 0;
     int num_base, num_link;
 
-#ifdef TEXT_MODE
-    while ( ifs >> mom_chain.groupid >> mom_chain.chainid
-	    >> mom_chain.unixtime >> mom_chain.entry_in_daily_file
-	    >> mom_chain.mom_recon
-	    >> num_base >> num_link ) {
-      mom_chain.base.resize(num_base);
-      mom_chain.base_pair.resize(num_link);
-      BOOST_LOG_TRIVIAL(debug) << "Getting basetrack information";
-      for ( int ibase = 0; ibase < num_base; ibase++ ) {
-	ifs >> mom_chain.base.at(ibase).pl
-	    >> mom_chain.base.at(ibase).rawid
-	    >> mom_chain.base.at(ibase).ax
-	    >> mom_chain.base.at(ibase).ay
-	    >> mom_chain.base.at(ibase).x
-	    >> mom_chain.base.at(ibase).y 
-	    >> mom_chain.base.at(ibase).z
-	    >> mom_chain.base.at(ibase).m[0].zone
-	    >> mom_chain.base.at(ibase).m[0].view
-	    >> mom_chain.base.at(ibase).m[0].imager
-	    >> mom_chain.base.at(ibase).m[0].ph
-	    >> mom_chain.base.at(ibase).m[0].pixelnum
-	    >> mom_chain.base.at(ibase).m[0].hitnum
-	    >> mom_chain.base.at(ibase).m[1].zone
-	    >> mom_chain.base.at(ibase).m[1].view
-	    >> mom_chain.base.at(ibase).m[1].imager
-	    >> mom_chain.base.at(ibase).m[1].ph
-	    >> mom_chain.base.at(ibase).m[1].pixelnum
-	    >> mom_chain.base.at(ibase).m[1].hitnum;
-      }
-      BOOST_LOG_TRIVIAL(debug) << "Getting linklet information";
-      for ( int ilink = 0; ilink < num_link; ilink++ ) {
-	ifs >> mom_chain.base_pair.at(ilink).first.pl
-	    >> mom_chain.base_pair.at(ilink).first.rawid
-	    >> mom_chain.base_pair.at(ilink).second.pl
-	    >> mom_chain.base_pair.at(ilink).second.rawid
-	    >> mom_chain.base_pair.at(ilink).first.ax
-	    >> mom_chain.base_pair.at(ilink).first.ay
-	    >> mom_chain.base_pair.at(ilink).first.x
-	    >> mom_chain.base_pair.at(ilink).first.y
-	    >> mom_chain.base_pair.at(ilink).first.z
-	    >> mom_chain.base_pair.at(ilink).second.ax
-	    >> mom_chain.base_pair.at(ilink).second.ay
-	    >> mom_chain.base_pair.at(ilink).second.x
-	    >> mom_chain.base_pair.at(ilink).second.y
-	    >> mom_chain.base_pair.at(ilink).second.z;
-      }
-#else
+    // Vectors for basetrack info
+    std::vector<Int_t > rawid_vec;
+    std::vector<Int_t > plate_vec;
+    std::vector<TVector3 > film_position_vec;
+    std::vector<TVector3 > tangent_vec;
+    std::vector<Double_t > vph_up_vec, vph_down_vec;
+    std::vector<Double_t > pixel_count_up_vec, pixel_count_down_vec;
+    
+    std::vector<TVector3 > absolute_position_vec;
+    std::vector<TVector3 > film_position_in_down_coordinate_vec;
+    std::vector<TVector3 > tangent_in_down_coordinate_vec;
+
     int header[4];
     double mom_recon;
     while ( ifs.read((char*)& header, sizeof(int)*4) ) {
-      
+
+      // auto start = std::chrono::system_clock::now();
+
+      if (num_entry % 100 == 0) {
+	nowpos = ifs.tellg();
+	auto size1 = nowpos - begpos;
+	std::cerr << std::right << std::fixed << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%";
+      }
+
       mom_chain.groupid = header[0];
       mom_chain.chainid = header[1];
       mom_chain.unixtime = header[2];
@@ -150,43 +135,41 @@ int main (int argc, char *argv[]) {
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(num_base);
       mom_chain.base_pair.reserve(num_link);
-      BOOST_LOG_TRIVIAL(debug) << "Getting basetrack information";
       for ( int i = 0; i < num_base; i++ ) {
 	ifs.read((char*)& mom_basetrack, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base.push_back(mom_basetrack);
       }
-      BOOST_LOG_TRIVIAL(debug) << "Getting linklet information";
       for ( int i = 0; i < num_link; i++ ) {
 	ifs.read((char*)& mom_basetrack_pair.first, sizeof(Momentum_recon::Mom_basetrack));
 	ifs.read((char*)& mom_basetrack_pair.second, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base_pair.push_back(mom_basetrack_pair);
-      }      
-#endif
-
-      BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
-      // skip no emulsion data entries
-      while ( reader.GetEntryNumber() < mom_chain.entry_in_daily_file - 1 ) {
-	reader.ReadNextSpill();
-	auto &spill_summary = reader.GetSpillSummary();
-	writer.Fill();
       }
 
-      reader.ReadSpill(mom_chain.entry_in_daily_file - 1);
+      // auto time1 = std::chrono::system_clock::now();
 
-      auto &spill_summary = reader.GetSpillSummary();
+      BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
+
+      auto &spill_summary = writer.GetSpillSummary();
+
+      rawid_vec.clear(); rawid_vec.resize(num_base);
+      plate_vec.clear(); plate_vec.resize(num_base);
+      film_position_vec.clear(); film_position_vec.resize(num_base);
+      tangent_vec.clear(); tangent_vec.resize(num_base);
+      vph_up_vec.clear(); vph_down_vec.clear();
+      vph_up_vec.resize(num_base); vph_down_vec.resize(num_base);
+      pixel_count_up_vec.clear(); pixel_count_down_vec.clear();
+      pixel_count_up_vec.resize(num_base); pixel_count_down_vec.resize(num_base);
+    
+      absolute_position_vec.clear();
+      absolute_position_vec.resize(num_base);
+      film_position_in_down_coordinate_vec.clear();
+      film_position_in_down_coordinate_vec.resize(num_base);
+      tangent_in_down_coordinate_vec.clear();
+      tangent_in_down_coordinate_vec.resize(num_base);
+
       
-      // Basetrack information write
-      std::vector<Int_t > rawid_vec(num_base);
-      std::vector<Int_t > plate_vec(num_base);
-      std::vector<TVector3 > film_position_vec(num_base);
-      std::vector<TVector3 > tangent_vec(num_base);
-      std::vector<Double_t > vph_up_vec(num_base), vph_down_vec(num_base);
-      std::vector<Double_t > pixel_count_up_vec(num_base), pixel_count_down_vec(num_base);
-      
-      std::vector<TVector3 > absolute_position_vec(num_base);
-      std::vector<TVector3 > film_position_in_down_coordinate_vec(num_base);
-      std::vector<TVector3 > tangent_in_down_coordinate_vec(num_base);
-      
+      // auto time2 = std::chrono::system_clock::now();
+
       TVector3 absolute_position, film_position, tangent;
       TVector3 film_position_in_down_coordinate, tangent_in_down_coordinate;
       Double_t vph[2];
@@ -211,7 +194,7 @@ int main (int argc, char *argv[]) {
 	vph_up_vec.at(ibase) = vph[0];
 	vph_down_vec.at(ibase) = vph[1];
 	pixel_count_up_vec.at(ibase) = mom_chain.base.at(ibase).m[0].pixelnum;
-	pixel_count_down_vec.at(ibase) = mom_chain.base.at(ibase).m[1].pixelnum;	
+	pixel_count_down_vec.at(ibase) = mom_chain.base.at(ibase).m[1].pixelnum;
       }
       
       // Linklet information write
@@ -237,6 +220,8 @@ int main (int argc, char *argv[]) {
 	tangent_in_down_coordinate_vec.at(index) = tangent_in_down_coordinate;
       }
       
+      // auto time3 = std::chrono::system_clock::now();
+
       std::reverse(rawid_vec.begin(), rawid_vec.end());
       std::reverse(plate_vec.begin(), plate_vec.end());
       std::reverse(absolute_position_vec.begin(), absolute_position_vec.end());
@@ -251,11 +236,16 @@ int main (int argc, char *argv[]) {
       std::reverse(tangent_in_down_coordinate_vec.begin(),
 		   tangent_in_down_coordinate_vec.end());
     
+      // auto time4 = std::chrono::system_clock::now();
+
       for ( int ibase = 0; ibase < mom_chain.base.size(); ibase++ ) {
 	auto &emulsion_summary = spill_summary.AddEmulsion();
 	emulsion_summary.SetEmulsionTrackId((UInt_t)rawid_vec.at(ibase));
 	emulsion_summary.SetParentTrackId(mom_chain.chainid);
 	emulsion_summary.SetAbsolutePosition(absolute_position_vec.at(ibase));
+	if (absolute_position_vec.at(ibase).X() == 0 &&
+	    absolute_position_vec.at(ibase).Y() == 0 )
+	  std::cout << mom_chain.base.size() << std::endl;
 	emulsion_summary.SetFilmPosition(film_position_vec.at(ibase));
 	emulsion_summary.SetTangent(tangent_vec.at(ibase));
 	emulsion_summary.SetFilmPositionInDownCoordinate(film_position_in_down_coordinate_vec.at(ibase));
@@ -269,23 +259,40 @@ int main (int argc, char *argv[]) {
 	emulsion_summary.SetPlate(plate_vec.at(ibase));
       }
       
+      // auto time5 = std::chrono::system_clock::now();
+
       writer.Fill();
       num_entry++;
+      if (num_entry > 10000) break;
 
-    } 
-    
+      /*
+      std::cout << "Binary read" << std::endl;
+      std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time1 - start).count() << std::endl;
+      std::cout << "Vector setup" << std::endl;
+      std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time2 - time1).count() << std::endl;
+      std::cout << "Binary to vector" << std::endl;
+      std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time3 - time2).count() << std::endl;
+      std::cout << "Vector reverse" << std::endl;
+      std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time4 - time3).count() << std::endl;
+      std::cout << "B2 file write" << std::endl;
+      std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time5 - time4).count() << std::endl;
+      */
+    }
+
+    auto size1 = eofpos - begpos;
+    //std::cerr << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%" << std::endl;
+
     BOOST_LOG_TRIVIAL(debug) << "Total number of entries : " << num_entry;
-    
+
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
     std::exit(1);
-  } catch (const std::invalid_argument &error) {
+  } catch (const std::invalid_argument & error) {
     BOOST_LOG_TRIVIAL(fatal) << "Invalid argument error : " << error.what();
     std::exit(1);
   }
-    
-  BOOST_LOG_TRIVIAL(info) << "==========MCS Convert Finish==========";
+
+  BOOST_LOG_TRIVIAL(info) << "==========MCS Convert w/o Muon ID Finish==========";
   std::exit(0);
-    
+
 }
-    
