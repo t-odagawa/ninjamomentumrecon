@@ -6,6 +6,7 @@
 // B2 includes
 #include <B2Writer.hh>
 #include <B2SpillSummary.hh>
+#include <B2EventSummary.hh>
 #include <B2EmulsionSummary.hh>
 
 // system includes
@@ -110,7 +111,7 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
 
-    int header[4];
+    int header[5];
     double mom_recon;
     while ( ifs.read((char*)& header, sizeof(int)*4) ) {
 
@@ -125,7 +126,8 @@ int main (int argc, char *argv[]) {
       mom_chain.groupid = header[0];
       mom_chain.chainid = header[1];
       mom_chain.unixtime = header[2];
-      mom_chain.entry_in_daily_file = header[3];
+      mom_chain.tracker_track_id = header[3];
+      mom_chain.entry_in_daily_file = header[4];
       ifs.read((char*)& mom_recon, sizeof(double));
       mom_chain.mom_recon = mom_recon;
       ifs.read((char*)& header, sizeof(int)*2);
@@ -150,6 +152,8 @@ int main (int argc, char *argv[]) {
       BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
 
       auto &spill_summary = writer.GetSpillSummary();
+      auto &event_summary = spill_summary.AddTrueEvent();
+      event_summary.SetEventType(0);
 
       rawid_vec.clear(); rawid_vec.resize(num_base);
       plate_vec.clear(); plate_vec.resize(num_base);
@@ -167,7 +171,6 @@ int main (int argc, char *argv[]) {
       tangent_in_down_coordinate_vec.clear();
       tangent_in_down_coordinate_vec.resize(num_base);
 
-      
       // auto time2 = std::chrono::system_clock::now();
 
       TVector3 absolute_position, film_position, tangent;
@@ -241,11 +244,8 @@ int main (int argc, char *argv[]) {
       for ( int ibase = 0; ibase < mom_chain.base.size(); ibase++ ) {
 	auto &emulsion_summary = spill_summary.AddEmulsion();
 	emulsion_summary.SetEmulsionTrackId((UInt_t)rawid_vec.at(ibase));
-	emulsion_summary.SetParentTrackId(mom_chain.chainid);
+	emulsion_summary.SetParentTrackId(mom_chain.groupid * 100000 + mom_chain.chainid);
 	emulsion_summary.SetAbsolutePosition(absolute_position_vec.at(ibase));
-	if (absolute_position_vec.at(ibase).X() == 0 &&
-	    absolute_position_vec.at(ibase).Y() == 0 )
-	  std::cout << mom_chain.base.size() << std::endl;
 	emulsion_summary.SetFilmPosition(film_position_vec.at(ibase));
 	emulsion_summary.SetTangent(tangent_vec.at(ibase));
 	emulsion_summary.SetFilmPositionInDownCoordinate(film_position_in_down_coordinate_vec.at(ibase));

@@ -15,7 +15,7 @@ namespace Momentum_recon
   
   class Mom_chain {
   public:
-    int chainid, groupid, unixtime, entry_in_daily_file;
+    int chainid, groupid, unixtime, tracker_track_id, entry_in_daily_file;
     double mom_recon;
     //basetrack座標系
     std::vector<Mom_basetrack > base;
@@ -24,5 +24,3 @@ namespace Momentum_recon
   };
   
 }
-
-void PositionAddOffset(TVector3 &absolute_position, int ecc_id);

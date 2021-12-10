@@ -7,6 +7,7 @@
 #include <B2Reader.hh>
 #include <B2Writer.hh>
 #include <B2SpillSummary.hh>
+#include <B2EventSummary.hh>
 #include <B2EmulsionSummary.hh>
 
 // ROOT includes
@@ -86,9 +87,22 @@ int main (int argc, char *argv[]) {
     int num_entry = 0;
     int num_base, num_link;
 
+    // Vectors for basetrack info
+    std::vector<Int_t > rawid_vec;
+    std::vector<Int_t > plate_vec;
+    std::vector<TVector3 > film_position_vec;
+    std::vector<TVector3 > tangent_vec;
+    std::vector<Double_t > vph_up_vec, vph_down_vec;
+    std::vector<Double_t > pixel_count_up_vec, pixel_count_down_vec;
+    
+    std::vector<TVector3 > absolute_position_vec;
+    std::vector<TVector3 > film_position_in_down_coordinate_vec;
+    std::vector<TVector3 > tangent_in_down_coordinate_vec;
+
 #ifdef TEXT_MODE
     while ( ifs >> mom_chain.groupid >> mom_chain.chainid
-	    >> mom_chain.unixtime >> mom_chain.entry_in_daily_file
+	    >> mom_chain.unixtime >> mom_chain.tracker_track_id
+	    >> mom_chain.entry_in_daily_file
 	    >> mom_chain.mom_recon
 	    >> num_base >> num_link ) {
       mom_chain.base.resize(num_base);
@@ -133,14 +147,15 @@ int main (int argc, char *argv[]) {
 	    >> mom_chain.base_pair.at(ilink).second.z;
       }
 #else
-    int header[4];
+    int header[5];
     double mom_recon;
     while ( ifs.read((char*)& header, sizeof(int)*4) ) {
       
       mom_chain.groupid = header[0];
       mom_chain.chainid = header[1];
       mom_chain.unixtime = header[2];
-      mom_chain.entry_in_daily_file = header[3];
+      mom_chain.tracker_track_id = header[3];
+      mom_chain.entry_in_daily_file = header[4];
       ifs.read((char*)& mom_recon, sizeof(double));
       mom_chain.mom_recon = mom_recon;
       ifs.read((char*)& header, sizeof(int)*2);
@@ -175,17 +190,21 @@ int main (int argc, char *argv[]) {
 
       auto &spill_summary = reader.GetSpillSummary();
       
-      // Basetrack information write
-      std::vector<Int_t > rawid_vec(num_base);
-      std::vector<Int_t > plate_vec(num_base);
-      std::vector<TVector3 > film_position_vec(num_base);
-      std::vector<TVector3 > tangent_vec(num_base);
-      std::vector<Double_t > vph_up_vec(num_base), vph_down_vec(num_base);
-      std::vector<Double_t > pixel_count_up_vec(num_base), pixel_count_down_vec(num_base);
-      
-      std::vector<TVector3 > absolute_position_vec(num_base);
-      std::vector<TVector3 > film_position_in_down_coordinate_vec(num_base);
-      std::vector<TVector3 > tangent_in_down_coordinate_vec(num_base);
+      rawid_vec.clear(); rawid_vec.resize(num_base);
+      plate_vec.clear(); plate_vec.resize(num_base);
+      film_position_vec.clear(); film_position_vec.resize(num_base);
+      tangent_vec.clear(); tangent_vec.resize(num_base);
+      vph_up_vec.clear(); vph_down_vec.clear();
+      vph_up_vec.resize(num_base); vph_down_vec.resize(num_base);
+      pixel_count_up_vec.clear(); pixel_count_down_vec.clear();
+      pixel_count_up_vec.resize(num_base); pixel_count_down_vec.resize(num_base);
+
+      absolute_position_vec.clear();
+      absolute_position_vec.resize(num_base);
+      film_position_in_down_coordinate_vec.clear();
+      film_position_in_down_coordinate_vec.resize(num_base);
+      tangent_in_down_coordinate_vec.clear();
+      tangent_in_down_coordinate_vec.resize(num_base);
       
       TVector3 absolute_position, film_position, tangent;
       TVector3 film_position_in_down_coordinate, tangent_in_down_coordinate;
@@ -267,6 +286,7 @@ int main (int argc, char *argv[]) {
 	emulsion_summary.SetFilmType(B2EmulsionType::kECC);
 	emulsion_summary.SetEcc(ecc_id);
 	emulsion_summary.SetPlate(plate_vec.at(ibase));
+	emulsion_summary.SetMuonTrackId(mom_chain.tracker_track_id);
       }
       
       writer.Fill();
