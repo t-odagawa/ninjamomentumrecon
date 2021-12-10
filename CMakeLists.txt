@@ -107,6 +107,14 @@ if (B2MC_FOUND)
     include_directories("${B2MC_INCLUDE_DIR}")
 endif ()
 
+# NTBM libarary
+find_package(NTBM 0.0.1 REQUIRED)
+if (NTBM_FOUND)
+   message(STATUS "NTBM library -- found")
+   message(STATUS "NTBM library include dir : ${NTBM_INCLUDE_DIR}")
+   include_directories("${NTBM_INCLUDE_DIR}")
+endif ()
+
 ################ Libraries ################
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -167,3 +175,4 @@ add_subdirectory(src)
 add_subdirectory(src/EnergyDeposit)
 add_subdirectory(src/RangeMethod)
 add_subdirectory(src/FileConvert)
+add_subdirectory(src/Performance)
