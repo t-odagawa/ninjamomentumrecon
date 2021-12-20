@@ -152,9 +152,9 @@ Double_t FuncLogLikelihood(Double_t pbeta,
     if (TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
     	TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
       ll += 2 * TMath::Log(radial_sigma)
-	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+      	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
       ll += 2 * TMath::Log(lateral_sigma)
-	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
     }
 
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
@@ -273,9 +273,9 @@ Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t
   return TMath::Hypot(sigma_highland, lateral_precision);
 }
 
-std::pair<Int_t, Int_t> GetMinMaxPlot(Double_t tangent) {
+std::pair<Double_t, Double_t> GetMinMaxPlot(Double_t tangent) {
 
-  std::pair<Int_t, Int_t> min_max_pair;
+  std::pair<Double_t, Double_t> min_max_pair;
   if (tangent < 0.05) {min_max_pair.first = 0.; min_max_pair.second = 0.05;}
   else if (tangent < 0.15) {min_max_pair.first = 0.05; min_max_pair.second = 0.15;}
   else if (tangent < 0.25) {min_max_pair.first = 0.15; min_max_pair.second = 0.25;}
@@ -520,18 +520,33 @@ int main (int argc, char *argv[]) {
     TFile *ofile = new TFile(ofilename, "recreate");
     TTree *otree = new TTree("tree", "tree");
 
+    Int_t entry_in_daily_file;
+    Int_t npl;
+    std::vector<Double_t> ax, ay;
+    std::vector<Double_t> vph, pixel_count;
     Double_t true_pbeta;
     Double_t initial_pbeta;
     Double_t recon_pbeta;
     Double_t recon_pbeta_err;
     Double_t log_likelihood[3][2] = {}; // 3 particles (mu, pi, p), 2 directions (up, down)
+    Double_t recon_pbeta_candidate[3][2] = {};
+    Double_t recon_pbeta_err_candidate[3][2] = {};
     Int_t fit_status[3][2] = {};
     // any other variables?
+    otree->Branch("entry_in_daily_file", &entry_in_daily_file, "entry_in_daily_file/I");
+    otree->Branch("npl", &npl, "npl/I");
+    otree->Branch("ax", &ax);
+    otree->Branch("ay", &ay);
+    otree->Branch("vph", &vph);
+    otree->Branch("pixel_count", &pixel_count);
     otree->Branch("true_pbeta",  &true_pbeta,  "true_pbeta/D");
     otree->Branch("initial_pbeta", &initial_pbeta, "initial_pbeta/D");
     otree->Branch("recon_pbeta", &recon_pbeta, "recon_pbeta/D");
     otree->Branch("recon_pbeta_err", &recon_pbeta_err, "recon_pbeta_err/D");
     otree->Branch("log_likelihood", log_likelihood, "log_likelihood[3][2]/D");
+    otree->Branch("recon_pbeta_candidate", recon_pbeta_candidate, "recon_pbeta_candidate[3][2]/D");
+    otree->Branch("recon_pbeta_err_candidate", recon_pbeta_err_candidate,
+		  "recon_pbeta_err_candidate[3][2]/D");
     otree->Branch("fit_status", fit_status, "fit_status[3][2]/I");
     
     Bool_t smear_flag = atoi(argv[5]);
@@ -563,7 +578,17 @@ int main (int argc, char *argv[]) {
 
       if (emulsions.size() <= 0) continue;
 
+      entry_in_daily_file = reader.GetEntryNumber();
+      npl = emulsions.size();
+
       std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
+
+      for ( const auto emulsion : emulsions ) {
+	ax.push_back(emulsion->GetTangent().GetValue().X());
+	ay.push_back(emulsion->GetTangent().GetValue().Y());
+	vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
+	pixel_count.push_back(emulsion->GetPixelCountUp() + emulsion->GetPixelCountDown());
+      }
 
       // Get true information
       if (datatype == B2DataType::kMonteCarlo) {
@@ -598,7 +623,6 @@ int main (int argc, char *argv[]) {
 	TVector3 tangent_up = emulsion_up->GetTangentInDownCoordinate().GetValue();
 	tangent_up = (1. / tangent_up.Z()) * tangent_up;
 	TVector3 position_up = emulsion_up->GetFilmPositionInDownCoordinate().GetValue();
-	// if (datatype == B2DataType::kMonteCarlo) position_up.SetZ(-850e-3);
 	for (Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < emulsions.size(); iemulsion_down++) {
 	  const auto emulsion_down = emulsions.at(iemulsion_down);
 
@@ -607,9 +631,6 @@ int main (int argc, char *argv[]) {
 	  if (plate_difference == 2 * ncell - 1) {
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
 	    tangent_down = (1. / tangent_down.Z()) * tangent_down;
-	    // smear
-	    // tangent_up = smear_tangent_vector(tangent_up, kNinjaIron);
-	    // tangent_down = smear_tangent_vector(tangent_down, kNinjaIron);
 
 	    TVector3 position_down = emulsion_down->GetFilmPosition().GetValue();
 	    TVector3 displacement = position_down - position_up;
@@ -628,7 +649,6 @@ int main (int argc, char *argv[]) {
 	    if (emulsion_up->GetPlate() >= 18 && iemulsion_down < emulsions.size() - 1) {
 	      const auto emulsion_2pl_down = emulsions.at(iemulsion_down + 1);
 	      TVector3 position_down_for_water = emulsion_down->GetFilmPositionInDownCoordinate().GetValue();
-	      // if (datatype == B2DataType::kMonteCarlo) position_down_for_water.SetZ(-2.868);
 	      TVector3 position_2pl_down = emulsion_2pl_down->GetFilmPosition().GetValue();
 	      TVector3 water_displacement = position_2pl_down - position_down_for_water;
 	      if (datatype == B2DataType::kMonteCarlo && smear_flag) { // smear
@@ -711,49 +731,56 @@ int main (int argc, char *argv[]) {
       const Double_t initial_pbeta_bias = std::atof(argv[4]);
       initial_pbeta *= initial_pbeta_bias;
 
-      Int_t particle_id = 0;
       Int_t direction;
-      Int_t fit_status_tmp = 0;
       std::array<std::array<Double_t, 3>, 2> result_array = {};
-      for (Int_t idirection = 0; idirection < kNumberOfNinjaMcsDirections; idirection++) {
+      for (Int_t particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++) {
+	for (Int_t idirection = 0; idirection < kNumberOfNinjaMcsDirections; idirection++) {
+	  
+	  direction = MCS_DIRECTION[idirection];
+	  
+	  result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
+							 radial_cut_value, lateral_cut_value,
+							 smear_flag || (datatype == B2DataType::kRealData),
+							 basetrack_distance,
+							 water_basetrack_distance,
+							 track_tangent,
+							 plate_id,
+							 radial_angle_difference,
+							 lateral_angle_difference);
+	  recon_pbeta_candidate[particle_id][idirection] = result_array.at(idirection).at(0);
+	  recon_pbeta_err_candidate[particle_id][idirection] = result_array.at(idirection).at(1);
+	  fit_status[particle_id][idirection] = (Int_t)result_array.at(idirection).at(2);
+	  log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0),
+								      ncell, particle_id, direction,
+								      radial_cut_value, lateral_cut_value,
+								      smear_flag || (datatype == B2DataType::kRealData),
+								      basetrack_distance,
+								      water_basetrack_distance,
+								      track_tangent,
+								      plate_id,
+								      radial_angle_difference,
+								      lateral_angle_difference);
+	}
 
-	if (idirection != 0) break;
-	direction = MCS_DIRECTION[idirection];
-
-	result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
-						       radial_cut_value, lateral_cut_value,
-						       smear_flag || (datatype == B2DataType::kRealData),
-						       basetrack_distance,
-						       water_basetrack_distance,
-						       track_tangent,
-						       plate_id,
-						       radial_angle_difference,
-						       lateral_angle_difference);
-	fit_status[particle_id][idirection] = (Int_t)result_array.at(idirection).at(2);
-	log_likelihood[particle_id][idirection] = FuncLogLikelihood(result_array.at(idirection).at(0),
-								    ncell, particle_id, direction,
-								    radial_cut_value, lateral_cut_value,
-								    smear_flag || (datatype == B2DataType::kRealData),
-								    basetrack_distance,
-								    water_basetrack_distance,
-								    track_tangent,
-								    plate_id,
-								    radial_angle_difference,
-								    lateral_angle_difference);
+	if ( particle_id == 0 ) {
+	  if (log_likelihood[0][0] <= log_likelihood[0][1]) {
+	    recon_pbeta = result_array.at(0).at(0);
+	    recon_pbeta_err = result_array.at(0).at(1);
+	  } else {
+	    recon_pbeta = result_array.at(1).at(0);
+	    recon_pbeta_err = result_array.at(1).at(1);
+	  }
+	}
+	
       }
 
-      if (log_likelihood[particle_id][0] <= log_likelihood[particle_id][1]) {
-	recon_pbeta = result_array.at(0).at(0);
-	recon_pbeta_err = result_array.at(0).at(1);
-      } else {
-	recon_pbeta = result_array.at(1).at(0);
-	recon_pbeta_err = result_array.at(1).at(1);
-      }
       if (recon_pbeta > 4999){
-	BOOST_LOG_TRIVIAL(info) << reader.GetEntryNumber();
+	//BOOST_LOG_TRIVIAL(info) << reader.GetEntryNumber();
 	//std::exit(1);
       }
       otree->Fill();
+      ax.clear(); ay.clear();
+      vph.clear(); pixel_count.clear();
     }
     
     ofile->cd();

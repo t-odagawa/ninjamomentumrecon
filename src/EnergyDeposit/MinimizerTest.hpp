@@ -44,7 +44,7 @@ std::vector<Double_t> CalculateEnergyDepositWaterParameters();
 Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz);
 Double_t RadialSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent);
 Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent);
-std::pair<Int_t, Int_t> GetMinMaxPlot(Double_t tangent);
+std::pair<Double_t, Double_t> GetMinMaxPlot(Double_t tangent);
 Double_t GetRadialPlot(Double_t tangent);
 Double_t GetLateralPlot(Double_t tangent);
 Double_t RadialAnglePrecision(Double_t tangent);
