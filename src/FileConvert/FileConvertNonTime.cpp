@@ -50,6 +50,23 @@ void PositionAddOffset(TVector3 &absolute_position /*mm*/, int ecc_id) {
   absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z);
 }
 
+bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
+  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
+  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
+  return true;
+}
+
 int main (int argc, char *argv[]) {
 
   logging::core::get()->set_filter
@@ -111,9 +128,7 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
 
-    int header[5];
-    double mom_recon;
-    while ( ifs.read((char*)& header, sizeof(int)*4) ) {
+    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 
       // auto start = std::chrono::system_clock::now();
 
@@ -123,16 +138,6 @@ int main (int argc, char *argv[]) {
 	std::cerr << std::right << std::fixed << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%";
       }
 
-      mom_chain.groupid = header[0];
-      mom_chain.chainid = header[1];
-      mom_chain.unixtime = header[2];
-      mom_chain.tracker_track_id = header[3];
-      mom_chain.entry_in_daily_file = header[4];
-      ifs.read((char*)& mom_recon, sizeof(double));
-      mom_chain.mom_recon = mom_recon;
-      ifs.read((char*)& header, sizeof(int)*2);
-      num_base = header[0];
-      num_link = header[1];
       mom_chain.base.clear();
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(num_base);
@@ -153,7 +158,7 @@ int main (int argc, char *argv[]) {
 
       auto &spill_summary = writer.GetSpillSummary();
       auto &event_summary = spill_summary.AddTrueEvent();
-      event_summary.SetEventType(0);
+      event_summary.SetEventType(B2EventType::kEventIdStorage);
 
       rawid_vec.clear(); rawid_vec.resize(num_base);
       plate_vec.clear(); plate_vec.resize(num_base);
@@ -263,7 +268,7 @@ int main (int argc, char *argv[]) {
 
       writer.Fill();
       num_entry++;
-      if (num_entry > 10000) break;
+      //if (num_entry > 10000) break;
 
       /*
       std::cout << "Binary read" << std::endl;

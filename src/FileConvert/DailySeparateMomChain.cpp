@@ -19,6 +19,44 @@
 
 namespace logging = boost::log;
 
+bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
+  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
+  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
+  return true;
+}
+
+void WriteMomChainHeader(std::ofstream &ofs, Momentum_recon::Mom_chain &mom_chain) {
+
+  int num_base = mom_chain.base.size();
+  int num_link = mom_chain.base_pair.size();
+
+  ofs.write((char*)& mom_chain.groupid, sizeof(int));
+  ofs.write((char*)& mom_chain.chainid, sizeof(int));
+  ofs.write((char*)& mom_chain.unixtime, sizeof(int));
+  ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
+  ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
+  ofs.write((char*)& mom_chain.stop_flag, sizeof(int));
+  ofs.write((char*)& mom_chain.particle_flag, sizeof(int));
+  ofs.write((char*)& mom_chain.ecc_range_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.ecc_mcs_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.bm_range_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.bm_curvature_mom, sizeof(double));
+  ofs.write((char*)& num_base, sizeof(int));
+  ofs.write((char*)& num_link, sizeof(int));
+}
+
+
 int main ( int argc, char *argv[] ) {
 
   logging::core::get()->set_filter
@@ -67,10 +105,8 @@ int main ( int argc, char *argv[] ) {
     // ファイル読み込み，multimap 生成
     int64_t num_entry = 0;
 
-    int header[4];
-    double mom_recon;
-    int base_num, base_pair_num;
-    while ( ifs.read((char*)& header, sizeof(int)*4) ) {
+    int num_base, num_link;
+    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 
       if (num_entry % 100 == 0) {
 	nowpos = ifs.tellg();
@@ -79,24 +115,15 @@ int main ( int argc, char *argv[] ) {
       }
       num_entry++;
 
-      mom_chain.groupid = header[0];
-      mom_chain.chainid = header[1];
-      mom_chain.unixtime = header[2];
-      mom_chain.entry_in_daily_file = header[3];
-      ifs.read((char*)& mom_recon, sizeof(double));
-      mom_chain.mom_recon = mom_recon;
-      ifs.read((char*)& header, sizeof(int)*2);
-      base_num = header[0];
-      base_pair_num = header[1];
       mom_chain.base.clear();
       mom_chain.base_pair.clear();
-      mom_chain.base.reserve(base_num);
-      mom_chain.base_pair.reserve(base_pair_num);
-      for ( int i = 0; i < base_num; i++ ) {
+      mom_chain.base.reserve(num_base);
+      mom_chain.base_pair.reserve(num_link);
+      for ( int i = 0; i < num_base; i++ ) {
 	ifs.read((char*)& mom_basetrack, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base.push_back(mom_basetrack);
       }
-      for ( int i = 0; i < base_pair_num; i++ ) {
+      for ( int i = 0; i < num_link; i++ ) {
 	ifs.read((char*)& mom_basetrack_pair.first, sizeof(Momentum_recon::Mom_basetrack));
 	ifs.read((char*)& mom_basetrack_pair.second, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base_pair.push_back(mom_basetrack_pair);
@@ -138,16 +165,7 @@ int main ( int argc, char *argv[] ) {
 
       for ( auto itr2 = range.first; itr2 != range.second; itr2++ ) {
 
-	int num_base = itr2->second.base.size();
-	int num_pair = itr2->second.base_pair.size();
-
-	daily_file.write((char*)& itr2->second.groupid, sizeof(int));
-	daily_file.write((char*)& itr2->second.chainid, sizeof(int));
-	daily_file.write((char*)& itr2->second.unixtime, sizeof(int));
-	daily_file.write((char*)& itr2->second.entry_in_daily_file, sizeof(int));
-	daily_file.write((char*)& itr2->second.mom_recon, sizeof(double));
-	daily_file.write((char*)& num_base, sizeof(int));
-	daily_file.write((char*)& num_pair, sizeof(int));
+	WriteMomChainHeader(daily_file, itr2->second);
 
 	for ( int i = 0; i < itr2->second.base.size(); i++ ) {
 	  daily_file.write((char*)& itr2->second.base.at(i), sizeof(Momentum_recon::Mom_basetrack));

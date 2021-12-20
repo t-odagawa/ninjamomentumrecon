@@ -51,6 +51,23 @@ void PositionAddOffset(TVector3 &absolute_position /*mm*/, int ecc_id) {
   absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z);
 }
 
+bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
+  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
+  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
+  return true;
+}
+
 int main (int argc, char *argv[]) {
   
   logging::core::get()->set_filter
@@ -71,11 +88,8 @@ int main (int argc, char *argv[]) {
     
     B2Reader reader(argv[1]);
 
-#ifdef TEXT_MODE    
-    std::ifstream ifs(argv[2]);
-#else
     std::ifstream ifs(argv[2], std::ios::binary);
-#endif
+
     Momentum_recon::Mom_chain mom_chain;
     Momentum_recon::Mom_basetrack mom_basetrack;
     std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack> mom_basetrack_pair;
@@ -99,72 +113,19 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
 
-#ifdef TEXT_MODE
-    while ( ifs >> mom_chain.groupid >> mom_chain.chainid
-	    >> mom_chain.unixtime >> mom_chain.tracker_track_id
-	    >> mom_chain.entry_in_daily_file
-	    >> mom_chain.mom_recon
-	    >> num_base >> num_link ) {
-      mom_chain.base.resize(num_base);
-      mom_chain.base_pair.resize(num_link);
-      BOOST_LOG_TRIVIAL(debug) << "Getting basetrack information";
-      for ( int ibase = 0; ibase < num_base; ibase++ ) {
-	ifs >> mom_chain.base.at(ibase).pl
-	    >> mom_chain.base.at(ibase).rawid
-	    >> mom_chain.base.at(ibase).ax
-	    >> mom_chain.base.at(ibase).ay
-	    >> mom_chain.base.at(ibase).x
-	    >> mom_chain.base.at(ibase).y 
-	    >> mom_chain.base.at(ibase).z
-	    >> mom_chain.base.at(ibase).m[0].zone
-	    >> mom_chain.base.at(ibase).m[0].view
-	    >> mom_chain.base.at(ibase).m[0].imager
-	    >> mom_chain.base.at(ibase).m[0].ph
-	    >> mom_chain.base.at(ibase).m[0].pixelnum
-	    >> mom_chain.base.at(ibase).m[0].hitnum
-	    >> mom_chain.base.at(ibase).m[1].zone
-	    >> mom_chain.base.at(ibase).m[1].view
-	    >> mom_chain.base.at(ibase).m[1].imager
-	    >> mom_chain.base.at(ibase).m[1].ph
-	    >> mom_chain.base.at(ibase).m[1].pixelnum
-	    >> mom_chain.base.at(ibase).m[1].hitnum;
-      }
-      BOOST_LOG_TRIVIAL(debug) << "Getting linklet information";
-      for ( int ilink = 0; ilink < num_link; ilink++ ) {
-	ifs >> mom_chain.base_pair.at(ilink).first.pl
-	    >> mom_chain.base_pair.at(ilink).first.rawid
-	    >> mom_chain.base_pair.at(ilink).second.pl
-	    >> mom_chain.base_pair.at(ilink).second.rawid
-	    >> mom_chain.base_pair.at(ilink).first.ax
-	    >> mom_chain.base_pair.at(ilink).first.ay
-	    >> mom_chain.base_pair.at(ilink).first.x
-	    >> mom_chain.base_pair.at(ilink).first.y
-	    >> mom_chain.base_pair.at(ilink).first.z
-	    >> mom_chain.base_pair.at(ilink).second.ax
-	    >> mom_chain.base_pair.at(ilink).second.ay
-	    >> mom_chain.base_pair.at(ilink).second.x
-	    >> mom_chain.base_pair.at(ilink).second.y
-	    >> mom_chain.base_pair.at(ilink).second.z;
-      }
-#else
-    int header[5];
-    double mom_recon;
-    while ( ifs.read((char*)& header, sizeof(int)*4) ) {
+    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
       
-      mom_chain.groupid = header[0];
-      mom_chain.chainid = header[1];
-      mom_chain.unixtime = header[2];
-      mom_chain.tracker_track_id = header[3];
-      mom_chain.entry_in_daily_file = header[4];
-      ifs.read((char*)& mom_recon, sizeof(double));
-      mom_chain.mom_recon = mom_recon;
-      ifs.read((char*)& header, sizeof(int)*2);
-      num_base = header[0];
-      num_link = header[1];
       mom_chain.base.clear();
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(num_base);
       mom_chain.base_pair.reserve(num_link);
+      BOOST_LOG_TRIVIAL(debug) << "\nGroup ID : " << mom_chain.groupid
+			       << "\nChain ID : " << mom_chain.chainid
+			       << "\nUnixtime : " << mom_chain.unixtime
+			       << "\nTraker track ID : " << mom_chain.tracker_track_id
+			       << "\nEntry in daily file : " << mom_chain.entry_in_daily_file
+			       << "\nNumber of basetracks : " << num_base
+			       << "\nNumber of likelets : " << num_link;
       BOOST_LOG_TRIVIAL(debug) << "Getting basetrack information";
       for ( int i = 0; i < num_base; i++ ) {
 	ifs.read((char*)& mom_basetrack, sizeof(Momentum_recon::Mom_basetrack));
@@ -176,19 +137,19 @@ int main (int argc, char *argv[]) {
 	ifs.read((char*)& mom_basetrack_pair.second, sizeof(Momentum_recon::Mom_basetrack));
 	mom_chain.base_pair.push_back(mom_basetrack_pair);
       }      
-#endif
 
       BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
+
       // skip no emulsion data entries
       while ( reader.GetEntryNumber() < mom_chain.entry_in_daily_file - 1 ) {
 	reader.ReadNextSpill();
-	auto &spill_summary = reader.GetSpillSummary();
 	writer.Fill();
       }
-
       reader.ReadSpill(mom_chain.entry_in_daily_file - 1);
 
       auto &spill_summary = reader.GetSpillSummary();
+      auto &event_summary = spill_summary.AddTrueEvent();
+      event_summary.SetEventType(B2EventType::kEventIdStorage);
       
       rawid_vec.clear(); rawid_vec.resize(num_base);
       plate_vec.clear(); plate_vec.resize(num_base);
@@ -249,11 +210,13 @@ int main (int argc, char *argv[]) {
 	tangent_in_down_coordinate.SetZ(1.);
 	auto find_itr = std::find(rawid_vec.begin(), rawid_vec.end(),
 				  mom_chain.base_pair.at(ilink).second.rawid);
-	int index = find_itr - rawid_vec.begin();
-	film_position_vec.at(index) = film_position;
-	film_position_in_down_coordinate_vec.at(index) = film_position_in_down_coordinate;
-	tangent_vec.at(index) = tangent;
-	tangent_in_down_coordinate_vec.at(index) = tangent_in_down_coordinate;
+	if ( find_itr != rawid_vec.end() ) {
+	  int index = std::distance(rawid_vec.begin(), find_itr);
+	  film_position_vec.at(index) = film_position;
+	  film_position_in_down_coordinate_vec.at(index) = film_position_in_down_coordinate;
+	  tangent_vec.at(index) = tangent;
+	  tangent_in_down_coordinate_vec.at(index) = tangent_in_down_coordinate;
+	}
       }
       
       std::reverse(rawid_vec.begin(), rawid_vec.end());
