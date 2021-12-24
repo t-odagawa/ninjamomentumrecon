@@ -87,9 +87,9 @@ int main (int argc, char* argv[]) {
 
     // pbeta recon file read
     TFile *pbeta_recon_file = new TFile(argv[2], "read");
-    TTree *pbeta_recon_tree = (TTree*)pbeta_recon_tree->Get("tree");
+    TTree *pbeta_recon_tree = (TTree*)pbeta_recon_file->Get("tree");
     double recon_pbeta;
-    tree->SetBranchAddress("recon_pbeta", &recon_pbeta);
+    pbeta_recon_tree->SetBranchAddress("recon_pbeta", &recon_pbeta);
 
     std::ofstream ofs(argv[3], std::ios::binary);
 
@@ -111,13 +111,13 @@ int main (int argc, char* argv[]) {
       }
 
       pbeta_recon_tree->GetEntry(num_entry);
-      mom_chain.mom_recon = ConvertPbetaToMomentum(recon_pbeta, 105.);
+      mom_chain.ecc_mcs_mom = ConvertPbetaToMomentum(recon_pbeta, 105.);
 
       WriteMomChainHeader(ofs, mom_chain);
       for (int ibase = 0; ibase < mom_chain.base.size(); ibase++) {
 	ofs.write((char*)& mom_chain.base.at(ibase), sizeof(Momentum_recon::Mom_basetrack));
       }
-      for (int ilink = 0; ilknk < mom_chain.base_pair.size(); ilink++) {
+      for (int ilink = 0; ilink < mom_chain.base_pair.size(); ilink++) {
 	ofs.write((char*)& mom_chain.base_pair.at(ilink).first, sizeof(Momentum_recon::Mom_basetrack));
 	ofs.write((char*)& mom_chain.base_pair.at(ilink).second, sizeof(Momentum_recon::Mom_basetrack));
       }
@@ -125,6 +125,8 @@ int main (int argc, char* argv[]) {
       num_entry++;
 
     }
+
+    ofs.close();
 
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

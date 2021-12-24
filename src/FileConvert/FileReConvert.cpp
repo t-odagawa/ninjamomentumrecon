@@ -22,12 +22,55 @@
 
 namespace logging = boost::log;
 
+bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
+  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
+  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
+  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
+  return true;
+}
+
+void WriteMomChainHeader(std::ofstream &ofs, Momentum_recon::Mom_chain &mom_chain) {
+
+  int num_base = mom_chain.base.size();
+  int num_link = mom_chain.base_pair.size();
+
+  ofs.write((char*)& mom_chain.groupid, sizeof(int));
+  ofs.write((char*)& mom_chain.chainid, sizeof(int));
+  ofs.write((char*)& mom_chain.unixtime, sizeof(int));
+  ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
+  ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
+  ofs.write((char*)& mom_chain.stop_flag, sizeof(int));
+  ofs.write((char*)& mom_chain.particle_flag, sizeof(int));
+  ofs.write((char*)& mom_chain.ecc_range_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.ecc_mcs_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.bm_range_mom, sizeof(double));
+  ofs.write((char*)& mom_chain.bm_curvature_mom, sizeof(double));
+  ofs.write((char*)& num_base, sizeof(int));
+  ofs.write((char*)& num_link, sizeof(int));
+}
+
+double ConvertPbetaToMomentum(double pbeta, double mass) {
+  double energy = 0.5 * (pbeta + std::hypot(pbeta, 2. * mass));
+  return std::sqrt(energy * energy - mass * mass);
+}
+
+
 int main (int argc, char* argv[]) {
 
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::info
-     //logging::trivial::severity >= logging::trivial::debug
+     //logging::trivial::severity >= logging::trivial::info
+     logging::trivial::severity >= logging::trivial::debug
      );
   
   BOOST_LOG_TRIVIAL(info) << "==========MCS ReConvert Start==========";
@@ -40,38 +83,25 @@ int main (int argc, char* argv[]) {
 
   try {
 
-    // input momch file を読み込む
+    // input momch file read
     std::ifstream ifs(argv[1], std::ios::binary);
     Momentum_recon::Mom_chain mom_chain;
     Momentum_recon::Mom_basetrack mom_basetrack;
     std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
-    int header[5];
-    double mom_recon;
-    int num_base, num_link;
 
-    // pbeta recon file を読み込む
+    // pbeta recon file read
     TFile *pbeta_recon_file = new TFile(argv[2], "read");
-    TTree *pbeta_recon_tree = (Ttree*)pbeta_recon_Tree->Get("tree");
+    TTree *pbeta_recon_tree = (TTree*)pbeta_recon_file->Get("tree");
     Double_t recon_pbeta;
+    Int_t entry_in_daily_file;
     pbeta_recon_tree->SetBranchAddress("recon_pbeta", &recon_pbeta);
-
-    // mom_pbeta -> recon_mom? どうするか
-    // とりあえず MIP はmu, HIP はp だと思ってつけた値を入れる
+    pbeta_recon_tree->SetBranchAddress("entry_in_daily_file", &entry_in_daily_file);
 
     std::ofstream ofs(argv[3], std::ios::binary);
 
-    while ( ifs.read((char*)& header, sizeof(int)*4) ) {
-
-      mom_chain.groupid = header[0];
-      mom_chain.chainid = header[1];
-      mom_chain.unixtime = header[2];
-      mom_chain.tracker_track_id = header[3];
-      mom_chain.entry_in_daily_file = header[4];
-      ifs.read((char*)& mom_recon, sizeof(double));
-      mom_chain.mom_recon = mom_recon;
-      ifs.read((char*)& header, sizeof(int)*2);
-      num_base = header[0];
-      num_link = header[1];
+    int num_base, num_link;
+    int num_entry = 0;
+    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {     
       mom_chain.base.clear();
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(num_base);
@@ -86,31 +116,26 @@ int main (int argc, char* argv[]) {
 	mom_chain.base_pair.push_back(mom_basetrack_pair);
       }
 
-      pbeta_recon_tree->GetEntry();
-      mom_chain.mom_recon = ConvertPbetaToMomentum(recon_pbeta);
+      pbeta_recon_tree->GetEntry(num_entry);
+      BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in momch : " << mom_chain.entry_in_daily_file
+			       << "\nEntry in daily file in root : " << entry_in_daily_file;
+      mom_chain.ecc_mcs_mom = ConvertPbetaToMomentum(recon_pbeta, 105.);
 
-      // momch binary に書き込む
-      ofs.write((char*)& mom_chain.groupid, sizeof(int));
-      ofs.write((char*)& mom_chain.chainid, sizeof(int));
-      ofs.write((char*)& mom_chain.unixtime, sizeof(int));
-      ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
-      ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
-      ofs.write((char*)& mom_chain.mom_recon, sizeof(double));
-      ofs.write((char*)& num_base, sizeof(int));
-      ofs.write((char*)& num_pair, sizeof(int));
+      WriteMomChainHeader(ofs, mom_chain);
       for ( int ibase = 0; ibase < num_base; ibase++ ) {
 	ofs.write((char*)& mom_chain.base.at(ibase), sizeof(Momentum_recon::Mom_basetrack));
       }
-      for (int ipair = 0; ipair < num_pair; ipair++ ) {
-	ofs.write((char*)& mom_chain.base_pair.at(ibase).first, sizeof(Momentum_recon::Mom_basetrack));
-	ofs.write((char*)& mom_chain.base_pair.at(ibase).second, sizeof(Momentum_recon::Mom_basetrack));
+      for (int ipair = 0; ipair < num_link; ipair++ ) {
+	ofs.write((char*)& mom_chain.base_pair.at(ipair).first, sizeof(Momentum_recon::Mom_basetrack));
+	ofs.write((char*)& mom_chain.base_pair.at(ipair).second, sizeof(Momentum_recon::Mom_basetrack));
       }
 
+      num_entry++;
     }
 
     ofs.close();
 
-  } catch (cosnt std::runtime_error &error) {
+  } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
     std::exit(1);
   } catch (const std::invalid_argument &error) {

@@ -194,15 +194,17 @@ int main (int argc, char *argv[]) {
 	tangent.SetZ(1.);
       
 	vph[0] = (Double_t)(mom_chain.base.at(ibase).m[0].ph % 10000); 
+	// vph[0] = (Double_t)(mom_chain.base.at(ibase).m[0].ph); 
 	vph[1] = (Double_t)(mom_chain.base.at(ibase).m[1].ph % 10000);
+	// vph[1] = (Double_t)(mom_chain.base.at(ibase).m[1].ph);
 	rawid_vec.at(ibase) = mom_chain.base.at(ibase).rawid;
 	plate_vec.at(ibase) = mom_chain.base.at(ibase).pl - 1;
 	absolute_position_vec.at(ibase) = absolute_position;
 	tangent_vec.at(ibase) = tangent;
 	vph_up_vec.at(ibase) = vph[0];
 	vph_down_vec.at(ibase) = vph[1];
-	pixel_count_up_vec.at(ibase) = mom_chain.base.at(ibase).m[0].pixelnum;
-	pixel_count_down_vec.at(ibase) = mom_chain.base.at(ibase).m[1].pixelnum;
+	pixel_count_up_vec.at(ibase) = mom_chain.base.at(ibase).m[0].hitnum;
+	pixel_count_down_vec.at(ibase) = mom_chain.base.at(ibase).m[1].hitnum;
       }
       
       // Linklet information write
