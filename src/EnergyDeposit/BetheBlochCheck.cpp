@@ -26,7 +26,8 @@
 #include <iostream>
 
 // my include 
-#include "/home/t2k/odagawa/NinjaMomentumRecon/src/McsCommon.cpp"
+#include "McsConst.hpp"
+#include "McsFunction.hpp"
 
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
@@ -41,7 +42,7 @@ int main (int argc, char *argv[]) {
   
   BOOST_LOG_TRIVIAL(info) << "==========Bethe Bloch Fit Start==========";
   
-  if (argc != 3) {
+  if ( argc != 3 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
 			     << " <output root file name> <output pdf file name>";
     std::exit(1);
@@ -51,7 +52,6 @@ int main (int argc, char *argv[]) {
     
     gStyle->SetOptStat(0);
     gErrorIgnoreLevel = kWarning;
-    const Double_t muon_mass = 105.658 * MeV;
 
     // Input B2 files    
     const std::string target_directory_path("/home/t2k/odagawa/data/mc_data/particlegun/particlegun_for_bethebloch_new/");
@@ -90,8 +90,8 @@ int main (int argc, char *argv[]) {
     otree->Branch("beta", &beta, "beta/D");
 
 
-    std::vector<Double_t> iron_param = {};
-    std::vector<Double_t> water_param = {};
+    std::vector<Double_t > iron_param = {};
+    std::vector<Double_t > water_param = {};
     paramtree->Branch("iron_param", &iron_param);
     paramtree->Branch("water_param", &water_param);
 
@@ -101,9 +101,9 @@ int main (int argc, char *argv[]) {
     c->Print(pdfname + "[", "pdf");
 
 
-    std::vector<Double_t> iron_edep_vec, iron_edep_err_vec;
-    std::vector<Double_t> water_edep_vec, water_edep_err_vec;
-    std::vector<Double_t> beta_vec, beta_err_vec;
+    std::vector<Double_t > iron_edep_vec, iron_edep_err_vec;
+    std::vector<Double_t > water_edep_vec, water_edep_err_vec;
+    std::vector<Double_t > beta_vec, beta_err_vec;
 
     TF1 *f_landau = new TF1("f_landau", "landau");
     TLine *line_mean = new TLine();
@@ -111,50 +111,50 @@ int main (int argc, char *argv[]) {
     line_mean->SetLineWidth(3);
 
     // Loop for input files    
-    for (auto filename : all_matched_files) {
+    for ( auto filename : all_matched_files ) {
 
       B2Reader reader(target_directory_path + filename);
-
+      
       TH1D *hist_enedep_iron  = new TH1D("hist_enedep_iron",
 					 "Energy Deposit Iron "  + (TString)filename + ";Energy deposit [MeV];Entries",
 					 300, 0., 3.);
       TH1D *hist_enedep_water = new TH1D("hist_enedep_water",
 					 "Energy Deposit Water " + (TString)filename + ";Energy deposit [MeV];Entries",
 					 300, 0., 3.);
-
+      
       beta = 0;
       int nbeta = 0;
 
-      while (reader.ReadNextSpill() > 0) {
+      while ( reader.ReadNextSpill() > 0 ) {
 
 	auto &spill_summary = reader.GetSpillSummary();
 
 	// Get emulsion tracks
-	std::vector<const B2EmulsionSummary*> emulsions;
+	std::vector<const B2EmulsionSummary* > emulsions;
 	auto it_emulsion = spill_summary.BeginEmulsion();
-	while (const auto *emulsion = it_emulsion.Next()) {
-	  if (emulsion->GetParentTrackId() == 0) continue;
-	  if (emulsion->GetParentTrack().GetParticlePdg() != 13) continue;
-	  if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue;
-	  if (emulsion->GetEcc() != 4) continue;
-	  if (emulsion->GetPlate() < 128) continue;
+	while ( const auto *emulsion = it_emulsion.Next() ) {
+	  if ( emulsion->GetParentTrackId() == 0 ) continue;
+	  if ( emulsion->GetParentTrack().GetParticlePdg() != PDG_t::kMuonMinus) continue;
+	  if ( emulsion->GetFilmType() != B2EmulsionType::kECC ) continue;
+	  if ( emulsion->GetEcc() != 4 ) continue;
+	  if ( emulsion->GetPlate() < 128 ) continue;
 	  emulsions.push_back(emulsion);
 	}
 
-	if (emulsions.size() < 3) continue;
+	if ( emulsions.size() < 3 ) continue;
 	
-	std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
+	std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
 
-	for (Int_t iemulsion = 0; iemulsion < emulsions.size(); iemulsion++) {
+	for ( Int_t iemulsion = 0; iemulsion < emulsions.size(); iemulsion++ ) {
 
 	  const auto emulsion = emulsions.at(iemulsion);
 	  // Use only energy deposit inside the tracking unit
-	  if (emulsion == emulsions.back()) continue;
+	  if ( emulsion == emulsions.back() ) continue;
 	  
 	  Double_t momentum_first = emulsion->GetMomentum().GetValue().Mag();
-	  Double_t energy_first = std::hypot(momentum_first, muon_mass);
+	  Double_t energy_first = std::hypot(momentum_first, MCS_MUON_MASS);
 	  Double_t momentum_next = emulsions.at(iemulsion+1)->GetMomentum().GetValue().Mag();
-	  Double_t energy_next = std::hypot(momentum_next, muon_mass);
+	  Double_t energy_next = std::hypot(momentum_next, MCS_MUON_MASS);
 	  beta += momentum_first / energy_first;
 	  nbeta++;
 	  
@@ -188,14 +188,11 @@ int main (int argc, char *argv[]) {
 
       f_landau->SetParameter(1, 0.5);
       hist_enedep_iron->Fit(f_landau);
-      //f_landau->Draw("SAME");
       gPad->Update(); // Call this function before GetUymin()/GetUymax()
       line_mean->DrawLine(iron_edep, gPad->GetUymin(),
 			  iron_edep, gPad->GetUymax());
       c->SaveAs(pdfname, "pdf");
       
-      //iron_edep_vec.push_back(f_landau->GetParameter(1));
-      //iron_edep_err_vec.push_back(f_landau->GetParError(1));
       iron_edep_vec.push_back(iron_edep);
       iron_edep_err_vec.push_back(iron_edep_err);
 
@@ -206,14 +203,11 @@ int main (int argc, char *argv[]) {
 
       f_landau->SetParameter(1, 0.5);
       hist_enedep_water->Fit(f_landau);
-      //f_landau->Draw("SAME");
       gPad->Update();
       line_mean->DrawLine(water_edep, gPad->GetUymin(),
 			  water_edep, gPad->GetUymax());
       c->SaveAs(pdfname, "pdf");
 
-      //water_edep_vec.push_back(f_landau->GetParameter(1));
-      //water_edep_err_vec.push_back(f_landau->GetParError(1));
       water_edep_vec.push_back(water_edep);
       water_edep_err_vec.push_back(water_edep_err);
 
@@ -251,7 +245,6 @@ int main (int argc, char *argv[]) {
     f_bethe_bloch->SetParameter(0, 6.e-2);
     f_bethe_bloch->SetParameter(1, 8.);
     ge_iron->Fit(f_bethe_bloch, "", "", 0.6, 0.9);
-    //ge_iron->Fit(f_bethe_bloch, "", "");
     f_bethe_bloch->Draw("SAME");
     for (Int_t i = 0; i < 2; i++)
       iron_param.push_back(f_bethe_bloch->GetParameter(i));
@@ -261,7 +254,6 @@ int main (int argc, char *argv[]) {
     ge_water->Draw("AP");
     c->SaveAs(pdfname, "pdf");
     ge_water->Fit(f_bethe_bloch, "", "", 0.6, 0.9);
-    //ge_water->Fit(f_bethe_bloch, "", "");
     f_bethe_bloch->Draw("SAME");
     for (Int_t i = 0; i < 2; i++)
       water_param.push_back(f_bethe_bloch->GetParameter(i));

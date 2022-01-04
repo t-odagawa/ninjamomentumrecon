@@ -2,16 +2,11 @@
 #include <iomanip>
 #include <fstream>
 
-class SimpleMCBaseTrackCollection{
-public:
-  int particle_id, plate_id, ecc_id;
-  double energy_deposit_1, energy_deposit_2, ax, ay, x, y, z;
-  int track_id, event_id, file_id;
-  double weight;
-};
+#include "McsClass.hpp"
 
 int main (int argc, char* argv[]) {
-  std::ifstream ifs(argv[0]);
+
+  std::ifstream ifs(argv[0], std::ios::binary);
   SimpleMCBaseTrackCollection smbtc;
   while (ifs.read((char*)& smbtc, sizeof(SimpleMCBaseTrackCollection))) {
 

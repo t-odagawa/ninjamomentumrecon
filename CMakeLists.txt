@@ -65,19 +65,13 @@ set(CMAKE_INSTALL_INCDIR ${CMAKE_INSTALL_PREFIX}/include/ninja/momrecon)
 # where to look first for cmake modules
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
-if (${TEXT_MODE})
-   add_definitions(-DTEXT_MODE=ON)
-endif()
-
-if (${COORDINATE_METHOD})
-   add_definitions(-DCOORDINATE_METHOD=ON)
-endif()
-
 # ROOT
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
-find_package(ROOT 6.18 CONFIG REQUIRED)
+set(ROOT_REQUIRED_COMPONENTS Minuit)
+find_package(ROOT 6.18 CONFIG REQUIRED ${ROOT_REQUIRED_COMPONENTS})
 include(${ROOT_USE_FILE})
 message(STATUS "Found ROOT: ${ROOT_INCLUDE_DIRS}")
+message("-- Required ROOT components are: ${ROOT_REQUIRED_COMPONENTS}")
 
 # Geant4
 # for a nice description of how to include Geant4 in a CMake project
@@ -116,6 +110,9 @@ if (NTBM_FOUND)
 endif ()
 
 ################ Libraries ################
+
+set(MCS_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
+include_directories("${MCS_LIB_PATH}")
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(NINJA_MOMRECON_LIBRARIES "")
@@ -169,9 +166,10 @@ set(CMAKE_INSTALL_PPATH "${CMAKE_INSTALL_LIBDIR}")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(NINJA_MOMRECON_LIBRARIES ${ROOT_LIBRARIES} ${Boost_LIBRARIES} ${B2MC_LIBRARY} ${NTBM_LIBRARY})
 
+
 ################ Sub Directories ################
 
-add_subdirectory(src)
+add_subdirectory(lib)
 add_subdirectory(src/EnergyDeposit)
 add_subdirectory(src/RangeMethod)
 add_subdirectory(src/FileConvert)

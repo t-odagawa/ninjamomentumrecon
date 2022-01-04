@@ -26,19 +26,12 @@
 #include <algorithm>
 
 // my include
-#include "/home/t2k/odagawa/NinjaMomentumRecon/src/McsCommon.cpp"
-
+#include "McsConst.hpp"
+#include "McsClass.hpp"
+#include "McsFunction.hpp"
 
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
-
-class SimpleMCBaseTrackCollection{
-public:
-  int particle_id, plate_id, ecc_id;
-  double energy_deposit_1, energy_deposit_2, ax, ay, x, y, z;
-  int track_id, event_id, file_id;
-  double weight;
-};
 
 int main (int argc, char *argv[]) {
 
@@ -48,7 +41,7 @@ int main (int argc, char *argv[]) {
      logging::trivial::severity >= logging::trivial::debug
      );
 
-  if (argc != 2) {
+  if ( argc != 2 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
 			     << " <output file name>";
     std::exit(1);
@@ -83,7 +76,7 @@ int main (int argc, char *argv[]) {
     
     int fileid = -1;
     
-    for (auto filename : all_matched_files) {
+    for ( auto filename : all_matched_files ) {
       
       fileid++;
 
@@ -92,7 +85,7 @@ int main (int argc, char *argv[]) {
       
       int eventid = -1;
       
-      while (reader.ReadNextSpill() > 0) {
+      while ( reader.ReadNextSpill() > 0 ) {
 
 	eventid++;
 
@@ -104,22 +97,22 @@ int main (int argc, char *argv[]) {
 	double total_cross_section = event->GetTotalCrossSection() * std::pow(10, -38);
 	
 	
-	std::vector<const B2EmulsionSummary*> emulsions;
+	std::vector<const B2EmulsionSummary* > emulsions;
 	auto it_emulsion = spill_summary.BeginEmulsion();
-	while (const auto *emulsion = it_emulsion.Next()) {
-	  if (emulsion->GetParentTrackId() == 0) continue;
-	  if (emulsion->GetParentTrack().GetParticlePdg() == 13) continue;
-	  if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue;
+	while ( const auto *emulsion = it_emulsion.Next() ) {
+	  if ( emulsion->GetParentTrackId() == 0 ) continue;
+	  if ( emulsion->GetParentTrack().GetParticlePdg() == PDG_t::kMuonMinus ) continue;
+	  if ( emulsion->GetFilmType() != B2EmulsionType::kECC ) continue;
 	  emulsions.push_back(emulsion);
 	}
+
+	if ( emulsions.empty() ) continue;
 	
-	if (emulsions.size() <= 0) continue;
-	
-	std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
+	std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
 	
 	int number_of_tracks = 0;
 	
-	for (const auto emulsion : emulsions) {
+	for ( const auto emulsion : emulsions ) {
 	  smbtc.particle_id = emulsion->GetParentTrack().GetParticlePdg();
 	  smbtc.plate_id = emulsion->GetPlate() + 1;
 	  smbtc.ecc_id = emulsion->GetEcc() + 1;
@@ -136,7 +129,7 @@ int main (int argc, char *argv[]) {
 	  smbtc.weight = normalization * total_cross_section * 6.02 * std::pow(10, 23) * 58.;
 	  ofs.write((char*)& smbtc, sizeof(SimpleMCBaseTrackCollection));
 	}       
-		
+	
       }
             
     }      

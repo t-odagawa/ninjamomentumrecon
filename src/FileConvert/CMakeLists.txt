@@ -1,6 +1,5 @@
 add_executable(FileConvert
 	FileConvert.cpp
-	FileConvert.hpp
         )
 
 add_executable(FileReConvert
@@ -31,22 +30,22 @@ target_include_directories(DailySeparateMomChain PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_include_directories(DailyMergeMomChain PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(FileConvert
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 target_link_libraries(FileReConvert
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 target_link_libraries(FileConvertNonTime
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 target_link_libraries(FileReConvertNonTime
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 target_link_libraries(DailySeparateMomChain
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 target_link_libraries(DailyMergeMomChain
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 install(TARGETS FileConvert DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(TARGETS FileReConvert DESTINATION "${CMAKE_INSTALL_BINDIR}")

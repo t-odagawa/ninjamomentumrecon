@@ -4,3 +4,5 @@ build/
 
 testfile/
 submit/
+
+nohup.out

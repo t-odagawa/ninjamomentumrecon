@@ -18,52 +18,11 @@
 #include <algorithm>
 
 // my include
-#include "FileConvert.hpp"
+#include "McsConst.hpp"
+#include "McsClass.hpp"
+#include "McsFunction.hpp"
 
 namespace logging = boost::log;
-
-bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
-  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
-  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
-  return true;
-}
-
-void WriteMomChainHeader(std::ofstream &ofs, Momentum_recon::Mom_chain &mom_chain) {
-
-  int num_base = mom_chain.base.size();
-  int num_link = mom_chain.base_pair.size();
-
-  ofs.write((char*)& mom_chain.groupid, sizeof(int));
-  ofs.write((char*)& mom_chain.chainid, sizeof(int));
-  ofs.write((char*)& mom_chain.unixtime, sizeof(int));
-  ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
-  ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
-  ofs.write((char*)& mom_chain.stop_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.particle_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.ecc_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.ecc_mcs_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_curvature_mom, sizeof(double));
-  ofs.write((char*)& num_base, sizeof(int));
-  ofs.write((char*)& num_link, sizeof(int));
-}
-
-double ConvertPbetaToMomentum(double pbeta, double mass) {
-  double energy = 0.5 * (pbeta + std::hypot(pbeta, 2. * mass));
-  return std::sqrt(energy * energy - mass * mass);
-}
-
 
 int main (int argc, char* argv[]) {
 
@@ -101,7 +60,7 @@ int main (int argc, char* argv[]) {
 
     int num_base, num_link;
     int num_entry = 0;
-    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {     
+    while ( Momentum_recon::ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {     
       mom_chain.base.clear();
       mom_chain.base_pair.clear();
       mom_chain.base.reserve(num_base);
@@ -119,9 +78,9 @@ int main (int argc, char* argv[]) {
       pbeta_recon_tree->GetEntry(num_entry);
       BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in momch : " << mom_chain.entry_in_daily_file
 			       << "\nEntry in daily file in root : " << entry_in_daily_file;
-      mom_chain.ecc_mcs_mom = ConvertPbetaToMomentum(recon_pbeta, 105.);
+      mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
 
-      WriteMomChainHeader(ofs, mom_chain);
+      Momentum_recon::WriteMomChainHeader(ofs, mom_chain);
       for ( int ibase = 0; ibase < num_base; ibase++ ) {
 	ofs.write((char*)& mom_chain.base.at(ibase), sizeof(Momentum_recon::Mom_basetrack));
       }

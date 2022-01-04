@@ -13,89 +13,12 @@
 #include <algorithm>
 
 // my include
-#include "FileConvert.hpp"
+#include "McsClass.hpp"
 
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
 
-bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
-  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
-  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
-  return true;
-}
-
-void WriteMomChainHeader(std::ofstream &ofs, Momentum_recon::Mom_chain &mom_chain) {
-
-  int num_base = mom_chain.base.size();
-  int num_link = mom_chain.base_pair.size();
-
-  ofs.write((char*)& mom_chain.groupid, sizeof(int));
-  ofs.write((char*)& mom_chain.chainid, sizeof(int));
-  ofs.write((char*)& mom_chain.unixtime, sizeof(int));
-  ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
-  ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
-  ofs.write((char*)& mom_chain.stop_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.particle_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.ecc_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.ecc_mcs_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_curvature_mom, sizeof(double));
-  ofs.write((char*)& num_base, sizeof(int));
-  ofs.write((char*)& num_link, sizeof(int));
-}
-
-bool CompareFileName(const fs::path &lhs, const fs::path &rhs) {
-  std::string prefix = "muon_time_ecc5.momch.";
-  // hard coding...
-  std::string l_filename = lhs.generic_string();
-  int l_year = std::atoi(l_filename.substr(prefix.length(), 4).c_str());
-  int l_month; 
-  int l_month_length;
-  if ( l_filename.substr(prefix.length()+4+1, 2).find("_") == std::string::npos )
-    l_month_length = 2;
-  else
-    l_month_length = 1;
-  l_month = std::atoi(l_filename.substr(prefix.length()+4+1, l_month_length).c_str());
-  int l_day;
-  int l_day_length;
-  if ( l_filename.substr(prefix.length()+4+1+l_month_length+1, 2).find("_") == std::string::npos )
-    l_day_length = 2;
-  else
-    l_day_length = 1;
-  l_day = std::atoi(l_filename.substr(prefix.length()+4+1+l_month_length+1, l_day_length).c_str());
-
-  std::string r_filename = rhs.generic_string();
-  int r_year = std::atoi(r_filename.substr(prefix.length(), 4).c_str());
-  int r_month; 
-  int r_month_length;
-  if ( r_filename.substr(prefix.length()+4+1, 2).find("_") == std::string::npos )
-    r_month_length = 2;
-  else
-    r_month_length = 1;
-  r_month = std::atoi(r_filename.substr(prefix.length()+4+1, r_month_length).c_str());
-  int r_day;
-  int r_day_length;
-  if ( r_filename.substr(prefix.length()+4+1+r_month_length+1, 2).find("_") == std::string::npos )
-    r_day_length = 2;
-  else
-    r_day_length = 1;
-  r_day = std::atoi(r_filename.substr(prefix.length()+4+1+r_month_length+1, r_day_length).c_str());
-
-  if (l_year != r_year) return l_year < r_year;
-  else if (l_month != r_month) return l_month < r_month;
-  return l_day < r_day;
-}
+bool CompareFileName(const fs::path &lhs, const fs::path &rhs);
 
 int main ( int argc, char *argv[] ) {
 
@@ -143,7 +66,7 @@ int main ( int argc, char *argv[] ) {
       std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack> mom_base_pair;
       int num_base, num_link;
 
-      while ( ReadMomChainHeader(daily_momch_file, mom_chain, num_base, num_link) ) {
+      while ( Momentum_recon::ReadMomChainHeader(daily_momch_file, mom_chain, num_base, num_link) ) {
 	std::cout << mom_chain.unixtime << std::endl;
 	mom_chain.base.clear();
 	mom_chain.base_pair.clear();
@@ -159,7 +82,7 @@ int main ( int argc, char *argv[] ) {
 	  mom_chain.base_pair.push_back(mom_base_pair);
 	}
 	
-	WriteMomChainHeader(merge_momch_file, mom_chain);
+	Momentum_recon::WriteMomChainHeader(merge_momch_file, mom_chain);
 	for ( int ibase = 0; ibase < mom_chain.base.size(); ibase++ ) {
 	  merge_momch_file.write((char*)& mom_chain.base.at(ibase), sizeof(Momentum_recon::Mom_basetrack));
 	}
@@ -185,4 +108,46 @@ int main ( int argc, char *argv[] ) {
   BOOST_LOG_TRIVIAL(info) << "==========Mom chain Merge Finish==========";
   std::exit(0);
 
+}
+
+bool CompareFileName(const fs::path &lhs, const fs::path &rhs) {
+  std::string prefix = "muon_time_ecc5.momch.";
+  // hard coding...
+  std::string l_filename = lhs.generic_string();
+  int l_year = std::atoi(l_filename.substr(prefix.length(), 4).c_str());
+  int l_month; 
+  int l_month_length;
+  if ( l_filename.substr(prefix.length()+4+1, 2).find("_") == std::string::npos )
+    l_month_length = 2;
+  else
+    l_month_length = 1;
+  l_month = std::atoi(l_filename.substr(prefix.length()+4+1, l_month_length).c_str());
+  int l_day;
+  int l_day_length;
+  if ( l_filename.substr(prefix.length()+4+1+l_month_length+1, 2).find("_") == std::string::npos )
+    l_day_length = 2;
+  else
+    l_day_length = 1;
+  l_day = std::atoi(l_filename.substr(prefix.length()+4+1+l_month_length+1, l_day_length).c_str());
+
+  std::string r_filename = rhs.generic_string();
+  int r_year = std::atoi(r_filename.substr(prefix.length(), 4).c_str());
+  int r_month; 
+  int r_month_length;
+  if ( r_filename.substr(prefix.length()+4+1, 2).find("_") == std::string::npos )
+    r_month_length = 2;
+  else
+    r_month_length = 1;
+  r_month = std::atoi(r_filename.substr(prefix.length()+4+1, r_month_length).c_str());
+  int r_day;
+  int r_day_length;
+  if ( r_filename.substr(prefix.length()+4+1+r_month_length+1, 2).find("_") == std::string::npos )
+    r_day_length = 2;
+  else
+    r_day_length = 1;
+  r_day = std::atoi(r_filename.substr(prefix.length()+4+1+r_month_length+1, r_day_length).c_str());
+
+  if (l_year != r_year) return l_year < r_year;
+  else if (l_month != r_month) return l_month < r_month;
+  return l_day < r_day;
 }

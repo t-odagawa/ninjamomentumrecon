@@ -4,7 +4,7 @@ add_executable(RangeEnergyDepositCheck
 
 target_include_directories(RangeEnergyDepositCheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(RangeEnergyDepositCheck
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 install(TARGETS RangeEnergyDepositCheck DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
@@ -14,6 +14,6 @@ add_executable(TestReadOut
 
 target_include_directories(TestReadOut PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(TestReadOut
-	${ROOT_LIBRARIES}
+	Mcs
 	${NINJA_MOMRECON_LIBRARIES})
 install(TARGETS TestReadOut DESTINATION "${CMAKE_INSTALL_BINDIR}")

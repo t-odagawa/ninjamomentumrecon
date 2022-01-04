@@ -15,47 +15,9 @@
 #include <ctime>
 
 // my include
-#include "FileConvert.hpp"
+#include "McsClass.hpp"
 
 namespace logging = boost::log;
-
-bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
-  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
-  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
-  return true;
-}
-
-void WriteMomChainHeader(std::ofstream &ofs, Momentum_recon::Mom_chain &mom_chain) {
-
-  int num_base = mom_chain.base.size();
-  int num_link = mom_chain.base_pair.size();
-
-  ofs.write((char*)& mom_chain.groupid, sizeof(int));
-  ofs.write((char*)& mom_chain.chainid, sizeof(int));
-  ofs.write((char*)& mom_chain.unixtime, sizeof(int));
-  ofs.write((char*)& mom_chain.tracker_track_id, sizeof(int));
-  ofs.write((char*)& mom_chain.entry_in_daily_file, sizeof(int));
-  ofs.write((char*)& mom_chain.stop_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.particle_flag, sizeof(int));
-  ofs.write((char*)& mom_chain.ecc_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.ecc_mcs_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_range_mom, sizeof(double));
-  ofs.write((char*)& mom_chain.bm_curvature_mom, sizeof(double));
-  ofs.write((char*)& num_base, sizeof(int));
-  ofs.write((char*)& num_link, sizeof(int));
-}
-
 
 int main ( int argc, char *argv[] ) {
 
@@ -106,7 +68,7 @@ int main ( int argc, char *argv[] ) {
     int64_t num_entry = 0;
 
     int num_base, num_link;
-    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
+    while ( Momentum_recon::ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 
       if (num_entry % 100 == 0) {
 	nowpos = ifs.tellg();

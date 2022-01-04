@@ -18,54 +18,10 @@
 #include <chrono>
 
 // my include
-#include "FileConvert.hpp"
+#include "McsClass.hpp"
+#include "McsFunction.hpp"
 
 namespace logging = boost::log;
-
-void PositionAddOffset(TVector3 &absolute_position /*mm*/, int ecc_id) {
-
-  // move to each ECC
-  absolute_position.SetX(absolute_position.X()
-			 - NINJA_ECC_GAP_X * (1 - ecc_id % 3));
-  absolute_position.SetY(absolute_position.Y()
-			 - NINJA_ECC_GAP_Y * (ecc_id / 3 - 1));
-
-  // film coordinate to ECC coordinate
-  absolute_position.SetX(absolute_position.X()
-			 - 0.5 * NINJA_ECC_FILM_XY);
-  absolute_position.SetY(absolute_position.Y()
-			 + NINJA_ENV_THICK
-			 + NINJA_DESIC_THICK
-			 - 0.5 * NINJA_DESIC_HEIGHT);
-  absolute_position.SetZ(absolute_position.Z()
-			 - NINJA_BASE_LAYER_THICK
-			 - NINJA_EMULSION_LAYER_THICK
-			 - NINJA_ENV_THICK
-			 - NINJA_DESIC_THICK
-			 + 0.5 * NINJA_DESIC_DEPTH);
-
-  // ECC coordinate to global coordinate
-  absolute_position.SetX(absolute_position.X() + NINJA_POS_X + NINJA_ECC_POS_X);
-  absolute_position.SetY(absolute_position.Y() + NINJA_POS_Y + NINJA_ECC_POS_Y);
-  absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z);
-}
-
-bool ReadMomChainHeader(std::ifstream &ifs, Momentum_recon::Mom_chain &mom_chain, int &num_base, int &num_link) {
-  if (!ifs.read((char*)& mom_chain.groupid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.chainid, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.unixtime, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.tracker_track_id, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.entry_in_daily_file, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.stop_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.particle_flag, sizeof(int))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.ecc_mcs_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_range_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& mom_chain.bm_curvature_mom, sizeof(double))) return false;
-  if (!ifs.read((char*)& num_base, sizeof(int))) return false;
-  if (!ifs.read((char*)& num_link, sizeof(int))) return false;
-  return true;
-}
 
 int main (int argc, char *argv[]) {
 
@@ -128,7 +84,7 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
 
-    while ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
+    while ( Momentum_recon::ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 
       // auto start = std::chrono::system_clock::now();
 
@@ -265,12 +221,12 @@ int main (int argc, char *argv[]) {
 	emulsion_summary.SetEcc(ecc_id);
 	emulsion_summary.SetPlate(plate_vec.at(ibase));
       }
-      
-      // auto time5 = std::chrono::system_clock::now();
 
-      writer.Fill();
+      writer.Fill(); 
+
+      // auto time5 = std::chrono::system_clock::now();     
       num_entry++;
-      //if (num_entry > 10000) break;
+      // if (num_entry > 10000) break;
 
       /*
       std::cout << "Binary read" << std::endl;
@@ -287,7 +243,7 @@ int main (int argc, char *argv[]) {
     }
 
     auto size1 = eofpos - begpos;
-    //std::cerr << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%" << std::endl;
+    std::cerr << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%" << std::endl;
 
     BOOST_LOG_TRIVIAL(debug) << "Total number of entries : " << num_entry;
 
