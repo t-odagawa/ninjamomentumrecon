@@ -179,11 +179,13 @@ int main (int argc, char *argv[]) {
 	tangent_in_down_coordinate.SetZ(1.);
 	auto find_itr = std::find(rawid_vec.begin(), rawid_vec.end(),
 				  mom_chain.base_pair.at(ilink).second.rawid);
-	int index = find_itr - rawid_vec.begin();
-	film_position_vec.at(index) = film_position;
-	film_position_in_down_coordinate_vec.at(index) = film_position_in_down_coordinate;
-	tangent_vec.at(index) = tangent;
-	tangent_in_down_coordinate_vec.at(index) = tangent_in_down_coordinate;
+	if ( find_itr != rawid_vec.end() ) {
+	  int index = std::distance(rawid_vec.begin(), find_itr);
+	  film_position_vec.at(index - 1) = film_position;
+	  film_position_in_down_coordinate_vec.at(index) = film_position_in_down_coordinate;
+	  tangent_vec.at(index - 1) = tangent;
+	  tangent_in_down_coordinate_vec.at(index) = tangent_in_down_coordinate;
+	}
       }
       
       // auto time3 = std::chrono::system_clock::now();
@@ -220,13 +222,14 @@ int main (int argc, char *argv[]) {
 	emulsion_summary.SetFilmType(B2EmulsionType::kECC);
 	emulsion_summary.SetEcc(ecc_id);
 	emulsion_summary.SetPlate(plate_vec.at(ibase));
+
       }
 
       writer.Fill(); 
 
       // auto time5 = std::chrono::system_clock::now();     
       num_entry++;
-      // if (num_entry > 10000) break;
+      // if (num_entry > 10) break;
 
       /*
       std::cout << "Binary read" << std::endl;

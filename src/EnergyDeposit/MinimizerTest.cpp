@@ -93,7 +93,7 @@ int main (int argc, char *argv[]) {
 
     // Start pbeta reconstruction process
     while ( reader.ReadNextSpill() > 0 ) {
-      // if (reader.GetEntryNumber() != 9) continue;
+      // if ( reader.GetEntryNumber() > 10 ) break;
       auto &spill_summary = reader.GetSpillSummary();
 
       // Get emulsion tracks
@@ -314,6 +314,7 @@ int main (int argc, char *argv[]) {
       otree->Fill();
       ax.clear(); ay.clear();
       vph.clear(); pixel_count.clear();
+
     }
     
     ofile->cd();

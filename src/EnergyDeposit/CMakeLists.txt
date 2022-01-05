@@ -45,3 +45,15 @@ target_link_libraries(DeltaThetaLatCheck
 )
 
 install(TARGETS DeltaThetaLatCheck DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+add_executable(MinimizerTestMomch
+	MinimizerTestMomch.cpp
+)
+
+target_include_directories(MinimizerTestMomch PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(MinimizerTestMomch
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES}
+)
+
+install(TARGETS MinimizerTestMomch DESTINATION "${CMAKE_INSTALL_BINDIR}")
