@@ -91,8 +91,8 @@ Double_t CalcRadLength(Int_t skip, Double_t dz);
 bool EmulsionCompare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs);
 
 ///> Smearing functions
-TVector3 SmearDistanceVector(TVector3 &distance, Int_t material);
-TVector3 SmearTangentVector(TVector3 &tangent);
+void SmearDistanceVector(TVector3 &distance, Int_t material);
+void SmearTangentVector(TVector3 &tangent);
 
 ///> Tangent accuracies
 Double_t RadialTangentAccuracy(Double_t tangent);

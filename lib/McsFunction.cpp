@@ -530,9 +530,9 @@ bool EmulsionCompare(const B2EmulsionSummary *lhs, const B2EmulsionSummary *rhs)
     return lhs->GetPlate() > rhs->GetPlate();
 }
 
-TVector3 SmearDistanceVector(TVector3 &distance, Int_t material) {
+void SmearDistanceVector(TVector3 &distance, Int_t material) {
 
-  if ( distance.Mag() < 1e-10 ) return distance;
+  if ( distance.Mag() < 1e-10 ) return;
 
   Double_t delta_x = gRandom->Gaus(0., XY_ALIGN_ACCURACY[material]);
   Double_t delta_y = gRandom->Gaus(0., XY_ALIGN_ACCURACY[material]);
@@ -542,11 +542,9 @@ TVector3 SmearDistanceVector(TVector3 &distance, Int_t material) {
   distance.SetY(distance.Y() + delta_y);
   distance.SetZ(distance.Z() + delta_z);
 
-  return distance;
-
 }
 
-TVector3 SmearTangentVector(TVector3 &tangent) {
+void SmearTangentVector(TVector3 &tangent) {
 
   Double_t delta_ay, delta_ax;
 
@@ -573,8 +571,6 @@ TVector3 SmearTangentVector(TVector3 &tangent) {
   tangent.SetX(tangent.X() + delta_ax);
   tangent.SetY(tangent.Y() + delta_ay);
   
-  return tangent;
-
 }
 
 
