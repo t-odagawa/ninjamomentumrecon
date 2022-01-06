@@ -212,6 +212,7 @@ int main (int argc, char *argv[]) {
 	    emulsion_summary.SetEmulsionTrackId((UInt_t)rawid_vec.at(ibase));
 	    emulsion_summary.SetParentTrackId(single_mom_chain.groupid * 10 + single_mom_chain.chainid);
 	    emulsion_summary.SetAbsolutePosition(absolute_position_vec.at(ibase));
+	    emulsion_summary.SetFilmPosition(film_position_vec.at(ibase));
 	    emulsion_summary.SetTangent(tangent_vec.at(ibase));
 	    emulsion_summary.SetFilmPositionInDownCoordinate(film_position_in_down_coordinate_vec.at(ibase));
 	    emulsion_summary.SetTangentInDownCoordinate(tangent_in_down_coordinate_vec.at(ibase));
