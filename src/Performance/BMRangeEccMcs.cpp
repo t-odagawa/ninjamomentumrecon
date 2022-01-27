@@ -16,6 +16,8 @@
 
 // my includes
 #include <NTBMSummary.hh>
+#include "McsConst.hpp"
+#include "McsFunction.hpp"
 
 namespace logging = boost::log;
 
@@ -23,8 +25,8 @@ int main (int argc, char* argv[]) {
 
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::info
-     // logging::trivial::severity >= logging::trivial::debug
+     //logging::trivial::severity >= logging::trivial::info
+      logging::trivial::severity >= logging::trivial::debug
      );
 
   BOOST_LOG_TRIVIAL(info) << "==========Range vs. MCS Check Start==========";
@@ -84,24 +86,25 @@ int main (int argc, char* argv[]) {
     otree->Branch("range_pbeta", &range_pbeta, "range_pbeta/D");
     otree->Branch("range_momentum", &range_momentum, "range_momentum/D");
 
-
     for ( Int_t imcsentry = 0; imcsentry < mcstree->GetEntries(); imcsentry++ ) {
       mcstree->GetEntry(imcsentry);
       ntbmtree->GetEntry(entry_in_daily_file - 1);
-      if (ntbm->GetEntryInDailyFile() != entry_in_daily_file)
+      BOOST_LOG_TRIVIAL(debug) << "Target entry in daily file : " << entry_in_daily_file;
+      if ( ntbm->GetEntryInDailyFile() != entry_in_daily_file ) {
 	BOOST_LOG_TRIVIAL(debug) << "Entry in daily file is not the same!";
+	BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in MCS file : " << entry_in_daily_file;
+	BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in NTBM file : " << ntbm->GetEntryInDailyFile();
+      }
 
       mcs_pbeta = recon_pbeta;
-      Double_t mass = 105.658;
-      Double_t mcs_energy = 0.5 * (mcs_pbeta + TMath::Hypot(mcs_pbeta, 2. * mass));
-      mcs_momentum = TMath::Sqrt(mcs_energy * mcs_energy - mass * mass);
+      mcs_momentum = CalculateMomentumFromPBeta(mcs_pbeta, MCS_MUON_MASS);
 
       best_log_likelihood = log_likelihood[0][0];
 
+      if ( ntbm->GetNumberOfTracks() == 0 ) continue;
       if ( ntbm->GetMomentumType(muon_track_id) != 0 ) continue;
       range_momentum = ntbm->GetMomentum(muon_track_id);
-      Double_t range_energy = TMath::Hypot(range_momentum, mass);
-      range_pbeta = range_momentum * range_momentum / range_energy;
+      range_pbeta = CalculatePBetaFromMomentum(range_momentum, MCS_MUON_MASS);
 
       otree->Fill();
 

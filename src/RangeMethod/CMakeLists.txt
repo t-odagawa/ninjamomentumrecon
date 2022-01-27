@@ -8,6 +8,17 @@ target_link_libraries(RangeEnergyDepositCheck
 	${NINJA_MOMRECON_LIBRARIES})
 install(TARGETS RangeEnergyDepositCheck DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
+add_executable(RangeMethod
+	RangeMethod.cpp
+	)
+
+target_include_directories(RangeMethod PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(RangeMethod
+	Mcs
+	Range
+	${NINJA_MOMRECON_LIBRARIES})
+install(TARGETS RangeMethod DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
 add_executable(TestReadOut
 	TestReadOut.cpp
         )

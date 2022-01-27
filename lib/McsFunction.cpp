@@ -203,6 +203,13 @@ Double_t CalculateMomentumFromEnergy(Double_t energy, Double_t mass) {
 }
 
 Double_t EnergyDepositIron(Double_t beta) {
+  if ( beta > 0.8 )
+    return EnergyDepositIronPoly(beta);
+  else
+    return EnergyDepositIronBetheBloch(beta);
+}
+
+Double_t EnergyDepositIronPoly(Double_t beta) {
   Double_t enedep = 0;
   Int_t i = 0;
   for ( auto parameter : IRON_ENEDEP_FUNC_PAR ) {
@@ -212,7 +219,18 @@ Double_t EnergyDepositIron(Double_t beta) {
   return enedep;
 }
 
+Double_t EnergyDepositIronBetheBloch(Double_t beta) {
+  return IRON_BB_FUNC_PAR.at(0) * ( (TMath::Log(beta * beta / (1 - beta * beta)) + IRON_BB_FUNC_PAR.at(1)) / beta / beta - 1 );
+}
+
 Double_t EnergyDepositWater(Double_t beta) {
+  if ( beta > 0.8 ) 
+    return EnergyDepositWaterPoly(beta);
+  else
+    return EnergyDepositWaterBetheBloch(beta);
+}
+
+Double_t EnergyDepositWaterPoly(Double_t beta) {
   Double_t enedep = 0;
   Int_t i = 0;
   for ( auto parameter : WATER_ENEDEP_FUNC_PAR ) {
@@ -220,6 +238,10 @@ Double_t EnergyDepositWater(Double_t beta) {
     i++;
   }
   return enedep;
+}
+
+Double_t EnergyDepositWaterBetheBloch(Double_t beta) {
+  return WATER_BB_FUNC_PAR.at(0) * ( (TMath::Log(beta * beta / (1 - beta * beta)) + WATER_BB_FUNC_PAR.at(1)) / beta / beta - 1 );
 }
 
 Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
@@ -575,8 +597,13 @@ void SmearTangentVector(TVector3 &tangent) {
 
 
 Double_t RadialTangentAccuracy(Double_t tangent) {
-  return std::sqrt(2) / 210.e-3 * std::sqrt(XY_POSITION_ACCURACY * XY_POSITION_ACCURACY
-					    + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY);
+
+  if ( tangent < 2.5 ) {
+    return std::sqrt(2) * std::sqrt(XY_POSITION_ACCURACY * XY_POSITION_ACCURACY
+				     + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY)/ 210.e-3;
+  } else {
+    return 1.64e-2 * (tangent - 2.5) + 2.37e-2;
+  }
 
 }
 

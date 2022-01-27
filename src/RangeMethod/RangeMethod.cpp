@@ -6,8 +6,12 @@
 // B2 includes
 #include <B2Reader.hh>
 #include <B2SpillSummary.hh>
+#include <B2EventSummary.hh>
+#include <B2VertexSummary.hh>
 #include <B2TrackSummary.hh>
 #include <B2EmulsionSummary.hh>
+#include <B2Enum.hh>
+#include <B2Pdg.hh>
 
 // ROOT includes
 #include <TStyle.h>
@@ -16,14 +20,14 @@
 #include <TH2D.h>
 #include <TF1.h>
 
-// my include
-#include "/home/t2k/odagawa/NinjaMomentumRecon/src/McsCommon.cpp"
+#include "McsFunction.hpp"
+#include "RangeFunction.hpp"
 
 namespace logging = boost::log;
 
 int main (int argc, char *argv[]) {
 
-  logging::core:get()->set_filter
+  logging::core::get()->set_filter
     (
      logging::trivial::severity >= logging::trivial::info
      // logging::trivial::severity >= logging::trivial::debug
@@ -31,9 +35,9 @@ int main (int argc, char *argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "==========Range Plate Function Start==========";
 
-  if (argc != 3) {
+  if (argc != 5) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input B2 file name> <output root file name>";
+			     << " <input B2 file name> <output root file name> <data type MC(0)/Data(1)> <ECC ID (0-8)>";
     std::exit(1);
   }
 
@@ -45,60 +49,118 @@ int main (int argc, char *argv[]) {
     B2Reader reader(argv[1]);
 
     TString ofilename = argv[2];
-    TFile *ofile = new TFile()
+    TFile *ofile = new TFile(ofilename, "recreate");
+    TTree *otree = new TTree("tree", "tree");
+    Int_t entry_in_daily_file;
+    Double_t weight;
+    Int_t true_particle_id;
+    Int_t npl;
+    Double_t true_momentum;
+    Double_t recon_momentum;
+    std::vector<Int_t > pl;
+    std::vector<Double_t > ax, ay;
+    std::vector<Double_t > energy_deposit, vph, pixel_count;
+    otree->Branch("entry_in_daily_file", &entry_in_daily_file, "entry_in_daily_file/I");
+    otree->Branch("weight", &weight, "weight/D");
+    otree->Branch("true_particle_id", &true_particle_id, "true_particle_id/I");
+    otree->Branch("npl", &npl, "npl/I");
+    otree->Branch("true_momentum", &true_momentum, "true_momentum/D");
+    otree->Branch("recon_momentum", &recon_momentum, "recon_momentum/D");
+    otree->Branch("pl", &pl);
+    otree->Branch("ax", &ax);
+    otree->Branch("ay", &ay);
+    otree->Branch("energy_deposit", &energy_deposit);
+    otree->Branch("vph", &vph);
+    otree->Branch("pixel_count", &pixel_count);
+
+    Int_t datatype = std::atoi(argv[3]);
+    Int_t ecc_id = std::atoi(argv[4]);
 
     while (reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
 
+      // muon id
+      
+
       std::vector<const B2EmulsionSummary*> emulsions;
       auto it_emulsion = spill_summary.BeginEmulsion();
-      while (const auto *emulsion = it_emulsion.Next()) {
-	if (emulsion->GetParentTrackid() == 0) continue;
-	if (emulsion->GetParentTrack().GetParticlePdg() != 2212) continue;
-	if (emulsion->GetFilmType() != B2EmulsionType::kECC) continue;
+      while ( const auto *emulsion = it_emulsion.Next() ) {
+	if ( datatype == B2DataType::kMonteCarlo &&
+	     emulsion->GetParentTrackId() == 0 ) continue; // track id should be assigned when MC
+	if ( emulsion->GetFilmType() != B2EmulsionType::kECC ) continue;
+	if ( emulsion->GetEcc() != ecc_id ) continue;
 	emulsions.push_back(emulsion);
       }
 
-      if (emulsions.size() <= 0) continue;
+      if ( emulsions.empty() ) continue;
 
-      std::sort(emulsions.begin(), emulsions.end(), emulsion_compare);
+      entry_in_daily_file = reader.GetEntryNumber();
 
-      int number_of_tracks = 0;
-      std::vector<const B2EmulsionSummary*> emulsions_one_track;
+      std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
 
-      int track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
-      int ecc_tmp_ = emulsions.at(0)->GetEcc();
+      auto it_event = spill_summary.BeginTrueEvent();
+      const auto *event = it_event.Next();
+      double norm = event->GetNormalization();
+      auto &primary_vertex_summary = event->GetPrimaryVertex();
+      double total_cross_section = primary_vertex_summary.GetTotalCrossSection();
+      weight = norm * total_cross_section * 1.e-38 * 6.02e23;
 
-      for (const auto &emulsion : emulsions) {
+      // Separate emulsions into chains
+      std::vector<std::vector<const B2EmulsionSummary* > > emulsion_single_chains;
+      Int_t track_id_tmp_ = emulsions.at(0)->GetParentTrackId();
+      std::vector<const B2EmulsionSummary* > emulsion_single_chain;
+      for ( Int_t iemulsion = 0; iemulsion < emulsions.size(); iemulsion++ ) {
+	if ( emulsions.at(iemulsion)->GetParentTrackId() == track_id_tmp_ ) {
+	  emulsion_single_chain.push_back(emulsions.at(iemulsion));
+	} else {
+	  emulsion_single_chains.push_back(emulsion_single_chain);
+	  emulsion_single_chain.clear();
+	  track_id_tmp_ = emulsions.at(iemulsion)->GetParentTrackId();
+	  emulsion_single_chain.push_back(emulsions.at(iemulsion));
+	}
+      }
+      emulsion_single_chains.push_back(emulsion_single_chain);
 
-	int track_id_ = emulsion->GetParentTrackId();
-	int ecc_ = emulsion->GetEcc();
-
-	if (track_id_ != track_id_tmp_ || ecc != ecc_tmp_ || emulsion == emulsions.back()) {
-	  // All base tracks consisting of the same particle's track
-	  if (emulsion == emulsions.back()) emulsions_one_track.push_back(emulsion);
-	  number_of_tracks++;
-
-	  int vertex_plate = emulsions_one_track.at(0)->GetPlate();
-	  const auto *primary_particle = emulsions_one_track.at(0)->GetParentTrack();
-	  Int_t particle_pdg = primary_particle->GetParticlePdg();
-	  Double_t particle_initial_momentum = primary_particle->GetInitialAbsoluteMomentum();
-
-	  for (int iemulsion_up = 0; iemulsion_up < emulsions_one_track.size() - 1; iemulsion_up++) {
-	    const auto emulsion_up = emulsions_one_track.at(iemulsion_up);
-	    TVector3 tangent_up = emulsion_up->GetTangent().GetValue();
-
-	    const auto emulsion_down = emulsions_one_track.at(iemulsion_up + 1);
-	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
-
-	  }
-
+      // loop for each chain
+      for ( auto chain : emulsion_single_chains ) {
+	npl = chain.size();
+	
+	// Get true information
+	if ( datatype == B2DataType::kMonteCarlo ) {
+	  Int_t particle_pdg_ = chain.at(0)->GetParentTrack().GetParticlePdg();
+	  true_particle_id = particle_pdg_;
+	  Int_t momentum_ = chain.at(0)->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
+	  if ( B2Pdg::IsMuonPlusOrMinus(particle_pdg_) )
+	    true_momentum = momentum_;
+	  else if ( B2Pdg::IsChargedPion(particle_pdg_) )
+	    true_momentum = momentum_;
+	  else if ( particle_pdg_ == PDG_t::kProton )
+	    true_momentum = momentum_;
+	  else
+	    BOOST_LOG_TRIVIAL(warning) << "Particle is not in interest";
 	}
 
+	for ( const auto emulsion : chain ) {
+	  pl.push_back(emulsion->GetPlate() + 1);
+	  ax.push_back(emulsion->GetTangent().GetValue().X());
+	  ay.push_back(emulsion->GetTangent().GetValue().Y());
+	  energy_deposit.push_back(emulsion->GetEdepSum());
+	  vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
+	  pixel_count.push_back(emulsion->GetPixelCountUp() + emulsion->GetPixelCountDown());
+	}
+
+	recon_momentum = CalculateMomentumFromRange(ax, ay, pl);
+	otree->Fill();
+	pl.clear();
+	ax.clear(); ay.clear();
+	vph.clear(); pixel_count.clear();
       }
 
 
     }
+
+    otree->Write();
+    ofile->Close();
 
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

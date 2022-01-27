@@ -59,6 +59,7 @@ endif ()
 set(CMAKE_INSTALL_BINDIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib/ninja/momrecon)
 set(CMAKE_INSTALL_INCDIR ${CMAKE_INSTALL_PREFIX}/include/ninja/momrecon)
+set(CMAKE_INSTALL_SHAREDIR ${CMAKE_INSTALL_PREFIX}/share/ninja/momrecon)
 
 ################ Find packages ################
 
@@ -113,6 +114,9 @@ endif ()
 
 set(MCS_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
 include_directories("${MCS_LIB_PATH}")
+
+set(RANGE_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
+include_directories("${RANGE_LIB_PATH}")
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(NINJA_MOMRECON_LIBRARIES "")

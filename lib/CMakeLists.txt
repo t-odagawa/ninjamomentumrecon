@@ -5,3 +5,22 @@ add_library(Mcs SHARED
   McsFunction.hpp
   McsFunction.cpp
 )
+
+target_include_directories(Mcs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+file(GLOB MCS_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+set_target_properties(Mcs PROPERTIES PUBLIC_HEADER "${MCS_LIB_INCLUDES}")
+
+install(TARGETS Mcs
+	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")
+
+add_library(Range SHARED
+  RangeFunction.hpp
+  RangeFunction.cpp
+)
+
+target_include_directories(Range PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+file(GLOB RANGE_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+set_target_properties(Range PROPERTIES PUBLIC_HEADER "${RANGE_LIB_INCLUDES}")

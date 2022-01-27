@@ -77,8 +77,10 @@ const static double XY_ALIGN_ACCURACY[2] = {.3e-3, .3e-3};
 const static double Z_ALIGN_ACCURACY[2] = {6.e-3, 10.e-3};
 
 ///> Position determination accuracy in MC smearing (mm)
-const static double XY_POSITION_ACCURACY = .3e-3;
-const static double Z_POSITION_ACCURACY = 4.e-3;
+// const static double XY_POSITION_ACCURACY = .3e-3;
+const static double XY_POSITION_ACCURACY = .245e-3;
+//const static double Z_POSITION_ACCURACY = 4.e-3;
+const static double Z_POSITION_ACCURACY = 1.64e-3;
 
 ///> Scale factor for MCS correction
 const static double MCS_SCALE_FACTOR = 1.0265;
@@ -91,12 +93,20 @@ const std::array<double, 5> IRON_ENEDEP_FUNC_PAR = {  11.3616,
 						        13.7393
 };
 
+const std::array<double, 2> IRON_BB_FUNC_PAR = {6.724e-2,
+						7.899
+};
+
 ///> Energy deposit function parameters for water
 const std::array<double, 5> WATER_ENEDEP_FUNC_PAR = {  16.677,
 						        -68.1774,
 						        114.435,
 						        -88.6891,
 						         26.3072
+};
+
+const std::array<double, 2> WATER_BB_FUNC_PAR = {4.453e-2,
+						 10.53
 };
 
 #endif

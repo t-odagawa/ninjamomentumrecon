@@ -46,10 +46,14 @@ Double_t CalculateMomentumFromEnergy(Double_t energy, Double_t mass);
 
 ///> Iron energy deposition calculation
 Double_t EnergyDepositIron(Double_t beta);
+Double_t EnergyDepositIronPoly(Double_t beta);
+Double_t EnergyDepositIronBetheBloch(Double_t beta);
 std::vector<Double_t > CalculateEnergyDepositIronParameters();
 
 ///> Water energy deposition calculation
 Double_t EnergyDepositWater(Double_t beta);
+Double_t EnergyDepositWaterPoly(Double_t beta);
+Double_t EnergyDepositWaterBetheBloch(Double_t beta);
 std::vector<Double_t > CalculateEnergyDepositWaterParameters();
 
 ///> Sigma of scattering angles due to naive MCS
