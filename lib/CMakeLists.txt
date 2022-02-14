@@ -16,8 +16,10 @@ install(TARGETS Mcs
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")
 
 add_library(Range SHARED
-  RangeFunction.hpp
-  RangeFunction.cpp
+		  RangeSpline.hpp
+		  RangeSpline.cpp
+		  RangeFunction.hpp
+		  RangeFunction.cpp
 )
 
 target_include_directories(Range PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

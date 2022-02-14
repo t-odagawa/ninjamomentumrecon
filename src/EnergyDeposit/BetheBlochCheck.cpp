@@ -101,13 +101,14 @@ int main (int argc, char *argv[]) {
     Double_t iron_edep_err;
     Double_t water_edep;
     Double_t water_edep_err;
-    Double_t beta;
+    Double_t iron_beta;
+    Double_t water_beta;
     otree->Branch("iron_edep", &iron_edep, "iron_edep/D");
     otree->Branch("iron_edep_err", &iron_edep_err, "iron_edep_err/D");
     otree->Branch("water_edep", &water_edep, "water_edep/D");
     otree->Branch("water_edep_err", &water_edep_err, "water_edep_err/D");
-    otree->Branch("beta", &beta, "beta/D");
-
+    otree->Branch("iron_beta", &iron_beta, "iron_beta/D");
+    otree->Branch("water_beta", &water_beta, "water_beta/D");
 
     std::vector<Double_t > iron_param = {};
     std::vector<Double_t > water_param = {};
@@ -122,7 +123,8 @@ int main (int argc, char *argv[]) {
 
     std::vector<Double_t > iron_edep_vec, iron_edep_err_vec;
     std::vector<Double_t > water_edep_vec, water_edep_err_vec;
-    std::vector<Double_t > beta_vec, beta_err_vec;
+    std::vector<Double_t > iron_beta_vec, iron_beta_err_vec;
+    std::vector<Double_t > water_beta_vec, water_beta_err_vec;
 
     TF1 *f_landau = new TF1("f_landau", "landau");
     TLine *line_mean = new TLine();
@@ -141,8 +143,10 @@ int main (int argc, char *argv[]) {
 					 "Energy Deposit Water " + (TString)filename + ";Energy deposit [MeV];Entries",
 					 2000, 0., 20.);
       
-      beta = 0;
-      int nbeta = 0;
+      iron_beta = 0.;
+      water_beta = 0.;
+      int iron_nbeta = 0;
+      int water_nbeta = 0;
 
       while ( reader.ReadNextSpill() > 0 ) {
 
@@ -176,13 +180,22 @@ int main (int argc, char *argv[]) {
 	  Double_t momentum_next = emulsions.at(iemulsion+1)->GetMomentum().GetValue().Mag();
 	  Double_t energy_next = std::hypot(momentum_next, particle_mass);
 	  Double_t beta_next = momentum_next / energy_next;
-	  // beta += beta_first;
-	  beta += beta_next;
-	  // beta += (beta_first + beta_next) / 2.
-	  nbeta++;
 	  
-	  Double_t dz = emulsion->GetTangent().GetValue().Mag();
-	  //enedep = emulsion->GetEdepSum();
+	  // Double_t dz = emulsion->GetTangent().GetValue().Mag();
+	  Double_t dz = 1.;
+	  TVector3 distance = emulsion->GetAbsolutePosition().GetValue()
+	    - emulsions.at(iemulsion+1)->GetAbsolutePosition().GetValue();
+	  if ( emulsion->GetPlate() == 130 &&
+	       emulsions.at(iemulsion+1)->GetPlate() == 129 ) {
+	    dz = distance.Mag() / 850.e-3;
+	  }
+	  else if ( emulsion->GetPlate() == 129 &&
+		      emulsions.at(iemulsion+1)->GetPlate() == 128 ) {
+	    dz = distance.Mag() / 2.868;
+	  }
+	  else 
+	    continue;
+
 	  Double_t enedep = energy_first - energy_next;
 	  enedep /= dz;
 
@@ -190,11 +203,18 @@ int main (int argc, char *argv[]) {
 				   << "Downstream pate : " << emulsions.at(iemulsion+1)->GetPlate() << ", "
 				   << "Energy deposit : " << enedep << " MeV/unit";
 
+	  // beta += beta_first;
+	  // beta += beta_next;
+
 	  if (emulsion->GetPlate() == 130 &&
 	      emulsions.at(iemulsion+1)->GetPlate() == 129) { // Across one iron plate
+	    iron_beta += (beta_first + beta_next) / 2.;
+	    iron_nbeta++;
 	    hist_enedep_iron->Fill(enedep);
 	  } else if (emulsion->GetPlate() == 129 &&
 		     emulsions.at(iemulsion+1)->GetPlate() == 128) { // Across one water layer
+	    water_beta += (beta_first + beta_next) / 2.;
+	    water_nbeta++;
 	    hist_enedep_water->Fill(enedep);
 	  } else continue;
 	  	 
@@ -238,29 +258,29 @@ int main (int argc, char *argv[]) {
       water_edep_err_vec.push_back(water_edep_err);
 
       // Beta
-      beta /= (Double_t)nbeta;
-      beta_vec.push_back(beta);
-      beta_err_vec.push_back(0.);
+      iron_beta /= (Double_t)iron_nbeta;
+      iron_beta_vec.push_back(iron_beta);
+      iron_beta_err_vec.push_back(0.);
 
-      //if (filename == all_matched_files.at(1))
-      //break;
-
+      water_beta /= (Double_t)water_nbeta;
+      water_beta_vec.push_back(water_beta);
+      water_beta_err_vec.push_back(0.);
+      
       otree->Fill();
 
     }
 
     TF1 *f_bethe_bloch = new TF1("f_bethe_bloch", "[0] * ( (log(x*x / (1-x*x)) + [1]) / x / x - 1 )");
-    const Int_t number_of_files = beta_vec.size();
-    TGraphErrors *ge_iron = new TGraphErrors(number_of_files,
-					     &beta_vec[0], &iron_edep_vec[0],
-					     &beta_err_vec[0], &iron_edep_err_vec[0]);
+    TGraphErrors *ge_iron = new TGraphErrors(iron_beta_vec.size(),
+					     &iron_beta_vec[0], &iron_edep_vec[0],
+					     &iron_beta_err_vec[0], &iron_edep_err_vec[0]);
     ge_iron->SetTitle("Bethe Bloch function across one iron plate;#beta;Energy deposit [MeV/unit]");
-    ge_iron->GetYaxis()->SetRangeUser(0.5, 10.);
-    TGraphErrors *ge_water = new TGraphErrors(number_of_files,
-					      &beta_vec[0], &water_edep_vec[0],
-					      &beta_err_vec[0], &water_edep_err_vec[0]);
+    ge_iron->GetYaxis()->SetRangeUser(0., 10.);
+    TGraphErrors *ge_water = new TGraphErrors(water_beta_vec.size(),
+					      &water_beta_vec[0], &water_edep_vec[0],
+					      &water_beta_err_vec[0], &water_edep_err_vec[0]);
     ge_water->SetTitle("Bethe Bloch fuction across one water layer;#beta;Energy deposit [MeV/unit]");
-    ge_water->GetYaxis()->SetRangeUser(0.5, 10.);
+    ge_water->GetYaxis()->SetRangeUser(0., 10.);
 
     c->cd();
 
@@ -268,10 +288,10 @@ int main (int argc, char *argv[]) {
     ge_iron->Draw("AP");
     c->SaveAs(pdfname, "pdf");
 
-    f_bethe_bloch->SetParameter(0, 6.e-2);
-    f_bethe_bloch->SetParameter(1, 8.);
-    ge_iron->Fit(f_bethe_bloch, "", "", 0.3, 0.9);
-    f_bethe_bloch->Draw("SAME");
+    //f_bethe_bloch->SetParameter(0, 6.e-2);
+    //f_bethe_bloch->SetParameter(1, 8.);
+    //ge_iron->Fit(f_bethe_bloch, "", "", 0.3, 0.9);
+    //f_bethe_bloch->Draw("SAME");
     for (Int_t i = 0; i < 2; i++)
       iron_param.push_back(f_bethe_bloch->GetParameter(i));
     c->SaveAs(pdfname, "pdf");
@@ -279,8 +299,8 @@ int main (int argc, char *argv[]) {
     // Water energy deposit fitting
     ge_water->Draw("AP");
     c->SaveAs(pdfname, "pdf");
-    ge_water->Fit(f_bethe_bloch, "", "", 0.3, 0.9);
-    f_bethe_bloch->Draw("SAME");
+    //ge_water->Fit(f_bethe_bloch, "", "", 0.3, 0.9);
+    //f_bethe_bloch->Draw("SAME");
     for (Int_t i = 0; i < 2; i++)
       water_param.push_back(f_bethe_bloch->GetParameter(i));
     c->SaveAs(pdfname, "pdf");

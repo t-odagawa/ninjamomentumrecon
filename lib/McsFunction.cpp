@@ -151,13 +151,15 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     
     // Consider energy deposit (upstream -> downstream)
+    Double_t scale_factor = 1.0;
+    if ( ipairs == plate_id.size() - 1 ) scale_factor = 0.5;
     if (plate_id.at(ipairs) > 16) {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta) * scale_factor;
       // Water smearing is considered separately
-      energy -= direction * ncell * water_basetrack_distance.at(ipairs) * EnergyDepositWater(beta);
+      energy -= direction * ncell * water_basetrack_distance.at(ipairs) * EnergyDepositWater(beta) * scale_factor;
       // } if else (plate_id.at(ipairs) > 15 && plate_id.at(ipairs)%2 == 1) {
     } else {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta) * scale_factor;
     }
     
     if (energy <= PARTICLE_MASS[particle_id]) break;
@@ -441,7 +443,7 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
   // Parameter setting
   // Bethe-Bloch is applicable to pbeta > ~20 (beta > 0.4)
   // Pbeta range may be better to set depending on initial_pbeta
-  min->mnparm(0, parname[0], vstart[0], step[0], 20, 100000, ierflg);
+  min->mnparm(0, parname[0], vstart[0], step[0], 0, 100000, ierflg);
   for (Int_t ipar = 1; ipar < num_of_param; ipar++) {
     min->mnparm(ipar, parname[ipar], vstart[ipar], step[ipar], 0, 0, ierflg);
   }
@@ -639,3 +641,9 @@ Double_t LateralAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down) {
 				  / tangent_up.Mag();
   return std::atan(a / b);
 }
+
+Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions) {
+
+  return false;
+
+};

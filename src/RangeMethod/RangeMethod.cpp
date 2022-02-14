@@ -20,8 +20,10 @@
 #include <TH2D.h>
 #include <TF1.h>
 
+#include "McsConst.hpp"
 #include "McsFunction.hpp"
 #include "RangeFunction.hpp"
+#include "RangeSpline.hpp"
 
 namespace logging = boost::log;
 
@@ -37,7 +39,7 @@ int main (int argc, char *argv[]) {
 
   if (argc != 5) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input B2 file name> <output root file name> <data type MC(0)/Data(1)> <ECC ID (0-8)>";
+			     << " <input B2 file name> <output root file name> <data type MC(0)/Data(1)> <spline dir path>";
     std::exit(1);
   }
 
@@ -55,6 +57,7 @@ int main (int argc, char *argv[]) {
     Double_t weight;
     Int_t true_particle_id;
     Int_t npl;
+    Int_t direction;
     Double_t true_momentum;
     Double_t recon_momentum;
     std::vector<Int_t > pl;
@@ -64,6 +67,7 @@ int main (int argc, char *argv[]) {
     otree->Branch("weight", &weight, "weight/D");
     otree->Branch("true_particle_id", &true_particle_id, "true_particle_id/I");
     otree->Branch("npl", &npl, "npl/I");
+    otree->Branch("direction", &direction, "direction/I");
     otree->Branch("true_momentum", &true_momentum, "true_momentum/D");
     otree->Branch("recon_momentum", &recon_momentum, "recon_momentum/D");
     otree->Branch("pl", &pl);
@@ -74,7 +78,13 @@ int main (int argc, char *argv[]) {
     otree->Branch("pixel_count", &pixel_count);
 
     Int_t datatype = std::atoi(argv[3]);
-    Int_t ecc_id = std::atoi(argv[4]);
+    Int_t ecc_id = 4;
+
+    const std::string spline_dir_path = argv[4];
+    const RangeSpline range_spline(spline_dir_path);
+    const RangeFunction range_function(range_spline);
+
+    int num_entry = 0;
 
     while (reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
@@ -120,15 +130,19 @@ int main (int argc, char *argv[]) {
 	}
       }
       emulsion_single_chains.push_back(emulsion_single_chain);
-
+      
       // loop for each chain
       for ( auto chain : emulsion_single_chains ) {
+
 	npl = chain.size();
 	
 	// Get true information
 	if ( datatype == B2DataType::kMonteCarlo ) {
 	  Int_t particle_pdg_ = chain.at(0)->GetParentTrack().GetParticlePdg();
 	  true_particle_id = particle_pdg_;
+	  Int_t direction_tmp_ = chain.at(0)->GetTangent().GetValue().Z();
+	  if ( direction_tmp_ > 0 ) direction = 1;
+	  else direction = -1;
 	  Int_t momentum_ = chain.at(0)->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
 	  if ( B2Pdg::IsMuonPlusOrMinus(particle_pdg_) )
 	    true_momentum = momentum_;
@@ -148,14 +162,19 @@ int main (int argc, char *argv[]) {
 	  vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
 	  pixel_count.push_back(emulsion->GetPixelCountUp() + emulsion->GetPixelCountDown());
 	}
-
-	recon_momentum = CalculateMomentumFromRange(ax, ay, pl);
+	
+	range_function.ModifyVectors(ax, ay, pl);
+	recon_momentum = range_function.CalculateEnergyFromRange(ax, ay, pl);
+	recon_momentum += MCS_PROTON_MASS;
+	recon_momentum = CalculateMomentumFromEnergy(recon_momentum, MCS_PROTON_MASS);
 	otree->Fill();
 	pl.clear();
 	ax.clear(); ay.clear();
 	vph.clear(); pixel_count.clear();
       }
 
+      // if ( num_entry > 10) break;
+      num_entry++;
 
     }
 

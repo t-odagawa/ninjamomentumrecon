@@ -106,4 +106,8 @@ Double_t LateralTangentAccuracy();
 Double_t RadialAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down);
 Double_t LateralAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down);
 
+
+///> MC chain booleans
+Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions);
+
 #endif

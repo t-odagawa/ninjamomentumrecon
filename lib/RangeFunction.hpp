@@ -1,26 +1,43 @@
 #ifndef RANGE_FUNCTION_HPP
 #define RANGE_FUNCTION_HPP
 
+#include <boost/filesystem.hpp>
+
 #include <vector>
+#include <string>
 
-double IronRangeFromMomentum(double momentum);
+#include "RangeSpline.hpp"
 
-double IronMomentumFromRange(double range);
+namespace fs = boost::filesystem;
 
-double WaterRangeFromMomentum(double momentum);
+class RangeFunction {
 
-double WaterMomentumFromRange(double range);
+private:
+  RangeSpline range_spline_;
+  TSpline3 iron_energy_range_spline_;
+  TSpline3 iron_range_energy_spline_;
+  TSpline3 water_energy_range_spline_;
+  TSpline3 water_range_energy_spline_;
+  TSpline3 poly_energy_range_spline_;
+  TSpline3 poly_range_energy_spline_;
+  TSpline3 emulsion_energy_range_spline_;
+  TSpline3 emulsion_range_energy_spline_;
 
-double PolystyreneRangeFromMomentum(double momentum);
+public:
+  explicit RangeFunction(const RangeSpline &range_spline);
 
-double PolystyreneMomentumFromRange(double range);
-
-double GelRangeFromMomentum(double momentum);
-
-double GelMomentumFromRange(double range);
-
-void ModifyVectors(std::vector<double> &ax, std::vector<double> &ay, std::vector<int> &pl);
-
-double CalculateMomentumFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl);
+  double IronRangeFromEnergy(double energy) const;
+  double IronEnergyFromRange(double range) const;
+  double WaterRangeFromEnergy(double energy) const;
+  double WaterEnergyFromRange(double range) const;
+  double PolystyreneRangeFromEnergy(double energy) const;
+  double PolystyreneEnergyFromRange(double range) const;
+  double EmulsionRangeFromEnergy(double energy) const;
+  double EmulsionEnergyFromRange(double range) const;
+  
+  void ModifyVectors(std::vector<double> &ax, std::vector<double> &ay, std::vector<int> &pl) const;
+  
+  double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl) const;
+};
 
 #endif

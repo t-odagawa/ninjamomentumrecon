@@ -50,6 +50,18 @@ const static double MATERIAL_THICK[kNumberOfNinjaMaterials] = { IRON_THICK,
 								PACK_THICK
 };
 
+///> Density of each material (g/cm3)
+const static double IRON_DENSITY = 8.03;
+const static double WATER_DENSITY = 1.00;
+const static double GEL_DENSITY = 3.816;
+const static double POLY_DENSITY = 1.032;
+const static double MATERIAL_DENSITY[kNumberOfNinjaMaterials] = { IRON_DENSITY,
+								  WATER_DENSITY,
+								  GEL_DENSITY,
+								  POLY_DENSITY,
+								  POLY_DENSITY
+};
+
 ///> Mass of particles in interest (MeV/c2)
 const static double MCS_MUON_MASS = 105.658;
 const static double MCS_PION_MASS = 139.570;
@@ -93,8 +105,8 @@ const std::array<double, 5> IRON_ENEDEP_FUNC_PAR = {  11.3616,
 						        13.7393
 };
 
-const std::array<double, 2> IRON_BB_FUNC_PAR = {6.724e-2,
-						7.899
+const std::array<double, 2> IRON_BB_FUNC_PAR = {6.619e-2,
+						7.994
 };
 
 ///> Energy deposit function parameters for water
@@ -105,8 +117,8 @@ const std::array<double, 5> WATER_ENEDEP_FUNC_PAR = {  16.677,
 						         26.3072
 };
 
-const std::array<double, 2> WATER_BB_FUNC_PAR = {4.453e-2,
-						 10.53
+const std::array<double, 2> WATER_BB_FUNC_PAR = {5.083e-2,
+						 9.343
 };
 
 #endif

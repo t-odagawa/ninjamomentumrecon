@@ -71,7 +71,9 @@ int main (int argc, char *argv[]) {
     Double_t true_pbeta = -1;
     Int_t true_particle_id = -1;
     Int_t muon_track_id;
+    Int_t true_direction;
     Int_t npl;
+    std::vector<Int_t> pl;
     std::vector<Double_t> ax, ay;
     std::vector<Double_t> vph, pixel_count;
     Double_t initial_pbeta;
@@ -87,7 +89,9 @@ int main (int argc, char *argv[]) {
     otree->Branch("true_pbeta",  &true_pbeta,  "true_pbeta/D");
     otree->Branch("true_particle_id", &true_particle_id, "true_particle_id/I");
     otree->Branch("muon_track_id", &muon_track_id, "muon_track_id/I");
+    otree->Branch("true_direction", &true_direction, "true_direction/I");
     otree->Branch("npl", &npl, "npl/I");
+    otree->Branch("pl", &pl);
     otree->Branch("ax", &ax);
     otree->Branch("ay", &ay);
     otree->Branch("vph", &vph);
@@ -184,6 +188,9 @@ int main (int argc, char *argv[]) {
       // loop for each chain
       for ( auto chain : emulsion_single_chains ) {
 	npl = chain.size();
+	if ( chain.at(0)->GetTangent().GetValue().Z() )
+	  true_direction = 1;
+	else true_direction = -1;
 
 	// Get true information
 	if ( datatype == B2DataType::kMonteCarlo ) {
@@ -201,6 +208,7 @@ int main (int argc, char *argv[]) {
 	}
 	
 	for ( const auto emulsion : chain ) {
+	  pl.push_back(emulsion->GetPlate() + 1);
 	  ax.push_back(emulsion->GetTangent().GetValue().X());
 	  ay.push_back(emulsion->GetTangent().GetValue().Y());
 	  vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
@@ -347,8 +355,8 @@ int main (int argc, char *argv[]) {
 	    if ( scan_flag && direction == 1 && particle_id == 0) {
 	      int i = 1;
 	      do {
-		x_plus.push_back(result_array.at(0).at(0) + 10. * i);
-		y_plus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) + 10. * i,
+		x_plus.push_back(result_array.at(0).at(0) + 1. * i);
+		y_plus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) + 1. * i,
 							   ncell, 0, 1,
 							   radial_cut_value, lateral_cut_value,
 							   smear_flag || (datatype == B2DataType::kRealData),
@@ -358,8 +366,12 @@ int main (int argc, char *argv[]) {
 							   plate_id,
 							   radial_angle_difference,
 							   lateral_angle_difference) - log_likelihood[0][0]);
-		x_minus.push_back(result_array.at(0).at(0) - 10. * i);
-		y_minus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) - 10. * i,
+		i++;
+	      } while ( y_plus.back() <= 10. && i < 1000);
+	      i = 1;
+	      do {
+		x_minus.push_back(result_array.at(0).at(0) - 1. * i);
+		y_minus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) - 1. * i,
 							    ncell, 0, 1,
 							    radial_cut_value, lateral_cut_value,
 							    smear_flag || (datatype == B2DataType::kRealData),
@@ -370,7 +382,9 @@ int main (int argc, char *argv[]) {
 							    radial_angle_difference,
 							    lateral_angle_difference) - log_likelihood[0][0]);
 		i++;
-	      } while ( y_plus.back() <= 10. || y_minus.back() <= 10. );	    
+	      } while ( (y_minus.back() <= 10. || 
+			 x_minus.back() > 0) &&
+			i < 1000 );
 	      std::reverse(x_minus.begin(), x_minus.end());
 	      std::reverse(y_minus.begin(), y_minus.end());
 	      x.insert(x.end(), x_minus.begin(), x_minus.end());
@@ -381,16 +395,13 @@ int main (int argc, char *argv[]) {
 	      y.insert(y.end(), y_plus.begin(), y_plus.end());
 	      
 	      TGraph *g = new TGraph(x.size(), &x[0], &y[0]);
-	      g->SetMarkerStyle(2);
-	      g->SetMarkerSize(2);
-	      g->SetTitle(Form("Negative Log Likelihood Scan (Entry %lld);Reconstructed p#beta [MeV/c];-2ln(L)",
+	      g->SetMarkerStyle(4);
+	      g->SetMarkerSize(1);
+	      g->SetTitle(Form("Negative Log Likelihood Scan (Entry %lld);Reconstructed p#beta [MeV/c];-2ln(L) + 2ln(L_{max})",
 			       reader.GetEntryNumber()));
 	      g->GetYaxis()->SetRangeUser(-.5, 20.);
 	      g->Draw("AP");
 	      l->DrawLine(true_pbeta, -0.5, true_pbeta, 20.);
-	      TSpline3 *spline = new TSpline3("spline", g);
-	      spline->SetLineColor(kRed);
-	      spline->Draw("same");
 	      c->Print(ofilename + ".pdf", "pdf");
 	      x.clear(); x_plus.clear(); x_minus.clear();
 	      y.clear(); y_plus.clear(); y_minus.clear();

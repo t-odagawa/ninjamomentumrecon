@@ -4,6 +4,7 @@
 #include <boost/log/expressions.hpp>
 
 // system includes
+#include <iostream>
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -188,7 +189,8 @@ int main (int argc, char *argv[]) {
 	  }
 	}
 
-	if ( particle_id == 0 ) {
+	//if ( particle_id == 0 ) {
+	if ( particle_id == 2 ) {
 	  if ( log_likelihood.at(0) <= log_likelihood.at(1) ) {
 	    recon_pbeta = result_array.at(0).at(0);
 	  } else {
@@ -201,11 +203,13 @@ int main (int argc, char *argv[]) {
 
       // Write binary
       BOOST_LOG_TRIVIAL(debug)<< "Expected momentum : " << mom_chain.ecc_mcs_mom;
-      mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
+      // mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
+      mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_PROTON_MASS);
       BOOST_LOG_TRIVIAL(debug)<< "Reconstructed momentum : " << mom_chain.ecc_mcs_mom;
       Momentum_recon::WriteMomChainHeader(ofs, mom_chain);
-      for ( auto base : mom_chain.base )
+      for ( auto base : mom_chain.base ) {
 	ofs.write((char*)& base, sizeof(Momentum_recon::Mom_basetrack));
+      }
       for ( auto link : mom_chain.base_pair ) {
 	ofs.write((char*)& link.first, sizeof(Momentum_recon::Mom_basetrack));
 	ofs.write((char*)& link.second, sizeof(Momentum_recon::Mom_basetrack));
