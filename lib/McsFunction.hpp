@@ -71,7 +71,7 @@ Double_t RadialAnglePrecision(Double_t tangent);
 Double_t LateralAnglePrecision(Double_t tangent);
 
 ///> Pbeta reconstruction using MINUIT minimizer
-std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
+std::array<Double_t, 5> ReconstructPBeta(Double_t initial_pbeta,
 					 UInt_t ncell,
 					 Int_t particle_id,
 					 Int_t direction,
@@ -107,7 +107,8 @@ Double_t RadialAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down);
 Double_t LateralAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down);
 
 
-///> MC chain booleans
-Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions);
+///> MC chain functions
+Int_t GetChainDirection(std::vector<const B2EmulsionSummary*> emulsions, Int_t vertex_pl);
+Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions, Int_t direction);
 
 #endif

@@ -16,9 +16,9 @@ int main ( int argc, char* argv[]) {
   std::string ifilename = argv[1];
   std::string ofilename = argv[2];
 
-  std::vector<Momentum_recon::Mom_chain > mom_chain_vector = Momentum_recon::ReadMomChain(ifilename);
+  std::vector<Momentum_recon::Event_information > ev_vector = Momentum_recon::ReadEventInformationBin(ifilename);
 
-  Momentum_recon::WriteMomChainText(ofilename, mom_chain_vector);
+  Momentum_recon::WriteEventInformationTxt(ofilename, ev_vector);
 
   std::exit(0);
 

@@ -73,6 +73,7 @@ int main (int argc, char *argv[]) {
     Int_t muon_track_id;
     Int_t true_direction;
     Int_t npl;
+    Int_t vertex_pl;
     std::vector<Int_t> pl;
     std::vector<Double_t> ax, ay;
     std::vector<Double_t> vph, pixel_count;
@@ -91,6 +92,7 @@ int main (int argc, char *argv[]) {
     otree->Branch("muon_track_id", &muon_track_id, "muon_track_id/I");
     otree->Branch("true_direction", &true_direction, "true_direction/I");
     otree->Branch("npl", &npl, "npl/I");
+    otree->Branch("vertex_pl", &vertex_pl, "vertex_pl/I");
     otree->Branch("pl", &pl);
     otree->Branch("ax", &ax);
     otree->Branch("ay", &ay);

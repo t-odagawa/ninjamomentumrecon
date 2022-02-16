@@ -14,30 +14,40 @@ class RangeFunction {
 
 private:
   RangeSpline range_spline_;
-  TSpline3 iron_energy_range_spline_;
-  TSpline3 iron_range_energy_spline_;
-  TSpline3 water_energy_range_spline_;
-  TSpline3 water_range_energy_spline_;
-  TSpline3 poly_energy_range_spline_;
-  TSpline3 poly_range_energy_spline_;
-  TSpline3 emulsion_energy_range_spline_;
-  TSpline3 emulsion_range_energy_spline_;
+
+  TSpline3 proton_iron_energy_range_spline_;
+  TSpline3 proton_iron_range_energy_spline_;
+  TSpline3 proton_water_energy_range_spline_;
+  TSpline3 proton_water_range_energy_spline_;
+  TSpline3 proton_poly_energy_range_spline_;
+  TSpline3 proton_poly_range_energy_spline_;
+  TSpline3 proton_emulsion_energy_range_spline_;
+  TSpline3 proton_emulsion_range_energy_spline_;
+
+  TSpline3 pion_iron_energy_range_spline_;
+  TSpline3 pion_iron_range_energy_spline_;
+  TSpline3 pion_water_energy_range_spline_;
+  TSpline3 pion_water_range_energy_spline_;
+  TSpline3 pion_poly_energy_range_spline_;
+  TSpline3 pion_poly_range_energy_spline_;
+  TSpline3 pion_emulsion_energy_range_spline_;
+  TSpline3 pion_emulsion_range_energy_spline_;
 
 public:
   explicit RangeFunction(const RangeSpline &range_spline);
 
-  double IronRangeFromEnergy(double energy) const;
-  double IronEnergyFromRange(double range) const;
-  double WaterRangeFromEnergy(double energy) const;
-  double WaterEnergyFromRange(double range) const;
-  double PolystyreneRangeFromEnergy(double energy) const;
-  double PolystyreneEnergyFromRange(double range) const;
-  double EmulsionRangeFromEnergy(double energy) const;
-  double EmulsionEnergyFromRange(double range) const;
+  double IronRangeFromEnergy(double energy, int particle_id) const;
+  double IronEnergyFromRange(double range, int particle_id) const;
+  double WaterRangeFromEnergy(double energy, int particle_id) const;
+  double WaterEnergyFromRange(double range, int particle_id) const;
+  double PolystyreneRangeFromEnergy(double energy, int particle_id) const;
+  double PolystyreneEnergyFromRange(double range, int particle_id) const;
+  double EmulsionRangeFromEnergy(double energy, int paritlce_id) const;
+  double EmulsionEnergyFromRange(double range, int particle_id) const;
   
   void ModifyVectors(std::vector<double> &ax, std::vector<double> &ay, std::vector<int> &pl) const;
   
-  double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl) const;
+  double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
 };
 
 #endif

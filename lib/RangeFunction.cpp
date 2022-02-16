@@ -10,54 +10,145 @@
 #include <cmath>
 #include <algorithm>
 
+#include <B2Pdg.hh>
+
 #include "RangeFunction.hpp"
 
 namespace fs = boost::filesystem;
 
 RangeFunction::RangeFunction(const RangeSpline &range_spline) : range_spline_(range_spline) {
 
-  range_spline_.GetIronEnergyRangeSpline(iron_energy_range_spline_);
-  range_spline_.GetWaterEnergyRangeSpline(water_energy_range_spline_);
-  range_spline_.GetPolyEnergyRangeSpline(poly_energy_range_spline_);
-  range_spline_.GetEmulsionEnergyRangeSpline(emulsion_energy_range_spline_);
-  range_spline_.GetIronRangeEnergySpline(iron_range_energy_spline_);
-  range_spline_.GetWaterRangeEnergySpline(water_range_energy_spline_);
-  range_spline_.GetPolyRangeEnergySpline(poly_range_energy_spline_);
-  range_spline_.GetEmulsionRangeEnergySpline(emulsion_range_energy_spline_);
+  range_spline_.GetProtonIronEnergyRangeSpline(proton_iron_energy_range_spline_);
+  range_spline_.GetProtonWaterEnergyRangeSpline(proton_water_energy_range_spline_);
+  range_spline_.GetProtonPolyEnergyRangeSpline(proton_poly_energy_range_spline_);
+  range_spline_.GetProtonEmulsionEnergyRangeSpline(proton_emulsion_energy_range_spline_);
+  range_spline_.GetProtonIronRangeEnergySpline(proton_iron_range_energy_spline_);
+  range_spline_.GetProtonWaterRangeEnergySpline(proton_water_range_energy_spline_);
+  range_spline_.GetProtonPolyRangeEnergySpline(proton_poly_range_energy_spline_);
+  range_spline_.GetProtonEmulsionRangeEnergySpline(proton_emulsion_range_energy_spline_);
+
+  range_spline_.GetPionIronEnergyRangeSpline(pion_iron_energy_range_spline_);
+  range_spline_.GetPionWaterEnergyRangeSpline(pion_water_energy_range_spline_);
+  range_spline_.GetPionPolyEnergyRangeSpline(pion_poly_energy_range_spline_);
+  range_spline_.GetPionEmulsionEnergyRangeSpline(pion_emulsion_energy_range_spline_);
+  range_spline_.GetPionIronRangeEnergySpline(pion_iron_range_energy_spline_);
+  range_spline_.GetPionWaterRangeEnergySpline(pion_water_range_energy_spline_);
+  range_spline_.GetPionPolyRangeEnergySpline(pion_poly_range_energy_spline_);
+  range_spline_.GetPionEmulsionRangeEnergySpline(pion_emulsion_range_energy_spline_);
 
   BOOST_LOG_TRIVIAL(info) << "Range functions are initialized";
 }
 
-double RangeFunction::IronRangeFromEnergy(double energy) const {
-  return iron_energy_range_spline_.Eval(energy);
+double RangeFunction::IronRangeFromEnergy(double energy, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_iron_energy_range_spline_.Eval(energy);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_iron_energy_range_spline_.Eval(energy);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::IronEnergyFromRange(double range) const {
-  return iron_range_energy_spline_.Eval(range);
+double RangeFunction::IronEnergyFromRange(double range, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_iron_range_energy_spline_.Eval(range);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_iron_range_energy_spline_.Eval(range);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::WaterRangeFromEnergy(double energy) const {
-  return water_energy_range_spline_.Eval(energy);
+double RangeFunction::WaterRangeFromEnergy(double energy, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_water_energy_range_spline_.Eval(energy);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_water_energy_range_spline_.Eval(energy);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::WaterEnergyFromRange(double range) const {
-  return water_range_energy_spline_.Eval(range);
+double RangeFunction::WaterEnergyFromRange(double range, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_water_range_energy_spline_.Eval(range);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_water_range_energy_spline_.Eval(range);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::PolystyreneRangeFromEnergy(double energy) const {
-  return poly_energy_range_spline_.Eval(energy);
+double RangeFunction::PolystyreneRangeFromEnergy(double energy, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_poly_energy_range_spline_.Eval(energy);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_poly_energy_range_spline_.Eval(energy);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::PolystyreneEnergyFromRange(double range) const {
-  return poly_range_energy_spline_.Eval(range);
+double RangeFunction::PolystyreneEnergyFromRange(double range, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_poly_range_energy_spline_.Eval(range);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_poly_range_energy_spline_.Eval(range);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::EmulsionRangeFromEnergy(double energy) const {
-  return emulsion_energy_range_spline_.Eval(energy);
+double RangeFunction::EmulsionRangeFromEnergy(double energy, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_emulsion_energy_range_spline_.Eval(energy);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_emulsion_energy_range_spline_.Eval(energy);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
-double RangeFunction::EmulsionEnergyFromRange(double range) const {
-  return emulsion_range_energy_spline_.Eval(range);
+double RangeFunction::EmulsionEnergyFromRange(double range, int particle_id) const {
+  switch (particle_id) {
+  case PDG_t::kProton :
+    return proton_emulsion_range_energy_spline_.Eval(range);
+    break;
+  case PDG_t::kPiPlus :
+  case PDG_t::kPiMinus :
+    return pion_emulsion_range_energy_spline_.Eval(range);
+    break;
+  default :
+    throw std::invalid_argument("Particle id is not in interest");
+  }
 }
 
 void RangeFunction::ModifyVectors(std::vector<double> &ax, std::vector<double> &ay, std::vector<int> &pl) const {
@@ -79,7 +170,7 @@ void RangeFunction::ModifyVectors(std::vector<double> &ax, std::vector<double> &
 
 }
 
-double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl) const {
+double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const {
 
   if ( ax.size() != ay.size() ||
        ax.size() != pl.size() ||
@@ -99,82 +190,82 @@ double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vect
 
     if ( pl.at(ipl) == 3 ) { // ISS downstream
       range  = 1. * scale_factor;
-      energy = PolystyreneEnergyFromRange(range);      
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
     }
     else if ( pl.at(ipl) == 4 ) { // ISS upstream
       if ( ipl == 0 ) { // if stopping plate
 	range  = 210.e-3 * scale_factor * 0.5;
-	energy = PolystyreneEnergyFromRange(range);
-	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
       }
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
     }
     else if ( pl.at(ipl) < 15 ) { // Fe ECC
       if ( ipl == 0 )  // if stopping plate
 	range = 500.e-3 * scale_factor * 0.5;
       else
-	range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy);
-      energy = IronEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
+	range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy, particle_id);
+      energy = IronEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
     }
     else if ( pl.at(ipl) == 16 ) { // most downstream of water ECC
       if ( ipl == 0 ) { // if stopping plate
 	range  = 210.e-3 * scale_factor * 0.5;
-	energy = PolystyreneEnergyFromRange(range);
-	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);	
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
       }
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
     }
     else if ( pl.at(ipl) % 2 == 1 ) { // upstream of iron
       if ( ipl == 0 )  // if stopping plate
 	range = 500.e-3 * scale_factor * 0.5;
       else
-	range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy);
-      energy = IronEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
+	range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy, particle_id);
+      energy = IronEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
     }
     else { // upstream of water
       if ( ipl == 0 )  // if stopping plate
 	range = 2.3 * scale_factor * 0.5;
       else
-	range = 2.3 * scale_factor + WaterRangeFromEnergy(energy);
-      energy = WaterEnergyFromRange(range);
-      range = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
-      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy);
-      energy = PolystyreneEnergyFromRange(range);
-      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy);
-      energy = EmulsionEnergyFromRange(range);
+	range = 2.3 * scale_factor + WaterRangeFromEnergy(energy, particle_id);
+      energy = WaterEnergyFromRange(range, particle_id);
+      range = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
     }
 
   }

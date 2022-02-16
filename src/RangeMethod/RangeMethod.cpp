@@ -58,6 +58,7 @@ int main (int argc, char *argv[]) {
     Int_t true_particle_id;
     Int_t npl;
     Int_t direction;
+    Int_t stop_flag;
     Double_t true_momentum;
     Double_t recon_momentum;
     std::vector<Int_t > pl;
@@ -68,6 +69,7 @@ int main (int argc, char *argv[]) {
     otree->Branch("true_particle_id", &true_particle_id, "true_particle_id/I");
     otree->Branch("npl", &npl, "npl/I");
     otree->Branch("direction", &direction, "direction/I");
+    otree->Branch("stop_flag", &stop_flag, "stop_flag/I");
     otree->Branch("true_momentum", &true_momentum, "true_momentum/D");
     otree->Branch("recon_momentum", &recon_momentum, "recon_momentum/D");
     otree->Branch("pl", &pl);
@@ -135,38 +137,57 @@ int main (int argc, char *argv[]) {
       for ( auto chain : emulsion_single_chains ) {
 
 	npl = chain.size();
-	
+
 	// Get true information
+	Int_t particle_pdg = chain.at(0)->GetParentTrack().GetParticlePdg();
 	if ( datatype == B2DataType::kMonteCarlo ) {
-	  Int_t particle_pdg_ = chain.at(0)->GetParentTrack().GetParticlePdg();
-	  true_particle_id = particle_pdg_;
+	  true_particle_id = particle_pdg;
 	  Int_t direction_tmp_ = chain.at(0)->GetTangent().GetValue().Z();
 	  if ( direction_tmp_ > 0 ) direction = 1;
 	  else direction = -1;
 	  Int_t momentum_ = chain.at(0)->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
-	  if ( B2Pdg::IsMuonPlusOrMinus(particle_pdg_) )
+	  if ( B2Pdg::IsChargedPion(particle_pdg) )
 	    true_momentum = momentum_;
-	  else if ( B2Pdg::IsChargedPion(particle_pdg_) )
-	    true_momentum = momentum_;
-	  else if ( particle_pdg_ == PDG_t::kProton )
+	  else if ( particle_pdg == PDG_t::kProton )
 	    true_momentum = momentum_;
 	  else
-	    BOOST_LOG_TRIVIAL(warning) << "Particle is not in interest";
+	    BOOST_LOG_TRIVIAL(trace) << "Particle is not in interest";
 	}
 
+	if ( particle_pdg != PDG_t::kProton &&
+	     !B2Pdg::IsChargedPion(particle_pdg) ) continue;
+
+	stop_flag = (Int_t)IsStopInEccFiducial(chain, direction);
+
 	for ( const auto emulsion : chain ) {
+	  TVector3 tangent = emulsion->GetTangent().GetValue();
+	  tangent = (1. / tangent.Z()) * tangent;
+	  SmearTangentVector(tangent);
+	  if (std::fabs(tangent.X()) > 4 || std::fabs(tangent.Y()) > 4 ) continue;
 	  pl.push_back(emulsion->GetPlate() + 1);
-	  ax.push_back(emulsion->GetTangent().GetValue().X());
-	  ay.push_back(emulsion->GetTangent().GetValue().Y());
+	  ax.push_back(tangent.X());
+	  ay.push_back(tangent.Y());
 	  energy_deposit.push_back(emulsion->GetEdepSum());
 	  vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
 	  pixel_count.push_back(emulsion->GetPixelCountUp() + emulsion->GetPixelCountDown());
 	}
+
+	if ( pl.empty() ) continue;
 	
 	range_function.ModifyVectors(ax, ay, pl);
-	recon_momentum = range_function.CalculateEnergyFromRange(ax, ay, pl);
-	recon_momentum += MCS_PROTON_MASS;
-	recon_momentum = CalculateMomentumFromEnergy(recon_momentum, MCS_PROTON_MASS);
+	recon_momentum = range_function.CalculateEnergyFromRange(ax, ay, pl, particle_pdg);
+	switch ( particle_pdg ) {
+	case PDG_t::kProton :
+	  recon_momentum += MCS_PROTON_MASS;
+	  recon_momentum = CalculateMomentumFromEnergy(recon_momentum, MCS_PROTON_MASS);
+	  break;
+	case PDG_t::kPiPlus :
+	case PDG_t::kPiMinus :
+	  recon_momentum += MCS_PION_MASS;
+	  recon_momentum = CalculateMomentumFromEnergy(recon_momentum, MCS_PION_MASS);
+	  break;
+	}
+
 	otree->Fill();
 	pl.clear();
 	ax.clear(); ay.clear();
@@ -178,6 +199,7 @@ int main (int argc, char *argv[]) {
 
     }
 
+    ofile->cd();
     otree->Write();
     ofile->Close();
 

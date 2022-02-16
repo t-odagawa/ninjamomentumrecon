@@ -2,6 +2,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
+#include <iostream>
 #include <vector>
 #include <array>
 
@@ -151,15 +152,13 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     
     // Consider energy deposit (upstream -> downstream)
-    Double_t scale_factor = 1.0;
-    if ( ipairs == plate_id.size() - 1 ) scale_factor = 0.5;
     if (plate_id.at(ipairs) > 16) {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta) * scale_factor;
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
       // Water smearing is considered separately
-      energy -= direction * ncell * water_basetrack_distance.at(ipairs) * EnergyDepositWater(beta) * scale_factor;
+      energy -= direction * ncell * water_basetrack_distance.at(ipairs) * EnergyDepositWater(beta);
       // } if else (plate_id.at(ipairs) > 15 && plate_id.at(ipairs)%2 == 1) {
     } else {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta) * scale_factor;
+      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
     }
     
     if (energy <= PARTICLE_MASS[particle_id]) break;
@@ -374,7 +373,7 @@ Double_t LateralAnglePrecision(Double_t tangent) {
       (min_max_pair.second - min_max_pair.first) * (tangent - min_max_pair.first);
 }
 
-std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
+std::array<Double_t, 5> ReconstructPBeta(Double_t initial_pbeta,
 					 UInt_t ncell,
 					 Int_t particle_id,
 					 Int_t direction,
@@ -443,7 +442,7 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
   // Parameter setting
   // Bethe-Bloch is applicable to pbeta > ~20 (beta > 0.4)
   // Pbeta range may be better to set depending on initial_pbeta
-  min->mnparm(0, parname[0], vstart[0], step[0], 0, 100000, ierflg);
+  min->mnparm(0, parname[0], vstart[0], step[0], 20, 10000, ierflg);
   for (Int_t ipar = 1; ipar < num_of_param; ipar++) {
     min->mnparm(ipar, parname[ipar], vstart[ipar], step[ipar], 0, 0, ierflg);
   }
@@ -465,16 +464,20 @@ std::array<Double_t, 3> ReconstructPBeta(Double_t initial_pbeta,
   arglist[0] = 1000; // maximum number of calls
   arglist[1] = .1; // tolerance
   min->mnexcm("MIGRAD", arglist, 2, ierflg);
+  min->mnexcm("MINOS", arglist, 2, ierflg);
   
-  Double_t rec_mom, rec_mom_err;
+  Double_t rec_mom;
+  Double_t rec_mom_err, rec_mom_err_plus, rec_mom_err_minus;
+  Double_t tmp;
   Int_t fit_status;
-  min->GetParameter(0, rec_mom, rec_mom_err);
+  min->GetParameter(0, rec_mom, tmp);
+  min->mnerrs(0, rec_mom_err_plus, rec_mom_err_minus, rec_mom_err, tmp);
   fit_status = min->GetStatus();
-  std::array<Double_t,3> return_array = {rec_mom, rec_mom_err, (Double_t)fit_status};
-
-  BOOST_LOG_TRIVIAL(debug) << "Reconstructed Momentum = "
-			  << rec_mom << " +/- "
-			  << rec_mom_err << " [MeV/c]";
+  std::array<Double_t, 5 > return_array = {rec_mom,
+					   rec_mom_err,
+					   rec_mom_err_plus,
+					   rec_mom_err_minus,
+					   (Double_t)fit_status};
   
   delete min;
 
@@ -642,8 +645,33 @@ Double_t LateralAngleDiffNew(TVector3 tangent_up, TVector3 tangent_down) {
   return std::atan(a / b);
 }
 
-Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions) {
 
-  return false;
+Int_t GetChainDirection(std::vector<const B2EmulsionSummary*> emulsions, Int_t vertex_pl) {
+  return 1;
+}
 
-};
+Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions, Int_t direction) {
+
+  switch (direction) {
+  case 1 : 
+    if ( emulsions.back()->GetFilmPosition().GetValue().Y() > 5. &&
+	 emulsions.back()->GetFilmPosition().GetValue().Y() < NINJA_ECC_FILM_XY - 5. &&
+	 emulsions.back()->GetFilmPosition().GetValue().X() > 5. &&
+	 emulsions.back()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. )
+      return true;
+    else 
+      return false;
+    break;
+  case -1 : 
+    if ( emulsions.front()->GetFilmPosition().GetValue().Y() > 5. &&
+	 emulsions.front()->GetFilmPosition().GetValue().Y() < NINJA_ECC_FILM_XY - 5. &&
+	 emulsions.front()->GetFilmPosition().GetValue().X() > 5. &&
+	 emulsions.front()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. )
+      return true;
+    else 
+      return false;
+    break;
+  default : 
+    throw std::invalid_argument("Direction should be +/- 1");
+  }
+}
