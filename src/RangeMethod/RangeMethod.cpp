@@ -91,8 +91,7 @@ int main (int argc, char *argv[]) {
     while (reader.ReadNextSpill() > 0) {
       auto &spill_summary = reader.GetSpillSummary();
 
-      // muon id
-      
+      // muon id      
 
       std::vector<const B2EmulsionSummary*> emulsions;
       auto it_emulsion = spill_summary.BeginEmulsion();
@@ -142,7 +141,7 @@ int main (int argc, char *argv[]) {
 	Int_t particle_pdg = chain.at(0)->GetParentTrack().GetParticlePdg();
 	if ( datatype == B2DataType::kMonteCarlo ) {
 	  true_particle_id = particle_pdg;
-	  Int_t direction_tmp_ = chain.at(0)->GetTangent().GetValue().Z();
+	  Double_t direction_tmp_ = chain.at(0)->GetTangent().GetValue().Z();
 	  if ( direction_tmp_ > 0 ) direction = 1;
 	  else direction = -1;
 	  Int_t momentum_ = chain.at(0)->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
@@ -175,7 +174,7 @@ int main (int argc, char *argv[]) {
 	if ( pl.empty() ) continue;
 	
 	range_function.ModifyVectors(ax, ay, pl);
-	recon_momentum = range_function.CalculateEnergyFromRange(ax, ay, pl, particle_pdg);
+	recon_momentum = range_function.CalculateEnergyFromRange(ax, ay, pl, particle_pdg, direction);
 	switch ( particle_pdg ) {
 	case PDG_t::kProton :
 	  recon_momentum += MCS_PROTON_MASS;

@@ -122,14 +122,16 @@ int main (int argc, char *argv[]) {
 	      if ( reverse_base_pair_vec.at(ipair).second.pl - 1 <= 3 ) continue;
 	      if ( (reverse_base_pair_vec.at(ipair).second.pl - 1) % 2 == 1 &&
 		   reverse_base_pair_vec.at(ipair).second.pl - 1 >= 15 ) continue;
+
+	      iron_plate_id = reverse_base_pair_vec.at(ipair).second.pl - 1;
+	      water_plate_id = reverse_base_pair_vec.at(ipair).first.pl - 1;
+	      // if ( std::abs(iron_plate_id - water_plate_id) > 1 ) continue;
 	      
 	      basetrack_distance.push_back((downstream_position - upstream_position).Mag() / 850.e-3);
 	      track_tangent.push_back(upstream_tangent.Mag());
 	      plate_id.push_back(reverse_base_pair_vec.at(ipair).second.pl - 1);
 	      radial_angle_difference.push_back(RadialAngleDiffNew(upstream_tangent, downstream_tangent));
 	      lateral_angle_difference.push_back(LateralAngleDiffNew(upstream_tangent, downstream_tangent));
-	      iron_plate_id = reverse_base_pair_vec.at(ipair).second.pl - 1;
-	      water_plate_id = reverse_base_pair_vec.at(ipair).first.pl - 1;
 	      if ( ipair < reverse_base_pair_vec.size() - 1 &&
 		   reverse_base_pair_vec.at(ipair + 1).second.pl - 1 == water_plate_id &&
 		   iron_plate_id >= 18 ) {
@@ -217,19 +219,26 @@ int main (int argc, char *argv[]) {
 		}
 	      }
 
+	      Double_t pbeta = result_array.at(0).at(0);
+	      Double_t pbeta_err_minus = result_array.at(0).at(3);
+	      Double_t pbeta_err_plus = result_array.at(0).at(2);
+	      Double_t momentum_minus, momentum_plus; // p +/- 1sigma
 	      if ( particle_id == 0 ) {
-		mom_chain.ecc_mcs_mom[0] = result_array.at(0).at(0);
-		mom_chain.ecc_mcs_mom_error[0][0] = -result_array.at(0).at(3);
-		mom_chain.ecc_mcs_mom_error[0][1] = result_array.at(0).at(2);
+		mom_chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS);
+		momentum_minus = CalculateMomentumFromPBeta(pbeta + pbeta_err_minus, MCS_MUON_MASS);
+		momentum_plus = CalculateMomentumFromPBeta(pbeta + pbeta_err_plus, MCS_MUON_MASS);
+		mom_chain.ecc_mcs_mom_error[0][0] = mom_chain.ecc_mcs_mom[0] - momentum_minus;
+		mom_chain.ecc_mcs_mom_error[0][1] = momentum_plus - mom_chain.ecc_mcs_mom[0];
 	      }
 	      else if ( particle_id == 2 ) {
-		mom_chain.ecc_mcs_mom[1] = result_array.at(0).at(0);
-		mom_chain.ecc_mcs_mom_error[1][0] = -result_array.at(0).at(3);
-		mom_chain.ecc_mcs_mom_error[1][1] = result_array.at(0).at(2);
+		mom_chain.ecc_mcs_mom[1] = CalculateMomentumFromPBeta(pbeta, MCS_PROTON_MASS);
+		momentum_minus = CalculateMomentumFromPBeta(pbeta + pbeta_err_minus, MCS_PROTON_MASS);
+		momentum_plus = CalculateMomentumFromPBeta(pbeta + pbeta_err_plus, MCS_PROTON_MASS);
+		mom_chain.ecc_mcs_mom_error[1][0] = mom_chain.ecc_mcs_mom[1] - momentum_minus;
+		mom_chain.ecc_mcs_mom_error[1][1] = momentum_plus - mom_chain.ecc_mcs_mom[1];
 	      }	      
 	    }	    
 	  }
-	  
 	  ev.chains.push_back(mom_chain);
 	}
       }
@@ -271,6 +280,7 @@ int main (int argc, char *argv[]) {
       }
       // true chains
       for ( auto otrue_chain : ev.true_chains ) {
+	Momentum_recon::WriteMomChainHeader(ofs, otrue_chain);
 	for ( auto obase : otrue_chain.base ) {
 	  ofs.write((char*)& obase, sizeof(Momentum_recon::Mom_basetrack));
 	}
@@ -279,6 +289,7 @@ int main (int argc, char *argv[]) {
 	  ofs.write((char*)& olink.second, sizeof(Momentum_recon::Mom_basetrack));
 	}	
       }
+
       ev.chains.clear();
       ev.true_chains.clear();
 

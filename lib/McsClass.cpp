@@ -172,6 +172,7 @@ namespace Momentum_recon
       }
 
       // true chains
+
       for ( int itrue_chain = 0; itrue_chain < num_true_chain; itrue_chain++ ) {
 	if ( ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 	  mom_chain.base.clear();
@@ -267,13 +268,13 @@ namespace Momentum_recon
 	      << std::setw(7)  << std::setprecision(0) << b.m[0].zone << " "
 	      << std::setw(4)  << std::setprecision(0) << b.m[0].view << " "
 	      << std::setw(3)  << std::setprecision(0) << b.m[0].imager << " "
-	      << std::setw(3)  << std::setprecision(0) << b.m[0].ph << " "
+	      << std::setw(5)  << std::setprecision(0) << b.m[0].ph << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[0].pixelnum << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[0].hitnum << " "
 	      << std::setw(7)  << std::setprecision(0) << b.m[1].zone << " "
 	      << std::setw(4)  << std::setprecision(0) << b.m[1].view << " "
 	      << std::setw(3)  << std::setprecision(0) << b.m[1].imager << " "
-	      << std::setw(3)  << std::setprecision(0) << b.m[1].ph << " "
+	      << std::setw(5)  << std::setprecision(0) << b.m[1].ph << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[1].pixelnum << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[1].hitnum << std::endl;
 	}
@@ -339,13 +340,13 @@ namespace Momentum_recon
 	      << std::setw(7)  << std::setprecision(0) << b.m[0].zone << " "
 	      << std::setw(4)  << std::setprecision(0) << b.m[0].view << " "
 	      << std::setw(3)  << std::setprecision(0) << b.m[0].imager << " "
-	      << std::setw(3)  << std::setprecision(0) << b.m[0].ph << " "
+	      << std::setw(5)  << std::setprecision(0) << b.m[0].ph << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[0].pixelnum << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[0].hitnum << " "
 	      << std::setw(7)  << std::setprecision(0) << b.m[1].zone << " "
 	      << std::setw(4)  << std::setprecision(0) << b.m[1].view << " "
 	      << std::setw(3)  << std::setprecision(0) << b.m[1].imager << " "
-	      << std::setw(3)  << std::setprecision(0) << b.m[1].ph << " "
+	      << std::setw(5)  << std::setprecision(0) << b.m[1].ph << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[1].pixelnum << " "
 	      << std::setw(5)  << std::setprecision(0) << b.m[1].hitnum << std::endl;
 	}

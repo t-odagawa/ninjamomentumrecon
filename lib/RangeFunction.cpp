@@ -170,7 +170,7 @@ void RangeFunction::ModifyVectors(std::vector<double> &ax, std::vector<double> &
 
 }
 
-double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const {
+double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id, int direction) const {
 
   if ( ax.size() != ay.size() ||
        ax.size() != pl.size() ||
@@ -178,6 +178,21 @@ double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vect
     BOOST_LOG_TRIVIAL(error) << "Size of input vectors should be the same";
     std::exit(1);
   }
+
+  switch (direction) {
+  case 1 :
+    return CalculateEnergyFromRangeForward(ax, ay, pl, particle_id);
+    break;
+  case -1 :
+    return CalculateEnergyFromRangeBackward(ax, ay, pl, particle_id);
+    break;
+  default :
+    throw std::invalid_argument("Direction should be +/- 1");
+  }
+
+}
+
+double RangeFunction::CalculateEnergyFromRangeForward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const {
 
   double energy = 0.;
   double scale_factor = 1.;
@@ -271,4 +286,98 @@ double RangeFunction::CalculateEnergyFromRange(std::vector<double> ax, std::vect
   }
   
   return energy;
+}
+
+
+double RangeFunction::CalculateEnergyFromRangeBackward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const {
+
+  // vectors are filled from downstream to upstream
+  std::reverse(ax.begin(), ax.end());
+  std::reverse(ay.begin(), ay.end());
+  std::reverse(pl.begin(), pl.end());
+  
+  double energy = 0.;
+  double scale_factor = 1.;
+  double range = 0.;
+  double range_tmp = 0.;
+
+  for ( int ipl = 0; ipl < pl.size(); ipl++ ) {
+    
+    scale_factor = std::sqrt(ax.at(ipl) * ax.at(ipl) + ay.at(ipl) * ay.at(ipl) + 1.);
+
+    if ( pl.at(ipl) == 133 ) { // most upatream film
+      range  = 109.e-3 * scale_factor;
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+    }
+    else if ( pl.at(ipl) >= 16 ) {
+      if ( pl.at(ipl) %2 == 1 ) { // upstream of iron
+	if ( ipl == 0 )  // if stopping plate
+	  range = 2.3 * scale_factor * 0.5;
+	else
+	  range = 2.3 * scale_factor + WaterRangeFromEnergy(energy, particle_id);
+	energy = WaterEnergyFromRange(range, particle_id);
+	range = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+	energy = EmulsionEnergyFromRange(range, particle_id);
+	range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+	energy = EmulsionEnergyFromRange(range, particle_id);	
+      }
+      else { // upstream of water
+	if ( ipl == 0 )  // if stopping plate
+	  range = 500.e-3 * scale_factor * 0.5;
+	else
+	  range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy, particle_id);
+	energy = IronEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+	energy = EmulsionEnergyFromRange(range, particle_id);
+	range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+	energy = EmulsionEnergyFromRange(range, particle_id);
+	range  = 109.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+      }
+    }
+    else if ( pl.at(ipl) == 15 ) { // most upstream of Fe ECC
+      if ( ipl == 0 ) { // if stopping plate
+	range  = 210.e-3 * scale_factor * 0.5;
+	energy = PolystyreneEnergyFromRange(range, particle_id);
+	range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      }
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+    }
+    else if ( pl.at(ipl) >= 5 ) { // Fe ECC
+      if ( ipl == 0 )  // if stopping plate
+	range = 500.e-3 * scale_factor * 0.5;
+      else
+	range = 500.e-3 * scale_factor + IronRangeFromEnergy(energy, particle_id);
+      energy = IronEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);
+      range  = 210.e-3 * scale_factor + PolystyreneRangeFromEnergy(energy, particle_id);
+      energy = PolystyreneEnergyFromRange(range, particle_id);
+      range  = 70.e-3 * scale_factor + EmulsionRangeFromEnergy(energy, particle_id);
+      energy = EmulsionEnergyFromRange(range, particle_id);      
+    }
+    else {
+      throw std::invalid_argument("Backward track from interaction cannot be exist in ISS");
+    }
+  }
+
+  return energy;
+
 }

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "McsClass.hpp"
 #include "McsClass.cpp"
 
 int main ( int argc, char* argv[]) {
@@ -17,7 +18,7 @@ int main ( int argc, char* argv[]) {
   std::string ofilename = argv[2];
 
   std::vector<Momentum_recon::Event_information > ev_vector = Momentum_recon::ReadEventInformationBin(ifilename);
-
+  std::cout << ev_vector.size() << std::endl;
   Momentum_recon::WriteEventInformationTxt(ofilename, ev_vector);
 
   std::exit(0);

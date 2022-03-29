@@ -657,7 +657,8 @@ Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions, Int_
     if ( emulsions.back()->GetFilmPosition().GetValue().Y() > 5. &&
 	 emulsions.back()->GetFilmPosition().GetValue().Y() < NINJA_ECC_FILM_XY - 5. &&
 	 emulsions.back()->GetFilmPosition().GetValue().X() > 5. &&
-	 emulsions.back()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. )
+	 emulsions.back()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. &&\
+	 emulsions.back()->GetPlate() > 3)
       return true;
     else 
       return false;
@@ -666,7 +667,8 @@ Bool_t IsStopInEccFiducial(std::vector<const B2EmulsionSummary*> emulsions, Int_
     if ( emulsions.front()->GetFilmPosition().GetValue().Y() > 5. &&
 	 emulsions.front()->GetFilmPosition().GetValue().Y() < NINJA_ECC_FILM_XY - 5. &&
 	 emulsions.front()->GetFilmPosition().GetValue().X() > 5. &&
-	 emulsions.front()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. )
+	 emulsions.front()->GetFilmPosition().GetValue().X() < NINJA_ECC_FILM_XY - 5. &&
+	 emulsions.front()->GetPlate() < 132)
       return true;
     else 
       return false;

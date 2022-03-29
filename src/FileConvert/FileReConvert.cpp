@@ -76,9 +76,11 @@ int main (int argc, char* argv[]) {
       }
 
       pbeta_recon_tree->GetEntry(num_entry);
+      /*
       BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in momch : " << mom_chain.entry_in_daily_file
 			       << "\nEntry in daily file in root : " << entry_in_daily_file;
-      mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
+      */
+      mom_chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
 
       Momentum_recon::WriteMomChainHeader(ofs, mom_chain);
       for ( int ibase = 0; ibase < num_base; ibase++ ) {

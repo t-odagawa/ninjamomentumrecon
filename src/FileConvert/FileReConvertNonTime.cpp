@@ -71,7 +71,7 @@ int main (int argc, char* argv[]) {
       }
 
       pbeta_recon_tree->GetEntry(num_entry);
-      mom_chain.ecc_mcs_mom = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
+      mom_chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(recon_pbeta, MCS_MUON_MASS);
 
       Momentum_recon::WriteMomChainHeader(ofs, mom_chain);
       for (int ibase = 0; ibase < mom_chain.base.size(); ibase++) {

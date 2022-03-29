@@ -1,0 +1,37 @@
+{
+    "file_in_ECC_path":"I:/NINJA/E71a/ECC5",
+    "file_in_align_path":"I:/NINJA/E71a/ECC5/Area0/0/align/fine",
+    "file_out_linklet_path":"I:/NINJA/E71a/ECC5/Area0/0/linklet_3d",
+    "file_out_others":"I:/NINJA/E71a/work/suzuki/Linklet",
+    "position_hash":5000,
+    "angle_hash":0.5,
+    "angle_max":10.0,
+    "connect_param_angle":{
+        "slope2_x" :0,
+        "slope_x" :0.45,
+        "intercept_x":0.18,
+        "slope2_y":0,
+        "slope_y":0.45,
+        "intercept_y":0.18,
+        "slope2_r" :0,
+        "slope_r" :0.45,
+        "intercept_r":0.18,
+        "slope2_l":0,
+        "slope_l":0.15,
+        "intercept_l":0.18
+    },
+    "connect_param_position":{
+        "slope2_x" :0,
+        "slope_x" :600,
+        "intercept_x":100,
+        "slope2_y" :0,
+        "slope_y":600,
+        "intercept_y":100,
+        "slope2_r" :0,
+        "slope_r" :45,
+        "intercept_r":80,
+        "slope2_l" :0,
+        "slope_l":45,
+        "intercept_l":80
+    }
+}

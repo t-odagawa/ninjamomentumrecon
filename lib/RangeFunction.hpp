@@ -46,8 +46,9 @@ public:
   double EmulsionEnergyFromRange(double range, int particle_id) const;
   
   void ModifyVectors(std::vector<double> &ax, std::vector<double> &ay, std::vector<int> &pl) const;
-  
-  double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
+  double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id, int direction) const;
+  double CalculateEnergyFromRangeForward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
+  double CalculateEnergyFromRangeBackward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
 };
 
 #endif

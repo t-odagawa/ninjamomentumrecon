@@ -26,46 +26,46 @@ enum { kNinjaMcsForward = 1,
 } NinjaMcsDirection;
 
 ///> Radiation lengths of each material (mm)
-const static double IRON_RAD_LENGTH = 17.18;
-const static double WATER_RAD_LENGTH = 360.8;
-const static double GEL_RAD_LENGTH = 30.3;
-const static double POLY_RAD_LENGTH = 413.1;
-const static double RAD_LENGTH[kNumberOfNinjaMaterials] = { IRON_RAD_LENGTH,
-							    WATER_RAD_LENGTH,
-							    GEL_RAD_LENGTH,
-							    POLY_RAD_LENGTH,
-							    POLY_RAD_LENGTH
+const static double NJ_IRON_RAD_LENGTH = 17.18;
+const static double NJ_WATER_RAD_LENGTH = 360.8;
+const static double NJ_GEL_RAD_LENGTH = 30.3;
+const static double NJ_POLY_RAD_LENGTH = 413.1;
+const static double RAD_LENGTH[kNumberOfNinjaMaterials] = { NJ_IRON_RAD_LENGTH,
+							    NJ_WATER_RAD_LENGTH,
+							    NJ_GEL_RAD_LENGTH,
+							    NJ_POLY_RAD_LENGTH,
+							    NJ_POLY_RAD_LENGTH
 };
 
 ///> Thickness of each material (mm)
-const static double IRON_THICK = 0.5;
-const static double WATER_THICK = 2.3;
-const static double GEL_THICK = 0.07;
-const static double BASE_THICK = 0.21;
-const static double PACK_THICK = 0.109;
-const static double MATERIAL_THICK[kNumberOfNinjaMaterials] = { IRON_THICK,
-								WATER_THICK,
-								GEL_THICK,
-								BASE_THICK,
-								PACK_THICK
+const static double NJ_IRON_THICK = 0.5;
+const static double NJ_WATER_THICK = 2.3;
+const static double NJ_GEL_THICK = 0.07;
+const static double NJ_BASE_THICK = 0.21;
+const static double NJ_PACK_THICK = 0.109;
+const static double MATERIAL_THICK[kNumberOfNinjaMaterials] = { NJ_IRON_THICK,
+								NJ_WATER_THICK,
+								NJ_GEL_THICK,
+								NJ_BASE_THICK,
+								NJ_PACK_THICK
 };
 
 ///> Density of each material (g/cm3)
-const static double IRON_DENSITY = 8.03;
-const static double WATER_DENSITY = 1.00;
-const static double GEL_DENSITY = 3.816;
-const static double POLY_DENSITY = 1.032;
-const static double MATERIAL_DENSITY[kNumberOfNinjaMaterials] = { IRON_DENSITY,
-								  WATER_DENSITY,
-								  GEL_DENSITY,
-								  POLY_DENSITY,
-								  POLY_DENSITY
+const static double NJ_IRON_DENSITY = 8.03;
+const static double NJ_WATER_DENSITY = 1.00;
+const static double NJ_GEL_DENSITY = 3.816;
+const static double NJ_POLY_DENSITY = 1.032;
+const static double MATERIAL_DENSITY[kNumberOfNinjaMaterials] = { NJ_IRON_DENSITY,
+								  NJ_WATER_DENSITY,
+								  NJ_GEL_DENSITY,
+								  NJ_POLY_DENSITY,
+								  NJ_POLY_DENSITY
 };
 
 ///> Mass of particles in interest (MeV/c2)
 const static double MCS_MUON_MASS = 105.658;
 const static double MCS_PION_MASS = 139.570;
-const static double MCS_PROTON_MASS = 938.262;
+const static double MCS_PROTON_MASS = 938.272;
 const static double PARTICLE_MASS[kNumberOfNinjaMcsParticles] = { MCS_MUON_MASS,
 								  MCS_PION_MASS,
 								  MCS_PROTON_MASS

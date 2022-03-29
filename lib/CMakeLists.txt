@@ -26,3 +26,17 @@ target_include_directories(Range PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 file(GLOB RANGE_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 set_target_properties(Range PROPERTIES PUBLIC_HEADER "${RANGE_LIB_INCLUDES}")
+
+add_library(Connection SHARED
+		       ConnectionData.hpp
+		       ConnectionData.cpp
+		       ConnectionClass.hpp
+#		       ConnectionClass.cpp
+#		       ConnectionFunction.hpp
+#		       ConnectionFunction.cpp
+)
+
+target_include_directories(Connection PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+file(GLOB CONNECTION_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+set_target_properties(Connection PROPERTIES PUBLIC_HEADER "${RANGE_LIB_INCLUDES}")

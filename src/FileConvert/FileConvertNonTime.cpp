@@ -7,6 +7,7 @@
 #include <B2Writer.hh>
 #include <B2SpillSummary.hh>
 #include <B2EventSummary.hh>
+#include <B2VertexSummary.hh>
 #include <B2EmulsionSummary.hh>
 
 // system includes
@@ -41,36 +42,12 @@ int main (int argc, char *argv[]) {
 
   try {
 
-    std::ifstream ifs(argv[1], std::ios::binary);
-
-    // filesize取得
-    ifs.seekg(0, std::ios::end);
-    int64_t eofpos = ifs.tellg();
-    ifs.clear();
-    ifs.seekg(0, std::ios::beg);
-    int64_t begpos = ifs.tellg();
-    int64_t nowpos = ifs.tellg();
-    int64_t size2 = eofpos - begpos;
-    int64_t GB = size2 / (1000 * 1000 * 1000);
-    int64_t MB = (size2 - GB * 1000 * 1000 * 1000) / (1000 * 1000);
-    int64_t KB = (size2 - GB * 1000 * 1000 * 1000 - MB * 1000 * 1000) / (1000);
-    if (GB > 0) {
-      std::cout << "FILE size :" << GB << "." << MB << " [GB]" << std::endl;
-    }
-    else {
-      std::cout << "FILE size :" << MB << "." << KB << " [MB]" << std::endl;
-    }
-
-    Momentum_recon::Mom_chain mom_chain;
-    Momentum_recon::Mom_basetrack mom_basetrack;
-    std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
+    std::vector<Momentum_recon::Event_information > ev_vec = Momentum_recon::ReadEventInformationBin((std::string)argv[1]);
 
     B2Writer writer(argv[2]);
-
     int ecc_id = std::atoi(argv[3]);
 
     int num_entry = 0;
-    int num_base, num_link;
 
     // Vectors for basetrack info
     std::vector<Int_t > rawid_vec;
@@ -83,6 +60,54 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > absolute_position_vec;
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
+
+    for ( auto ev : ev_vec ) {
+      auto &spill_summary = writer.GetSpillSummary();
+      auto &event_summary = spill_summary.AddTrueEvent();
+      event_summary.SetEventType(B2EventType::kEventIdStorage);
+
+      auto &recon_vertex_summary = spill_summary.AddReconVertex();
+      TVector3 vertex_position;
+      vertex_position.SetX(ev.recon_vertex_position[0]);
+      vertex_position.SetY(ev.recon_vertex_position[1]);
+      vertex_position.SetZ(ev.recon_vertex_position[2]);
+      recon_vertex_summary.SetRelativePosition(vertex_position);
+      recon_vertex_summary.SetDetector(B2Detector::kNinja);
+      recon_vertex_summary.SetIsInsideFiducialVolume(kTRUE);
+      recon_vertex_summary.SetInteractionMaterial((B2Material)ev.vertex_material);
+      recon_vertex_summary.SetPlane(ev.ecc_id * 1000 + ev.vertex_pl - 1);
+      event_summary.SetPrimaryVertex(recon_vertex_summary);
+
+      for ( auto chain : ev.chains ) {
+
+	rawid_vec.clear();
+	plate_vec.clear();
+	film_position_vec.clear();
+	tangent_vec.clear();
+	vph_up_vec.clear();
+	vph_down_vec.clear();
+	pixel_count_up_vec.clear();
+	pixel_count_down_vec.clear();
+	absolute_position_vec.clear();
+	film_position_in_down_coordinate_vec.clear();
+	tangent_in_down_coordinate_vec.clear();
+
+	
+	
+      }
+
+    }
+
+
+    Momentum_recon::Mom_chain mom_chain;
+    Momentum_recon::Mom_basetrack mom_basetrack;
+    std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
+
+    int ecc_id = std::atoi(argv[3]);
+
+    int num_entry = 0;
+    int num_base, num_link;
+
 
     while ( Momentum_recon::ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
 
@@ -209,7 +234,7 @@ int main (int argc, char *argv[]) {
       for ( int ibase = 0; ibase < mom_chain.base.size(); ibase++ ) {
 	auto &emulsion_summary = spill_summary.AddEmulsion();
 	emulsion_summary.SetEmulsionTrackId((UInt_t)rawid_vec.at(ibase));
-	emulsion_summary.SetParentTrackId(mom_chain.groupid * 100000 + mom_chain.chainid);
+	// emulsion_summary.SetParentTrackId(mom_chain.groupid * 100000 + mom_chain.chainid);
 	emulsion_summary.SetAbsolutePosition(absolute_position_vec.at(ibase));
 	emulsion_summary.SetFilmPosition(film_position_vec.at(ibase));
 	emulsion_summary.SetTangent(tangent_vec.at(ibase));

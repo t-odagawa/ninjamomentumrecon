@@ -57,91 +57,51 @@ int main ( int argc, char *argv[] ) {
       std::cout << "FILE size :" << MB << "." << KB << " [MB]" << std::endl;
     }
 
-    Momentum_recon::Mom_chain mom_chain;
-    Momentum_recon::Mom_basetrack mom_basetrack;
-    std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack> mom_basetrack_pair;
 
-    std::multimap<std::tuple<int, int, int>, Momentum_recon::Mom_chain > mom_chain_map;
-    // <<year, month, day>, mom_chain>
+    std::multimap<std::tuple<int, int, int>, Momentum_recon::Event_information> event_info_map;
+    // <<year, month, day>, Event_information>
 
     // ファイル読み込み，multimap 生成
-    int64_t num_entry = 0;
+    std::vector<Momentum_recon::Event_information> i_ev_vec = Momentum_recon::ReadEventInformationBin((std::string)argv[1]);
 
-    int num_base, num_link;
-    while ( Momentum_recon::ReadMomChainHeader(ifs, mom_chain, num_base, num_link) ) {
-
-      if (num_entry % 100 == 0) {
-	nowpos = ifs.tellg();
-	auto size1 = nowpos - begpos;
-	std::cerr << std::right << std::fixed << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%";
-      }
-      num_entry++;
-
-      mom_chain.base.clear();
-      mom_chain.base_pair.clear();
-      mom_chain.base.reserve(num_base);
-      mom_chain.base_pair.reserve(num_link);
-      for ( int i = 0; i < num_base; i++ ) {
-	ifs.read((char*)& mom_basetrack, sizeof(Momentum_recon::Mom_basetrack));
-	mom_chain.base.push_back(mom_basetrack);
-      }
-      for ( int i = 0; i < num_link; i++ ) {
-	ifs.read((char*)& mom_basetrack_pair.first, sizeof(Momentum_recon::Mom_basetrack));
-	ifs.read((char*)& mom_basetrack_pair.second, sizeof(Momentum_recon::Mom_basetrack));
-	mom_chain.base_pair.push_back(mom_basetrack_pair);
-      }
-
-      time_t unixtime = (time_t)mom_chain.unixtime;
+    for ( auto ev : i_ev_vec ) {
+      time_t unixtime = (time_t)ev.unixtime;
       tm *tm_event = localtime(&unixtime);
 
       int year = tm_event->tm_year + 1900;
       int month = tm_event->tm_mon + 1;
       int day = tm_event->tm_mday;
-      if ( mom_chain.entry_in_daily_file == -1 ) continue;
+      if ( ev.entry_in_daily_file == -1 ) continue;
       BOOST_LOG_TRIVIAL(debug) << year << "/" << month << "/" << day
-			       << " (" << mom_chain.entry_in_daily_file << " )";
-      mom_chain_map.insert(std::make_pair(std::make_tuple(year, month, day), mom_chain));
-
+			       << " (" << ev.entry_in_daily_file << " )";
+      event_info_map.insert(std::make_pair(std::make_tuple(year, month, day), ev));
     }
 
-    auto size1 = eofpos - begpos;
-    std::cerr << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%" << std::endl;
-
     // separate file 生成
-    for ( auto itr = mom_chain_map.begin(); itr != mom_chain_map.end();
-	  itr = std::next(itr, mom_chain_map.count(itr->first)) ) {
+    for ( auto itr = event_info_map.begin(); itr != event_info_map.end();
+	  itr = std::next(itr, event_info_map.count(itr->first)) ) {
       int year = std::get<0>(itr->first);
       int month = std::get<1>(itr->first);
       int day = std::get<2>(itr->first);
 
-      std::stringstream filename_s;
+      std::stringstream daily_filename_s;
 
-      filename_s << argv[1] << "."
-		 << std::to_string(year) << "_"
-		 << std::to_string(month) << "_"
-		 << std::to_string(day) << ".momch";
-      std::string filename = filename_s.str();
-      std::ofstream daily_file(filename, std::ios::binary);
+      daily_filename_s << argv[1] << "."
+		       << std::to_string(year) << "_"
+		       << std::to_string(month) << "_"
+		       << std::to_string(day) << ".momch";
 
-      auto range = mom_chain_map.equal_range(itr->first);
+      std::vector<Momentum_recon::Event_information> daily_ev_vec;
+
+      auto range = event_info_map.equal_range(itr->first);
 
       for ( auto itr2 = range.first; itr2 != range.second; itr2++ ) {
-
-	WriteMomChainHeader(daily_file, itr2->second);
-
-	for ( int i = 0; i < itr2->second.base.size(); i++ ) {
-	  daily_file.write((char*)& itr2->second.base.at(i), sizeof(Momentum_recon::Mom_basetrack));
-	}
-	for ( int i = 0; i < itr2->second.base_pair.size(); i++ ) {
-	  daily_file.write((char*)& itr2->second.base_pair.at(i).first, sizeof(Momentum_recon::Mom_basetrack));
-	  daily_file.write((char*)& itr2->second.base_pair.at(i).second, sizeof(Momentum_recon::Mom_basetrack));
-	}
+	daily_ev_vec.push_back(itr2->second);
       }
 
-      daily_file.close();
+      Momentum_recon::WriteEventInformationBin(daily_filename_s.str(), daily_ev_vec);
 
     }
-
 
   } catch ( const std::runtime_error &error ) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

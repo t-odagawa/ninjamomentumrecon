@@ -77,8 +77,8 @@ void RangeSpline::ReadProtonIronSplines(const fs::path &file_dir_path) {
   iron_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < iron_tree->GetEntries(); ientry++ ) {
     iron_tree->GetEntry(ientry);
-    iron_energy_range_graph->SetPoint(ientry, energy, range / IRON_DENSITY * 10.);
-    iron_range_energy_graph->SetPoint(ientry, range / IRON_DENSITY * 10., energy);
+    iron_energy_range_graph->SetPoint(ientry, energy, range / NJ_IRON_DENSITY * 10.);
+    iron_range_energy_graph->SetPoint(ientry, range / NJ_IRON_DENSITY * 10., energy);
   }
 
   proton_iron_energy_range_spline_ = new TSpline3("proton_iron_energy_range_spline_", iron_energy_range_graph);
@@ -104,8 +104,8 @@ void RangeSpline::ReadProtonWaterSplines(const fs::path &file_dir_path) {
   water_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < water_tree->GetEntries(); ientry++ ) {
     water_tree->GetEntry(ientry);
-    water_energy_range_graph->SetPoint(ientry, energy, range / WATER_DENSITY * 10.);
-    water_range_energy_graph->SetPoint(ientry, range / WATER_DENSITY * 10., energy);
+    water_energy_range_graph->SetPoint(ientry, energy, range / NJ_WATER_DENSITY * 10.);
+    water_range_energy_graph->SetPoint(ientry, range / NJ_WATER_DENSITY * 10., energy);
   }
   proton_water_energy_range_spline_ = new TSpline3("proton_water_energy_range_spline_", water_energy_range_graph);
   proton_water_range_energy_spline_ = new TSpline3("proton_water_range_energy_spline_", water_range_energy_graph);
@@ -130,8 +130,8 @@ void RangeSpline::ReadProtonPolySplines(const fs::path &file_dir_path) {
   poly_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < poly_tree->GetEntries(); ientry++ ) {
     poly_tree->GetEntry(ientry);
-    poly_energy_range_graph->SetPoint(ientry, energy, range / POLY_DENSITY * 10.);
-    poly_range_energy_graph->SetPoint(ientry, range / POLY_DENSITY * 10., energy);
+    poly_energy_range_graph->SetPoint(ientry, energy, range / NJ_POLY_DENSITY * 10.);
+    poly_range_energy_graph->SetPoint(ientry, range / NJ_POLY_DENSITY * 10., energy);
   }
 
   proton_poly_energy_range_spline_ = new TSpline3("proton_poly_energy_range_spline_", poly_energy_range_graph);
@@ -157,8 +157,8 @@ void RangeSpline::ReadProtonEmulsionSplines(const fs::path &file_dir_path) {
   emulsion_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < emulsion_tree->GetEntries(); ientry++ ) {
     emulsion_tree->GetEntry(ientry);
-    emulsion_energy_range_graph->SetPoint(ientry, energy, range / GEL_DENSITY * 10.);
-    emulsion_range_energy_graph->SetPoint(ientry, range / GEL_DENSITY * 10., energy);
+    emulsion_energy_range_graph->SetPoint(ientry, energy, range / NJ_GEL_DENSITY * 10.);
+    emulsion_range_energy_graph->SetPoint(ientry, range / NJ_GEL_DENSITY * 10., energy);
   }
 
   proton_emulsion_energy_range_spline_ = new TSpline3("proton_emulsion_energy_range_spline_", emulsion_energy_range_graph);
@@ -184,8 +184,8 @@ void RangeSpline::ReadPionIronSplines(const fs::path &file_dir_path) {
   iron_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < iron_tree->GetEntries(); ientry++ ) {
     iron_tree->GetEntry(ientry);
-    iron_energy_range_graph->SetPoint(ientry, energy, range / IRON_DENSITY * 10.);
-    iron_range_energy_graph->SetPoint(ientry, range / IRON_DENSITY * 10., energy);
+    iron_energy_range_graph->SetPoint(ientry, energy, range / NJ_IRON_DENSITY * 10.);
+    iron_range_energy_graph->SetPoint(ientry, range / NJ_IRON_DENSITY * 10., energy);
   }
 
   pion_iron_energy_range_spline_ = new TSpline3("pion_iron_energy_range_spline_", iron_energy_range_graph);
@@ -211,8 +211,8 @@ void RangeSpline::ReadPionWaterSplines(const fs::path &file_dir_path) {
   water_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < water_tree->GetEntries(); ientry++ ) {
     water_tree->GetEntry(ientry);
-    water_energy_range_graph->SetPoint(ientry, energy, range / WATER_DENSITY * 10.);
-    water_range_energy_graph->SetPoint(ientry, range / WATER_DENSITY * 10., energy);
+    water_energy_range_graph->SetPoint(ientry, energy, range / NJ_WATER_DENSITY * 10.);
+    water_range_energy_graph->SetPoint(ientry, range / NJ_WATER_DENSITY * 10., energy);
   }
   pion_water_energy_range_spline_ = new TSpline3("pion_water_energy_range_spline_", water_energy_range_graph);
   pion_water_range_energy_spline_ = new TSpline3("pion_water_range_energy_spline_", water_range_energy_graph);
@@ -237,8 +237,8 @@ void RangeSpline::ReadPionPolySplines(const fs::path &file_dir_path) {
   poly_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < poly_tree->GetEntries(); ientry++ ) {
     poly_tree->GetEntry(ientry);
-    poly_energy_range_graph->SetPoint(ientry, energy, range / POLY_DENSITY * 10.);
-    poly_range_energy_graph->SetPoint(ientry, range / POLY_DENSITY * 10., energy);
+    poly_energy_range_graph->SetPoint(ientry, energy, range / NJ_POLY_DENSITY * 10.);
+    poly_range_energy_graph->SetPoint(ientry, range / NJ_POLY_DENSITY * 10., energy);
   }
 
   pion_poly_energy_range_spline_ = new TSpline3("pion_poly_energy_range_spline_", poly_energy_range_graph);
@@ -264,8 +264,8 @@ void RangeSpline::ReadPionEmulsionSplines(const fs::path &file_dir_path) {
   emulsion_tree->SetBranchAddress("energy", &energy);
   for ( Int_t ientry = 0; ientry < emulsion_tree->GetEntries(); ientry++ ) {
     emulsion_tree->GetEntry(ientry);
-    emulsion_energy_range_graph->SetPoint(ientry, energy, range / GEL_DENSITY * 10.);
-    emulsion_range_energy_graph->SetPoint(ientry, range / GEL_DENSITY * 10., energy);
+    emulsion_energy_range_graph->SetPoint(ientry, energy, range / NJ_GEL_DENSITY * 10.);
+    emulsion_range_energy_graph->SetPoint(ientry, range / NJ_GEL_DENSITY * 10., energy);
   }
 
   pion_emulsion_energy_range_spline_ = new TSpline3("pion_emulsion_energy_range_spline_", emulsion_energy_range_graph);

@@ -40,8 +40,8 @@ int main ( int argc, char *argv[] ) {
 
     std::string ifile_prefix = argv[1];
     fs::path prefix(ifile_prefix);
-    std::cout << "Directory : " << prefix.parent_path() << ", "
-	      << "Filename : " << prefix.filename() << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Directory : " << prefix.parent_path() << ", "
+			    << "Filename prefix : " << prefix.filename();
 
     fs::path directory_path(prefix.parent_path());
     std::vector<fs::path> daily_filename_vector;
@@ -54,48 +54,20 @@ int main ( int argc, char *argv[] ) {
     std::sort(daily_filename_vector.begin(), daily_filename_vector.end(),
 	      CompareFileName);
 
-    fs::path merge_mom_file_path(ifile_prefix);
-    merge_mom_file_path += ".merge.momch";
-    std::ofstream merge_momch_file(merge_mom_file_path.generic_string(), std::ios::binary);
-    std::cout << merge_mom_file_path.generic_string() << std::endl;
-    for ( auto daily_filename : daily_filename_vector) {
-      std::cout << daily_filename << std::endl;
-      std::ifstream daily_momch_file(daily_filename.generic_string());
-      Momentum_recon::Mom_chain mom_chain;
-      Momentum_recon::Mom_basetrack mom_base;
-      std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack> mom_base_pair;
-      int num_base, num_link;
+    std::vector<Momentum_recon::Event_information> ev_vec;
 
-      while ( Momentum_recon::ReadMomChainHeader(daily_momch_file, mom_chain, num_base, num_link) ) {
-	std::cout << mom_chain.unixtime << std::endl;
-	mom_chain.base.clear();
-	mom_chain.base_pair.clear();
-	mom_chain.base.reserve(num_base);
-	mom_chain.base_pair.reserve(num_link);
-	for ( int ibase = 0; ibase < num_base; ibase++ ) {
-	  daily_momch_file.read((char*)& mom_base, sizeof(Momentum_recon::Mom_basetrack));
-	  mom_chain.base.push_back(mom_base);
-	}
-	for ( int ilink = 0; ilink < num_link; ilink++ ) {
-	  daily_momch_file.read((char*)& mom_base_pair.first, sizeof(Momentum_recon::Mom_basetrack));
-	  daily_momch_file.read((char*)& mom_base_pair.second, sizeof(Momentum_recon::Mom_basetrack));
-	  mom_chain.base_pair.push_back(mom_base_pair);
-	}
-	
-	Momentum_recon::WriteMomChainHeader(merge_momch_file, mom_chain);
-	for ( int ibase = 0; ibase < mom_chain.base.size(); ibase++ ) {
-	  merge_momch_file.write((char*)& mom_chain.base.at(ibase), sizeof(Momentum_recon::Mom_basetrack));
-	}
-	for ( int ilink = 0; ilink < mom_chain.base_pair.size(); ilink++ ) {
-	  merge_momch_file.write((char*)& mom_chain.base_pair.at(ilink).first, sizeof(Momentum_recon::Mom_basetrack));
-	  merge_momch_file.write((char*)& mom_chain.base_pair.at(ilink).second, sizeof(Momentum_recon::Mom_basetrack));
-	}
+    for ( auto daily_filename : daily_filename_vector ) {
+      std::vector<Momentum_recon::Event_information > daily_ev_vec = Momentum_recon::ReadEventInformationBin(daily_filename.generic_string());
 
-      }
+      ev_vec.insert(ev_vec.end(), daily_ev_vec.begin(), daily_ev_vec.end());
 
     }
 
-    merge_momch_file.close();
+    fs::path merge_mom_file_path(ifile_prefix);
+    merge_mom_file_path += ".merge.momch";
+    BOOST_LOG_TRIVIAL(info) << "Output file path : " << merge_mom_file_path.generic_string();
+
+    Momentum_recon::WriteEventInformationBin(merge_mom_file_path.generic_string(), ev_vec);
 
   } catch ( const std::runtime_error &error ) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
