@@ -313,6 +313,32 @@ void ConnectionData::ReadJsonData(t2l_param &param, const std::string json_file_
   param.slope2_pr = connect_param_position["slope2_r"].get<double>();
   param.slope2_pl = connect_param_position["slope2_l"].get<double>();
 
+  BOOST_LOG_TRIVIAL(trace) << "Filename : "      << json_file_path << "\n"
+			   << "intercept_ax : "  << param.intercept_ax << ", "
+			   << "intercept_ay : "  << param.intercept_ay << ", "
+			   << "intercept_ar : "  << param.intercept_ar << ", "
+			   << "intercept_al : "  << param.intercept_al << "\n"
+			   << "slope_ax : "      << param.slope_ax << ", "
+			   << "slope_ay : "      << param.slope_ay << ", "
+			   << "slope_ar : "      << param.slope_ar << ", "
+			   << "slope_al : "      << param.slope_al << "\n"
+			   << "slope2_ax : "     << param.slope2_ax << ", "
+			   << "slope2_ay : "     << param.slope2_ay << ", "
+			   << "slope2_ar : "     << param.slope2_ar << ", "
+			   << "slope2_al : "     << param.slope2_al << "\n"
+			   << "intercept_px : "  << param.intercept_px << ", "
+			   << "intercept_py : "  << param.intercept_py << ", "
+			   << "intercept_pr : "  << param.intercept_pr << ", "
+			   << "intercept_pl : "  << param.intercept_pl << "\n"
+			   << "slope_px : "      << param.slope_px << ", "
+			   << "slope_py : "      << param.slope_py << ", "
+			   << "slope_pr : "      << param.slope_pr << ", "
+			   << "slope_pl : "      << param.slope_pl << "\n"
+			   << "slope2_px : "     << param.slope2_px << ", "
+			   << "slope2_py : "     << param.slope2_py << ", "
+			   << "slope2_pr : "     << param.slope2_pr << ", "
+			   << "slope2_pl : "     << param.slope2_pl;
+
   return;
 
 }

@@ -25,6 +25,9 @@
 // my includes
 #include "McsClass.hpp"
 #include "McsFunction.hpp"
+#include "ConnectionData.hpp"
+#include "ConnectionClass.hpp"
+#include "ConnectionFunction.hpp"
 
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
@@ -33,14 +36,15 @@ int main ( int argc, char* argv[] ) {
   
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::debug
+     // logging::trivial::severity >= logging::trivial::debug
+     logging::trivial::severity >= logging::trivial::trace
      );
 
   BOOST_LOG_TRIVIAL(info) << "==========MC output to chain like data conversion start==========";
 
-  if ( argc != 4 ) {
+  if ( argc != 5 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <Input B2 file> <Output event info file> <ECC id>";
+			     << " <Input B2 file> <Output event info file> <ECC id> <data dir path>";
     std::exit(1);
   }
 
@@ -53,6 +57,11 @@ int main ( int argc, char* argv[] ) {
 
     const Int_t ecc_id = std::atoi(argv[3]);
 
+
+    const std::string data_dir_path = argv[4];
+    const ConnectionData connection_data(data_dir_path);
+    const ConnectionFunction connection_function(connection_data);
+
     while ( reader.ReadNextSpill() > 0 ) {
 
       Momentum_recon::Event_information ev;
@@ -63,36 +72,48 @@ int main ( int argc, char* argv[] ) {
       auto it_event = spill_summary.BeginTrueEvent();
       const auto *event = it_event.Next();
       auto &primary_vertex_summary = event->GetPrimaryVertex();
-      ev.weight = primary_vertex_summary.GetMCWeight();
+      ev.weight = primary_vertex_summary.GetMcWeight();
 
-      // Get emulsion tracks
-      std::vector<const B2EmulsionSummary* > emulsions = GetTrueEmulsionTracks(spill_summary, ecc_id);
+      // Get true emulsion tracks
+      std::vector<const B2EmulsionSummary* > emulsions = {};
+      connection_function.GetTrueEmulsionTracks(emulsions, spill_summary, ecc_id);
 
       if ( emulsions.empty() ) continue;
       std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
 
       // Get true chains
-      std::vector<std::vector<const B2EmulsionSummary* > > chains = GetTrueEmulsionChains(emulsions);
+      std::vector<std::vector<const B2EmulsionSummary* > > chains = {};
+      connection_function.GetTrueEmulsionChains(chains, emulsions);
 
       // Add true information
-      AddTrueChainsToEventInfo(ev, chains);
+      connection_function.AddTrueChainsToEventInfo(ev, chains, ecc_id);
 
       // Smear
-      SmearChains(chains);
+      std::vector<B2EmulsionSummary* > emulsions_smeared;
+      connection_function.SmearEmulsions(emulsions_smeared, emulsions);
+      /*
       // Apply detection efficiency
-      ApplyDetectionEfficiency(chains);
+      std::vector<B2EmulsionSummary* > emulsions_detected;
+      ApplyDetectionEfficiency(emulsions_detected, emulsions_smeared);
       // Fiducial volume cut
-      ApplyFVCut(chains, ecc_id);
+      std::vector<B2EmulsionSummary* > emulsions_detected_in_fv;
+      ApplyFVCut(emulsions_detected_in_fv, emulsions_detected);
+      */
       // Linklet
-      std::set<std::pair<const B2EmulsionSummary*, const B2EmusionSummary > > linklets = 
-      // Multi-link erase is not necessary
+      // Black についてはVPH <-> PID が同じものだけを対象に loose につなぐ
+      // Multi 消しはしなくてよい
+      std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > linklets;
+      connection_function.GenerateLinklet(linklets, emulsions_smeared);
+      
       // Group reconstruction
+      std::vector<std::vector<B2EmulsionSummary* > > group;
       // 連結成分を取り出す -> それ以上上流に行けないtrack, 下流に行けないtrack を引っ張ってくる
       // 引っ張ってきたtrack をつかって再接続
-      // Black だけでallowance を変えてやり直す (VPH が3倍以上で切る -> PID が違ったら切る？)
-      // どちらも使ってgroup を作り直す
+      std::vector<std::vector<B2EmulsionSummary* > > group_reconnected;
+
       // group をほどくアルゴリズムに突っ込む
 
+      
       ev_vec.push_back(ev);
 
     }

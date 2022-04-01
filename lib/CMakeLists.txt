@@ -31,9 +31,9 @@ add_library(Connection SHARED
 		       ConnectionData.hpp
 		       ConnectionData.cpp
 		       ConnectionClass.hpp
-#		       ConnectionClass.cpp
-#		       ConnectionFunction.hpp
-#		       ConnectionFunction.cpp
+		       ConnectionClass.cpp
+		       ConnectionFunction.hpp
+		       ConnectionFunction.cpp
 )
 
 target_include_directories(Connection PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

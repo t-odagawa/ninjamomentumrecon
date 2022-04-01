@@ -1,6 +1,17 @@
 #ifndef CONNCET_CLASS_HPP
 #define CONNCET_CLASS_HPP
 
+class Point {
+public :
+  double x, y, z;
+};
+
+class FiducialArea {
+public :
+  int pl;
+  Point p[2];
+};
+
 class t2l_param {
 public :
   double intercept_ax, intercept_ay, intercept_ar, intercept_al;
