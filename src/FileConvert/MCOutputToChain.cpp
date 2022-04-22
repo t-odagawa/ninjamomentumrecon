@@ -32,12 +32,23 @@
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
 
+bool EmulsionCompareDownToUp(const B2EmulsionSummary *lhs,
+			     const B2EmulsionSummary *rhs) {
+  if ( lhs->GetEcc() != rhs->GetEcc() ) 
+    return lhs->GetEcc() < rhs->GetEcc();
+  else if ( lhs->GetParentTrackId() != rhs->GetParentTrackId() )
+    return lhs->GetParentTrackId() < rhs->GetParentTrackId();
+  else
+    return lhs->GetPlate() < rhs->GetPlate();
+}
+
+
 int main ( int argc, char* argv[] ) {
   
   logging::core::get()->set_filter
     (
-     // logging::trivial::severity >= logging::trivial::debug
-     logging::trivial::severity >= logging::trivial::trace
+     logging::trivial::severity >= logging::trivial::debug
+     // logging::trivial::severity >= logging::trivial::trace
      );
 
   BOOST_LOG_TRIVIAL(info) << "==========MC output to chain like data conversion start==========";
@@ -64,22 +75,40 @@ int main ( int argc, char* argv[] ) {
 
     while ( reader.ReadNextSpill() > 0 ) {
 
+      if ( reader.GetEntryNumber() != 100 ) continue;
+      
       Momentum_recon::Event_information ev;
 
       auto &spill_summary = reader.GetSpillSummary();
 
-      // MC weight
+      // Event information
+      ev.groupid = reader.GetEntryNumber();
+      ev.entry_in_daily_file = reader.GetEntryNumber();
+      ev.ecc_id = ecc_id;
+
+      // MC weight & beam info
       auto it_event = spill_summary.BeginTrueEvent();
       const auto *event = it_event.Next();
       auto &primary_vertex_summary = event->GetPrimaryVertex();
       ev.weight = primary_vertex_summary.GetMcWeight();
+      ev.nu_energy = event->GetPrimaryParticleEnergy().GetValue();
+      TVector3 nu_mom = event->GetPrimaryParticleMomentum().GetValue();
+      ev.nu_ax = nu_mom.X() / nu_mom.Z();
+      ev.nu_ay = nu_mom.Y() / nu_mom.Z();
+      TVector3 vertex_position = primary_vertex_summary.GetAbsolutePosition().GetValue();
+      connection_function.CalcPosInEccCoordinate(vertex_position, ecc_id);
+      ev.true_vertex_position[0] = vertex_position.X();
+      ev.true_vertex_position[1] = vertex_position.Y();
+      ev.true_vertex_position[2] = vertex_position.Z();
 
       // Get true emulsion tracks
       std::vector<const B2EmulsionSummary* > emulsions = {};
       connection_function.GetTrueEmulsionTracks(emulsions, spill_summary, ecc_id);
 
       if ( emulsions.empty() ) continue;
-      std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
+      std::sort(emulsions.begin(), emulsions.end(), EmulsionCompareDownToUp);
+
+      std::cout << "Entry : " << reader.GetEntryNumber() << std::endl;
 
       // Get true chains
       std::vector<std::vector<const B2EmulsionSummary* > > chains = {};
@@ -91,29 +120,62 @@ int main ( int argc, char* argv[] ) {
       // Smear
       std::vector<B2EmulsionSummary* > emulsions_smeared;
       connection_function.SmearEmulsions(emulsions_smeared, emulsions);
-      /*
+      
+
       // Apply detection efficiency
       std::vector<B2EmulsionSummary* > emulsions_detected;
-      ApplyDetectionEfficiency(emulsions_detected, emulsions_smeared);
+      connection_function.ApplyDetectionEfficiency(emulsions_detected, emulsions_smeared, ecc_id);
+
       // Fiducial volume cut
       std::vector<B2EmulsionSummary* > emulsions_detected_in_fv;
-      ApplyFVCut(emulsions_detected_in_fv, emulsions_detected);
-      */
+      connection_function.ApplyFVCut(emulsions_detected_in_fv, emulsions_detected, ecc_id);     
+      // connection_data.DrawFiducialAreaData(ecc_id, 12, emulsions_detected, reader.GetEntryNumber());
+      
       // Linklet
       // Black についてはVPH <-> PID が同じものだけを対象に loose につなぐ
       // Multi 消しはしなくてよい
       std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > linklets;
-      connection_function.GenerateLinklet(linklets, emulsions_smeared);
-      
+      connection_function.GenerateLinklet(linklets, emulsions_detected_in_fv);
+
       // Group reconstruction
-      std::vector<std::vector<B2EmulsionSummary* > > group;
+      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups;
+      connection_function.GenerateGroup(groups, linklets, emulsions_detected_in_fv);
+
       // 連結成分を取り出す -> それ以上上流に行けないtrack, 下流に行けないtrack を引っ張ってくる
       // 引っ張ってきたtrack をつかって再接続
-      std::vector<std::vector<B2EmulsionSummary* > > group_reconnected;
+      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_reconnected;
+      connection_function.ReconnectGroups(groups_reconnected, groups, emulsions_detected_in_fv);
+      for ( auto group : groups_reconnected ) {
+	std::cout << "start_seg : PL" << group.first->GetPlate() + 1 << ", " << group.first->GetEmulsionTrackId() << std::endl;
+	for ( auto linklet : group.second ) {
+	  std::cout << "(PL" << linklet.first->GetPlate() + 1 << ", " << linklet.first->GetEmulsionTrackId() << ", "
+		    << "PL" << linklet.second->GetPlate() + 1 << ", " << linklet.second->GetEmulsionTrackId() << ")" << std::endl; 
+	}
+      }
 
-      // group をほどくアルゴリズムに突っ込む
+      // group をほどくアルゴリズムに突っ込む (if necessary)
 
-      
+      // vertex plate を確定させる
+      std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary*> > > muon_group;
+      /*
+      if ( connection_function.SelectMuonGroup(groups_reconnected, muon_group) ) {
+
+	// vertex plate に attach する basetrack を探す
+	std::vector<B2EmulsionSummary* > emulsions_partner;
+	//connection_function.PartnerSearch(vertex_track, emulsions_partner, emulsions);
+
+	// vertex plate に attach する basetrack に対して group を作る
+	// 4pl さきまで見るかどうかが先程との違い
+	// connection_function.GenerateGroupPartner(groups_partner, linklets, emulsions_partner);
+
+	// attach した group の再接続を行う?
+	// connection_function.ReconnectGroupsPartner(groups_reconnected_partner, groups_partner);
+
+	// group を event information に変換
+	// connection_function.AddGroupsToEventInfo(ev, group);
+	
+      }
+*/
       ev_vec.push_back(ev);
 
     }

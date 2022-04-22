@@ -1,5 +1,8 @@
 #include "ConnectionClass.hpp"
 
+#include <boost/unordered_map.hpp>
+#include <cstddef>
+
 t2l_param& t2l_param::operator=(const t2l_param& obj) {
   intercept_ax = obj.intercept_ax;
   intercept_ay = obj.intercept_ay;
@@ -28,4 +31,14 @@ t2l_param& t2l_param::operator=(const t2l_param& obj) {
   slope2_pl = obj.slope2_pl;
 
   return *this;
+}
+
+bool Segment::operator==(const Segment &rhs) const {
+  return plate == rhs.plate && rawid == rhs.rawid;
+}
+
+bool Segment::operator<(const Segment &rhs) const {
+  if ( plate == rhs.plate )
+    return rawid < rhs.rawid;
+  return plate < rhs.plate;
 }

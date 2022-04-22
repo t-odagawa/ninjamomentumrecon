@@ -7,6 +7,11 @@
 
 #include <string>
 
+#include <TCanvas.h>
+#include <TGraph.h>
+
+#include <B2EmulsionSummary.hh>
+
 #include "picojson.h"
 
 #include "ConnectionClass.hpp"
@@ -45,10 +50,21 @@ const fs::path RE_FE_WATER_FE_WATER_FE_CONNECT_FILENAME("t2l_re_fe_water_fe_wate
 const fs::path RE_WATER_FE_WATER_CONNECT_FILENAME("t2l_re_water_fe_water.json");
 const fs::path WATER_CONNECT_FILENAME("t2l_water.json");
 
+const fs::path ECC_FIDUCIAL_FILENAMES[9] = {"fa_new_mfile_local_ecc1.txt",
+					    "fa_new_mfile_local_ecc2.txt",
+					    "fa_new_mfile_local_ecc3.txt",
+					    "fa_new_mfile_local_ecc4.txt",
+					    "fa_new_mfile_local_ecc5.txt",
+					    "fa_new_mfile_local_ecc6.txt",
+					    "fa_new_mfile_local_ecc7.txt",
+					    "fa_new_mfile_local_ecc8.txt",
+					    "fa_new_mfile_local_ecc9.txt"};
+
 ConnectionData::ConnectionData(const std::string &file_dir_path) {
   fs::path file_dir(file_dir_path);
 
   ReadConnectData(file_dir);
+  ReadFiducialData(file_dir);
 
   BOOST_LOG_TRIVIAL(info) << "Connection data are initialized";
 }
@@ -93,6 +109,19 @@ void ConnectionData::ReadConnectData(const fs::path &file_dir_path) {
 
   return;
 
+}
+
+void ConnectionData::ReadFiducialData(const fs::path &file_dir_path) {
+  const fs::path fiducial_dir_path(file_dir_path/FIDUCIAL_DIRNAME);
+  
+  if ( !fs::exists(fiducial_dir_path) )
+    throw std::runtime_error("Directory : " + fiducial_dir_path.string() + " not found");
+
+  for ( int i = 0; i < 9; i++ ) {
+    if ( i != 4 ) continue;
+    ReadFiducialAreaEcc(i, fiducial_dir_path);
+  }
+  
 }
 
 void ConnectionData::ReadETECCConnectData(const fs::path &file_dir_path) {
@@ -343,6 +372,55 @@ void ConnectionData::ReadJsonData(t2l_param &param, const std::string json_file_
 
 }
 
+
+void ConnectionData::ReadFiducialAreaEcc(int ecc, 
+					 const fs::path &file_dir_path) {
+  if ( ecc < 0 || ecc > 8 )
+    throw std::invalid_argument("ECC id not valid : " + ecc);
+  const std::string fiducial_file_path = (file_dir_path/ECC_FIDUCIAL_FILENAMES[ecc]).string();
+  ReadFiducialArea(ecc_fiducial_[ecc], fiducial_file_path);
+}
+
+void ConnectionData::ReadFiducialArea(std::map<int, std::vector<FiducialArea > > &fiducial_area_map,
+				      const std::string file_dir_path) {
+
+  std::ifstream ifs(file_dir_path);
+  BOOST_LOG_TRIVIAL(trace) << "Fiducial file name : " << file_dir_path;
+  std::multimap<int, FiducialArea > fa_multi;
+  FiducialArea fa;
+  while ( ifs >> fa.pl
+	  >> fa.p[0].x >> fa.p[0].y >> fa.p[0].z
+	  >> fa.p[1].x >> fa.p[1].y >> fa.p[1].z )
+    fa_multi.insert(std::make_pair(fa.pl, fa));
+
+  for ( auto itr = fa_multi.begin(); itr != fa_multi.end(); itr++ ) {
+    auto range = fa_multi.equal_range(itr->first);
+    std::vector<FiducialArea > vec;
+    for ( auto itr2 = range.first; itr2 != range.second; itr2++ ) {
+      vec.push_back(itr2->second);
+    }
+    fiducial_area_map.insert(std::make_pair(itr->first, vec));
+  }
+
+  ifs.close();
+
+
+  for ( auto itr = fiducial_area_map.begin(); itr != fiducial_area_map.end(); itr++ ) {
+    auto range = fiducial_area_map.equal_range(itr->first);
+    for ( auto itr2 = range.first; itr2 != range.second; itr2++ ) {
+      for ( auto fa2 : itr2->second )
+	BOOST_LOG_TRIVIAL(trace) << "pl : " << fa2.pl << ", "
+				 << "x0 : " << fa2.p[0].x << ", "
+				 << "y0 : " << fa2.p[0].y << ", "
+				 << "z0 : " << fa2.p[0].z << ", "
+				 << "x1 : " << fa2.p[1].x << ", "
+				 << "y1 : " << fa2.p[1].y << ", "
+				 << "z1 : " << fa2.p[1].z;
+    }
+  }
+
+}
+
 void ConnectionData::GetETECCConnectData(t2l_param &et_ecc_param) const {
   et_ecc_param = et_ecc_param_;
   return;
@@ -486,4 +564,50 @@ void ConnectionData::GetReWaterFeWaterConnectData(t2l_param &re_water_fe_water_p
 void ConnectionData::GetWaterConnectData(t2l_param &water_param) const {
   water_param = water_param_;
   return;
+}
+
+void ConnectionData::GetFiducialAreaData(int ecc, std::map<int, std::vector<FiducialArea > > &ecc_fiducial) const {
+  if ( ecc < 0 || ecc > 8 )
+    throw std::invalid_argument("Ecc id not valid : " + ecc);
+  ecc_fiducial = ecc_fiducial_[ecc];
+  return;
+}
+
+void ConnectionData::DrawFiducialAreaData(int ecc, int plate,
+					  std::vector<B2EmulsionSummary* > &emulsions,
+					  int eventid) const {
+
+  std::vector<Double_t > edge_x, edge_y; // fiducial 外周の座標
+  std::vector<Double_t > point_x, point_y; // emulsion の座標
+  std::vector<FiducialArea > fa = ecc_fiducial_[ecc].at(plate);
+  for ( auto fa_points : fa ) {
+    edge_x.push_back(fa_points.p[0].x);
+    edge_y.push_back(fa_points.p[0].y);
+  }
+
+  TGraph *edges = new TGraph(edge_x.size(),
+			     &edge_x[0],
+			     &edge_y[0]);
+
+  for ( auto emulsion : emulsions ) {
+    if ( emulsion->GetEcc() != ecc ) continue;
+    if ( emulsion->GetPlate() + 1 != plate ) continue;
+    point_x.push_back(emulsion->GetFilmPosition().GetValue().X() * 1000.);
+    point_y.push_back(emulsion->GetFilmPosition().GetValue().Y() * 1000.);
+  }
+
+  TCanvas *c = new TCanvas("c", "c");
+  edges->SetTitle(Form("Fiducial area (ECC%d, PL%d);x[um];y[um]", ecc+1, plate));
+  edges->Draw("AP");
+
+  if ( !point_x.empty() ) {
+    TGraph *points = new TGraph(point_x.size(),
+				&point_x[0],
+				&point_y[0]);
+    points->SetMarkerColor(kRed);
+    points->SetMarkerStyle(kStar);
+    points->Draw("SAME P");
+  }
+
+  c->SaveAs(Form("/home/t2k/odagawa/data/plots/fiducial_test/fiducial_ecc%d_plate%d_event%d.pdf", ecc, plate, eventid));
 }

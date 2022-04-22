@@ -1,6 +1,10 @@
 #ifndef CONNCET_CLASS_HPP
 #define CONNCET_CLASS_HPP
 
+#include <cstddef>
+
+#include <boost/functional/hash.hpp>
+
 class Point {
 public :
   double x, y, z;
@@ -23,6 +27,37 @@ public :
 
   t2l_param& operator=(const t2l_param& obj);
 
+};
+
+class partner_param {
+public :
+  double angle_accuracy_intercept_mu;
+  double angle_accuracy_slope_mu;
+  double angle_accuracy_intercept_partner;
+  double angle_accuracy_slope_partner;
+};
+
+class Segment {
+public : 
+  int plate;
+  unsigned int rawid;
+  bool operator==(const Segment &rhs) const;
+  bool operator<(const Segment &rhs) const;
+
+  friend std::size_t hash_value(const Segment &obj) {
+    std::size_t h = 0;
+    boost::hash_combine(h, obj.plate);
+    boost::hash_combine(h, obj.rawid);
+    return h;
+  }
+ 
+};
+
+class Group {
+public :
+  int start_plate;
+  unsigned int start_rawid;
+  std::vector<std::pair<Segment, Segment > > linklets;
 };
 
 #endif

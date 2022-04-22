@@ -4,6 +4,9 @@
 #include <boost/filesystem.hpp>
 
 #include <string>
+#include <map>
+
+#include <B2EmulsionSummary.hh>
 
 #include "ConnectionClass.hpp"
 
@@ -43,6 +46,8 @@ const extern fs::path RE_FE_WATER_FE_WATER_FE_CONNECT_FILENAME;
 const extern fs::path RE_WATER_FE_WATER_CONNECT_FILENAME;
 const extern fs::path WATER_CONNECT_FILENAME;
 
+const extern fs::path ECC_FIDUCIAL_FILENAMES[9];
+
 class ConnectionData {
 
 private:
@@ -77,7 +82,10 @@ private:
   t2l_param re_water_fe_water_param_;
   t2l_param water_param_;
 
+  std::map<int, std::vector<FiducialArea> > ecc_fiducial_[9];
+
   void ReadConnectData(const fs::path &file_dir_path);
+  void ReadFiducialData(const fs::path &file_dir_path);
   
   void ReadETECCConnectData(const fs::path &file_dir_path);
   void ReadETECCFeConnectData(const fs::path &file_dir_path);
@@ -110,6 +118,10 @@ private:
   void ReadWaterConnectData(const fs::path &file_dir_path);
 
   void ReadJsonData(t2l_param &param, const std::string json_file_path);
+
+  void ReadFiducialAreaEcc(int ecc, const fs::path &file_dir_path);
+  void ReadFiducialArea(std::map<int, std::vector<FiducialArea > > &fiducial_area_map,
+			const std::string file_dir_path);
 
 public:
   explicit ConnectionData(const std::string &file_dir_path);
@@ -145,6 +157,12 @@ public:
   void GetReFeWaterFeWaterFeConnectData(t2l_param &re_fe_water_fe_water_fe_param) const;
   void GetReWaterFeWaterConnectData(t2l_param &re_water_fe_water_param) const;
   void GetWaterConnectData(t2l_param &water_param) const;
+
+  void GetFiducialAreaData(int ecc, std::map<int, std::vector<FiducialArea > > &ecc_fiducial) const;
+
+  void DrawFiducialAreaData(int ecc, int plate,
+			    std::vector<B2EmulsionSummary* > &emulsions,
+			    int eventid) const;
   
 };
 
