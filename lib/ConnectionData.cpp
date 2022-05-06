@@ -414,8 +414,10 @@ void ConnectionData::ReadFiducialArea(std::map<int, std::vector<FiducialArea > >
   FiducialArea fa;
   while ( ifs >> fa.pl
 	  >> fa.p[0].x >> fa.p[0].y >> fa.p[0].z
-	  >> fa.p[1].x >> fa.p[1].y >> fa.p[1].z )
+	  >> fa.p[1].x >> fa.p[1].y >> fa.p[1].z ) {
+    fa.p[0].y += 1.e3; fa.p[1].y += 1.e3; // vertical offset
     fa_multi.insert(std::make_pair(fa.pl, fa));
+  }
 
   for ( auto itr = fa_multi.begin(); itr != fa_multi.end(); itr++ ) {
     auto range = fa_multi.equal_range(itr->first);
