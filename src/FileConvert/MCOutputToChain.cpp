@@ -217,8 +217,16 @@ int main ( int argc, char* argv[] ) {
 	std::cout << "chain size error" << std::endl;
 	BOOST_LOG_TRIVIAL(warning) << "Filename : "  << ofilename << ", eventid : " << ev.groupid;
       }
-      if ( ev.recon_vertex[2] < -250e3 ) {
+      if ( ev.recon_vertex_position[2] < -250e3 ) {
 	std::cout << "vertex depth error" << std::endl;
+	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
+      }
+      if ( ev.true_chains.size() > 7 ) {
+	std::cout << "chain size large" << std::endl;
+	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
+      }
+      if ( ev.vertex_pl % 1000 > ev.vertex_pl / 1000 ) {
+	std::cout << "Vertex plate error" << std::endl;
 	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
       }
 	
