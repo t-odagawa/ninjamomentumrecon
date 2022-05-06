@@ -5,6 +5,11 @@
 
 #include <boost/functional/hash.hpp>
 
+template<class T, class F = decltype(!(std::declval<T>()==std::declval<T>()))>
+F operator!=(T a, T b) {
+  return !(a==b);
+}
+
 class Point {
 public :
   double x, y, z;
@@ -14,6 +19,13 @@ class FiducialArea {
 public :
   int pl;
   Point p[2];
+};
+
+class Efficiency {
+public :
+  int pl;
+  double range[2];
+  double efficiency, efficiency_err;
 };
 
 class t2l_param {
@@ -58,6 +70,8 @@ public :
   int start_plate;
   unsigned int start_rawid;
   std::vector<std::pair<Segment, Segment > > linklets;
+
+  bool operator==(const Group &rhs) const;
 };
 
 #endif

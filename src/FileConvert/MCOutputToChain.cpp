@@ -8,6 +8,7 @@
 #include <B2Writer.hh>
 #include <B2SpillSummary.hh>
 #include <B2EventSummary.hh>
+#include <B2TrackSummary.hh>
 #include <B2VertexSummary.hh>
 #include <B2EmulsionSummary.hh>
 
@@ -75,7 +76,8 @@ int main ( int argc, char* argv[] ) {
 
     while ( reader.ReadNextSpill() > 0 ) {
 
-      if ( reader.GetEntryNumber() != 100 ) continue;
+      //  if ( reader.GetEntryNumber() > 1000 ) continue;
+      // if ( reader.GetEntryNumber() != 194 ) continue;
       
       Momentum_recon::Event_information ev;
 
@@ -84,7 +86,6 @@ int main ( int argc, char* argv[] ) {
       // Event information
       ev.groupid = reader.GetEntryNumber();
       ev.entry_in_daily_file = reader.GetEntryNumber();
-      ev.ecc_id = ecc_id;
 
       // MC weight & beam info
       auto it_event = spill_summary.BeginTrueEvent();
@@ -100,6 +101,8 @@ int main ( int argc, char* argv[] ) {
       ev.true_vertex_position[0] = vertex_position.X();
       ev.true_vertex_position[1] = vertex_position.Y();
       ev.true_vertex_position[2] = vertex_position.Z();
+      ev.vertex_pl = (primary_vertex_summary.GetPlane() % 1000 + 1) * 1000;
+      ev.ecc_id = (primary_vertex_summary.GetPlane() / 1000 + 1) * 10;
 
       // Get true emulsion tracks
       std::vector<const B2EmulsionSummary* > emulsions = {};
@@ -107,8 +110,6 @@ int main ( int argc, char* argv[] ) {
 
       if ( emulsions.empty() ) continue;
       std::sort(emulsions.begin(), emulsions.end(), EmulsionCompareDownToUp);
-
-      std::cout << "Entry : " << reader.GetEntryNumber() << std::endl;
 
       // Get true chains
       std::vector<std::vector<const B2EmulsionSummary* > > chains = {};
@@ -129,11 +130,12 @@ int main ( int argc, char* argv[] ) {
       // Fiducial volume cut
       std::vector<B2EmulsionSummary* > emulsions_detected_in_fv;
       connection_function.ApplyFVCut(emulsions_detected_in_fv, emulsions_detected, ecc_id);     
-      // connection_data.DrawFiducialAreaData(ecc_id, 12, emulsions_detected, reader.GetEntryNumber());
+      // if ( reader.GetEntryNumber() == 202 )
+      // connection_data.DrawFiducialAreaData(ecc_id, 37, emulsions_detected, reader.GetEntryNumber());
       
       // Linklet
-      // Black についてはVPH <-> PID が同じものだけを対象に loose につなぐ
-      // Multi 消しはしなくてよい
+      // Black については VPH <-> PID が同じものだけを対象に loose につなぐ
+      // Multi 消しは background に効くだけなはずなので省略する
       std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > linklets;
       connection_function.GenerateLinklet(linklets, emulsions_detected_in_fv);
 
@@ -141,41 +143,85 @@ int main ( int argc, char* argv[] ) {
       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups;
       connection_function.GenerateGroup(groups, linklets, emulsions_detected_in_fv);
 
-      // 連結成分を取り出す -> それ以上上流に行けないtrack, 下流に行けないtrack を引っ張ってくる
-      // 引っ張ってきたtrack をつかって再接続
-      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_reconnected;
-      connection_function.ReconnectGroups(groups_reconnected, groups, emulsions_detected_in_fv);
-      for ( auto group : groups_reconnected ) {
-	std::cout << "start_seg : PL" << group.first->GetPlate() + 1 << ", " << group.first->GetEmulsionTrackId() << std::endl;
+      /*
+      for ( auto group : groups ) {
+	std::cout << "start track : PL" << group.first->GetPlate() + 1 << ", " << group.first->GetEmulsionTrackId() << std::endl;
 	for ( auto linklet : group.second ) {
-	  std::cout << "(PL" << linklet.first->GetPlate() + 1 << ", " << linklet.first->GetEmulsionTrackId() << ", "
-		    << "PL" << linklet.second->GetPlate() + 1 << ", " << linklet.second->GetEmulsionTrackId() << ")" << std::endl; 
+	  std::cout << "( PL" << linklet.first->GetPlate() + 1  << ", " << linklet.first->GetEmulsionTrackId() << ", "
+		    << "  PL" << linklet.second->GetPlate() + 1 << ", " << linklet.second->GetEmulsionTrackId() << ")" << std::endl;
 	}
       }
+      */
 
-      // group をほどくアルゴリズムに突っ込む (if necessary)
+      // 連結成分を取り出す -> それ以上上流に行けない track, 下流に行けない track を引っ張ってくる
+      // 引っ張ってきた track をつかって再接続
+      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_reconnected;
+      connection_function.ReconnectGroups(groups_reconnected, groups, emulsions_detected_in_fv);
+
+      /*
+      for ( auto group : groups_reconnected ) {
+	std::cout << "start track : PL" << group.first->GetPlate() + 1 << ", " << group.first->GetEmulsionTrackId() << std::endl;
+	for ( auto linklet : group.second ) {
+	  std::cout << "( PL" << linklet.first->GetPlate() + 1  << ", " << linklet.first->GetEmulsionTrackId() << ", "
+		    << "  PL" << linklet.second->GetPlate() + 1 << ", " << linklet.second->GetEmulsionTrackId() << ")" << std::endl;
+	}
+      }
+      */
+
+      // group をほどくアルゴリズムに突っ込む部分は S/N を良くするために行っているが
+      // event-base の MC では省略する
 
       // vertex plate を確定させる
       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary*> > > muon_group;
-      /*
-      if ( connection_function.SelectMuonGroup(groups_reconnected, muon_group) ) {
+      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_partner;
+      B2EmulsionSummary* vertex_track;
 
-	// vertex plate に attach する basetrack を探す
-	std::vector<B2EmulsionSummary* > emulsions_partner;
-	//connection_function.PartnerSearch(vertex_track, emulsions_partner, emulsions);
+      if ( connection_function.SelectMuonGroup(groups_reconnected, muon_group, vertex_track, emulsions_detected_in_fv) ) {
 
-	// vertex plate に attach する basetrack に対して group を作る
-	// 4pl さきまで見るかどうかが先程との違い
-	// connection_function.GenerateGroupPartner(groups_partner, linklets, emulsions_partner);
+	int stop_flag = -1;
 
-	// attach した group の再接続を行う?
-	// connection_function.ReconnectGroupsPartner(groups_reconnected_partner, groups_partner);
+	if ( vertex_track->GetPlate() + 1 > 131 ) { stop_flag = 0; } // penetrate
+	else if ( !connection_function.JudgeEdgeOut(vertex_track, ecc_id) ) { // stop check
+	  stop_flag = 1; // ECC stop
+	  // vertex plate に attach する basetrack を探す
+	  std::vector<B2EmulsionSummary* > emulsions_partner;
+	  TVector3 recon_vertex(0., 0., 0.);
+	  connection_function.PartnerSearch(vertex_track,
+					    emulsions_partner, emulsions_detected_in_fv,
+					    ecc_id,
+					    recon_vertex);
+	  ev.recon_vertex_position[0] = recon_vertex.X();
+	  ev.recon_vertex_position[1] = recon_vertex.Y();
+	  ev.recon_vertex_position[2] = recon_vertex.Z();
+
+	  ev.vertex_material = connection_function.GetVertexMaterial(recon_vertex);
+
+	  // partner の group は chain の再接続の linklet を加えて 4pl 先まで行っているが
+	  // background に効くだけなはずなので省略する
+	  
+	  // vertex plate に attach する basetrack の group をもってくる
+	  connection_function.SelectPartnerGroups(groups_reconnected, groups_partner, emulsions_partner, emulsions_detected_in_fv);
+
+	}
+	else { // side escape
+	  stop_flag = 2;
+	}
 
 	// group を event information に変換
-	// connection_function.AddGroupsToEventInfo(ev, group);
-	
+	connection_function.AddGroupsToEventInfo(ev, muon_group, groups_partner, emulsions_detected_in_fv, ecc_id);
+	ev.vertex_pl += vertex_track->GetPlate() + 1;
+	ev.ecc_id += ecc_id + 1;
       }
-*/
+      if ( ev.chains.size() > ev.true_chains.size() && 
+	   ev.true_chains.size() > 1 ) {
+	std::cout << "chain size error" << std::endl;
+	BOOST_LOG_TRIVIAL(warning) << "Filename : "  << ofilename << ", eventid : " << ev.groupid;
+      }
+      if ( ev.recon_vertex[2] < -250e3 ) {
+	std::cout << "vertex depth error" << std::endl;
+	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
+      }
+	
       ev_vec.push_back(ev);
 
     }

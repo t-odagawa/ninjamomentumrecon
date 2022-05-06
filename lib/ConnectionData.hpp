@@ -48,6 +48,10 @@ const extern fs::path WATER_CONNECT_FILENAME;
 
 const extern fs::path ECC_FIDUCIAL_FILENAMES[9];
 
+const extern fs::path ECC_EFFICIENCY_FILENAMES[9];
+
+const int EFFICIENCY_VECTOR_SIZE = 13;
+
 class ConnectionData {
 
 private:
@@ -83,9 +87,11 @@ private:
   t2l_param water_param_;
 
   std::map<int, std::vector<FiducialArea> > ecc_fiducial_[9];
+  std::map<int, std::vector<Efficiency > > ecc_efficiency_[9];
 
   void ReadConnectData(const fs::path &file_dir_path);
   void ReadFiducialData(const fs::path &file_dir_path);
+  void ReadEfficiencyData(const fs::path &file_dir_path);
   
   void ReadETECCConnectData(const fs::path &file_dir_path);
   void ReadETECCFeConnectData(const fs::path &file_dir_path);
@@ -123,6 +129,10 @@ private:
   void ReadFiducialArea(std::map<int, std::vector<FiducialArea > > &fiducial_area_map,
 			const std::string file_dir_path);
 
+  void ReadEfficiencyEcc(int ecc, const fs::path &file_dir_path);
+  void ReadEfficiency(std::map<int, std::vector<Efficiency > > &efficiency_map,
+		      const std::string file_dir_path);
+
 public:
   explicit ConnectionData(const std::string &file_dir_path);
 
@@ -159,10 +169,12 @@ public:
   void GetWaterConnectData(t2l_param &water_param) const;
 
   void GetFiducialAreaData(int ecc, std::map<int, std::vector<FiducialArea > > &ecc_fiducial) const;
+  void GetEfficiencyData(int ecc, std::map<int, std::vector<Efficiency > > &ecc_efficiency) const;
 
   void DrawFiducialAreaData(int ecc, int plate,
 			    std::vector<B2EmulsionSummary* > &emulsions,
 			    int eventid) const;
+  void DrawEfficiencyData(int ecc, int plate) const;
   
 };
 

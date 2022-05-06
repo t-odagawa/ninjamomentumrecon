@@ -151,7 +151,7 @@ int main (int argc, char *argv[]) {
     }
 
     const Int_t ecc_id = 4;
-
+    /*
     while ( reader.ReadNextSpill() > 0 ) {
       auto &spill_summary = reader.GetSpillSummary();
       entry_in_daily_file = reader.GetEntryNumber();
@@ -293,7 +293,7 @@ int main (int argc, char *argv[]) {
 
 
     }
-
+*/
     // START pbeta reconstruction process
     while ( reader.ReadNextSpill() > 0 ) {
       // if ( reader.GetEntryNumber() > 10 ) break;

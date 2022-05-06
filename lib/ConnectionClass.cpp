@@ -2,6 +2,7 @@
 
 #include <boost/unordered_map.hpp>
 #include <cstddef>
+#include <set>
 
 t2l_param& t2l_param::operator=(const t2l_param& obj) {
   intercept_ax = obj.intercept_ax;
@@ -41,4 +42,17 @@ bool Segment::operator<(const Segment &rhs) const {
   if ( plate == rhs.plate )
     return rawid < rhs.rawid;
   return plate < rhs.plate;
+}
+
+bool Group::operator==(const Group &rhs) const {
+  std::set<std::pair<Segment, Segment > > group_set;
+  std::set<std::pair<Segment, Segment > > group_set_rhs;
+  for ( auto linklet : linklets ) {
+    group_set.insert(linklet);
+  }
+  for ( auto rhs_linklet : rhs.linklets ) {
+    group_set_rhs.insert(rhs_linklet);
+  }
+  return group_set == group_set_rhs;
+
 }

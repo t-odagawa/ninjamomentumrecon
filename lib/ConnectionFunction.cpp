@@ -5,6 +5,7 @@
 #include <boost/unordered_map.hpp>
 
 #include <vector>
+#include <array>
 #include <set>
 #include <unordered_set>
 #include <map>
@@ -66,6 +67,7 @@ ConnectionFunction::ConnectionFunction(const ConnectionData &connection_data) : 
   
   for ( int ecc = 0; ecc < 9; ecc++ ) {
     connection_data_.GetFiducialAreaData(ecc, ecc_fiducial_[ecc]);
+    connection_data_.GetEfficiencyData(ecc, ecc_efficiency_[ecc]);
   }
 
   BOOST_LOG_TRIVIAL(info) << "Connection functions are initilized";
@@ -204,9 +206,7 @@ void ConnectionFunction::CalcPosInEccCoordinate(TVector3 &position, int ecc_id) 
   position.SetZ(position.Z()
 		- 0.5 * NINJA_DESIC_DEPTH
 		+ NINJA_DESIC_THICK
-		+ NINJA_ENV_THICK
-		+ NINJA_EMULSION_LAYER_THICK
-		+ NINJA_BASE_LAYER_THICK);
+		+ NINJA_ENV_THICK);
 
   // move to each ECC
   position.SetX(position.X() 
@@ -288,17 +288,50 @@ void ConnectionFunction::ApplyDetectionEfficiency(std::vector<B2EmulsionSummary*
     throw std::invalid_argument("ECC id not valid : " + ecc_id);
 
   for ( auto emulsion : emulsions_smeared ) {
-    TVector3 tangent = emulsion->GetTangent().GetValue();
-    if ( std::fabs(tangent.X()) < 4.0 &&
-	 std::fabs(tangent.Y()) < 4.0 ) {
+    TVector3 tangent_vec = emulsion->GetTangent().GetValue();
+    double tangent = std::hypot(tangent_vec.X(), tangent_vec.Y());
+    if ( tangent >= 4.0 ) continue;
+
+    int bin_id = GetAngleBinId(tangent);
+    double efficiency = ecc_efficiency_[ecc_id].at(emulsion->GetPlate() + 1).at(bin_id).efficiency;
+
+    if ( emulsion->GetParentTrack().GetParticlePdg() == PDG_t::kProton ||
+	 (B2Pdg::IsChargedPion(emulsion->GetParentTrack().GetParticlePdg()) &&
+	  emulsion->GetParentTrack().GetFinalAbsoluteMomentum().GetValue() < 100.) ) {
       emulsions_detected.push_back(emulsion);
+    }
+    else if ( gRandom->Uniform() < efficiency ) {
+      emulsions_detected.push_back(emulsion);
+    }
+    else {
       BOOST_LOG_TRIVIAL(trace) << "Emulsion : " << emulsion->GetEmulsionTrackId()
-			       << " is detected : "
+			       << " is not detected : "
 			       << " PL" << emulsion->GetPlate() + 1;
     }
   }
 
   return;
+
+}
+
+int ConnectionFunction::GetAngleBinId(double tangent) const {
+
+  tangent = std::fabs(tangent);
+
+  if ( tangent < 0.1 ) return 0;
+  else if ( tangent < 0.3 ) return 1;
+  else if ( tangent < 0.5 ) return 2;
+  else if ( tangent < 0.7 ) return 3;
+  else if ( tangent < 0.9 ) return 4;
+  else if ( tangent < 1.1 ) return 5;
+  else if ( tangent < 1.3 ) return 6;
+  else if ( tangent < 1.5 ) return 7;
+  else if ( tangent < 2.0 ) return 8;
+  else if ( tangent < 2.5 ) return 9;
+  else if ( tangent < 3.0 ) return 10;
+  else if ( tangent < 3.5 ) return 11;
+  else if ( tangent < 4.0 ) return 12;
+  else throw std::runtime_error("Large angle efficiency cannot be calculated");
 
 }
 
@@ -1324,15 +1357,42 @@ void ConnectionFunction::CollectEdgeTracks(boost::unordered_multimap<Segment, Se
 }
 
 bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
-					 std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group) const {
+					 std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+					 B2EmulsionSummary* &vertex_track,
+					 std::vector<B2EmulsionSummary* > &emulsions) const {
+  bool find_flag = false;
+  int vertex_plate = -1;
 
   std::vector<Group > groups_seg;
+
+  // まずは muon を探す
   for ( auto group : groups ) {
-    Group group_seg;
-    GroupConvertB2ToSeg(group, group_seg);
-    groups_seg.push_back(group_seg);
+    if ( B2Pdg::IsMuonPlusOrMinus(group.first->GetParentTrack().GetParticlePdg()) &&
+	 !group.second.empty() ) {
+      Group group_seg;
+      GroupConvertB2ToSeg(group, group_seg);
+      if ( group_seg.start_plate == 3 ||
+	   group_seg.start_plate == 4 )
+	groups_seg.push_back(group_seg);
+    }
   }
 
+  // muon が見つかっていなかった際は pion を探しておく
+  if ( groups_seg.empty() ) {
+    for ( auto group : groups ) {
+      if ( B2Pdg::IsChargedPion(group.first->GetParentTrack().GetParticlePdg()) &&
+	   !group.second.empty()) {
+	Group group_seg;
+	GroupConvertB2ToSeg(group, group_seg);
+	if ( group_seg.start_plate == 3 ||
+	     group_seg.start_plate == 4 )
+	  groups_seg.push_back(group_seg);
+      }
+    }
+  }
+
+  std::vector<Segment > mu_start_seg_vec;
+  std::vector<Group > mu_group_seg_vec;
   boost::unordered_multimap<Segment, Segment > ups;
   boost::unordered_multimap<Segment, Segment > downs;
   boost::unordered_multimap<Segment, Segment > ups_start;
@@ -1341,246 +1401,217 @@ bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary
     Segment start_seg;
     start_seg.plate = group_seg.start_plate;
     start_seg.rawid = group_seg.start_rawid;
+    mu_start_seg_vec.push_back(start_seg);
+    mu_group_seg_vec.push_back(group_seg);
     CollectEdgeTracks(ups, downs, ups_start, downs_start,
 		      group_seg, start_seg);
   }
 
-  return false;  
+  if ( mu_start_seg_vec.size() == 1 ||
+       mu_start_seg_vec.size() == 2 ) {
+    BOOST_LOG_TRIVIAL(debug) << "Muon is detected : size : " << mu_start_seg_vec.size();
+    GroupConvertSegToB2(mu_group_seg_vec.at(0), muon_group, emulsions);
+    if ( mu_start_seg_vec.size() == 2 ) {
+      if ( mu_group_seg_vec.at(0) != mu_group_seg_vec.at(1)) {    
+	BOOST_LOG_TRIVIAL(warning) << "Groups not identical";
+      }
+    }
+
+    auto range = ups.equal_range(mu_start_seg_vec.front());
+    for ( auto itr = range.first; itr != range.second; itr++ ) {     
+      Segment upstream_seg = itr->second;
+      if ( upstream_seg.plate > vertex_plate ) { // 一番深いところを vertex_plate とする
+	ConvertRawIdToB2(upstream_seg.rawid, vertex_track, emulsions);
+	vertex_plate = vertex_track->GetPlate() + 1;
+      }
+      find_flag = true;
+    }
+  }
+
+  return find_flag;
 
 }
 
-/*
-void ConnectionFunction::GenrerateGroupNextPartner(B2EmulsionSummary* emulsion,
-						   boost::unordered_multimap<Segment, Segment > &link_next,
-						   boost::unordered_multimap<Segment, Segment > &link_prev,
-						   std::vector<std::pair<Segment, Segment > > &group_next_partner) const {
-  std::set<std::pair<Segment, Segment > > all_link;
-  std::set<Segment > seen;
-  std::set<Segment > add, now;
+void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
+				       std::vector<B2EmulsionSummary* > &emulsions_partner,
+				       std::vector<B2EmulsionSummary* > &emulsions,
+				       int ecc_id,
+				       TVector3 &recon_vertex) const {
+  int num_partner = 0;
 
-  Segment seg;
-  seg.plate = emulsion->GetPlate();
-  seg.rawid = emulsion->GetEmulsionTrackId();
-
-  add.insert(seg);
-  while ( !add.empty() ) {
-    now = add;
-    add.clear();
-
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      seen.insert(*itr);
-    }
-
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      if ( link_next.find(*itr) == link_next.end() ) continue;
-      auto range = link_next.equal_range(*itr);
-      for ( auto res = range.first; res != range.second; res++ ) {
-	if ( seen.count(res->second) == 0 )
-	  add.insert(res->second);
-	if ( res->first.plate < res->second.plate ) {
-	  all_link.insert(std::make_pair(res->first, res->second));
-	} else {
-	  all_link.insert(std::make_pair(res->second, res->first));
-	}
-      }
+  int vertex_plate = vertex_track->GetPlate() + 1;
+  for ( auto emulsion : emulsions ) {
+    if ( emulsion == vertex_track ) continue;
+    if ( emulsion->GetPlate() + 1 == vertex_plate ||
+	 emulsion->GetPlate() + 1 == vertex_plate + 1 ) {
+      if ( JudgePartnerTrack(vertex_track, emulsion, ecc_id, recon_vertex) ) {
+	num_partner++;
+	emulsions_partner.push_back(emulsion);
+      }      
     }
   }
-
-  seen.clear();
-
-  for ( auto itr = all_link.begin(); itr != all_link.end(); itr++ ) {
-    add.insert(itr->first);
-    add.insert(itr->second);
-  }
-
-  while ( !add.empty() ) {
-    now = add;
-    add.clear();
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      seen.insert(*itr);
-    }
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      if ( link_prev.find(*itr) == link_prev.end() ) continue;
-      auto range = link_prev.equal_range(*itr);
-      for ( auto res = range.first; res != range.second; res++ ) {
-	if ( res->second.plate < emulsion->GetPlate() - 4 ) continue;
-	
-	if ( seen.count(res->second) == 0 ) {
-	  add.insert(res->second);
-	}
-	if ( res->first.plate < res->second.plate ) {
-	  all_link.insert(std::make_pair(res->first, res->second));
-	} else {
-	  all_link.insert(std::make_pair(res->second, res->first));
-	}
-      }
+  
+  if ( num_partner == 0 ) { // one prong vertex
+    TVector3 position = vertex_track->GetAbsolutePosition().GetValue();
+    CalcPosInEccCoordinate(position, ecc_id);
+    TVector3 tangent = vertex_track->GetTangent().GetValue();
+    if ( vertex_plate < 14 ) {
+      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + 0.5 * NINJA_IRON_LAYER_THICK) * tangent;
+    } else if ( vertex_plate == 14 ) {
+      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_ENV_THICK) * tangent;
+    } else if ( vertex_plate%2 == 0 ) {
+      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_ENV_THICK + 0.5 * NINJA_WATER_LAYER_THICK) * tangent;
+    } else if ( vertex_plate%2 == 1 ) {
+      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_IRON_LAYER_THICK) * tangent;
     }
   }
+  else {
+    recon_vertex = (1. / num_partner) * recon_vertex;
+  }
+  
+  return;
 
-  if ( all_link.size() ) {
-    for ( auto itr = all_link.begin(); itr != all_link.end(); itr++ ) {
-      group_next.push_back(std::make_pair(itr->first, itr->second));
-    }
+}
+
+void ConnectionFunction::SelectPartnerGroups(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
+					     std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
+					     std::vector<B2EmulsionSummary* > &emulsions_partner,
+					     std::vector<B2EmulsionSummary* > &emulsions) const {
+
+  // groups の中から emulsions_partner に対応する start segment をもつ Group をみつけて
+  // groups_partner に push_back するだけ
+  std::vector<Segment > partner_seg_vec;
+  for ( auto emulsion : emulsions_partner ) {
+    Segment tmp;
+    tmp.plate = emulsion->GetPlate() + 1;
+    tmp.rawid = emulsion->GetEmulsionTrackId();
+    partner_seg_vec.push_back(tmp);
+  }
+
+  std::map<Segment, Group > groups_seg_map;
+  for ( auto group : groups ) {
+    Group group_seg;
+    GroupConvertB2ToSeg(group, group_seg);
+    Segment start_seg;
+    start_seg.plate = group_seg.start_plate;
+    start_seg.rawid = group_seg.start_rawid;
+    groups_seg_map.insert(std::make_pair(start_seg, group_seg));
+  }
+
+  for ( auto partner_seg : partner_seg_vec ) {
+    Group group_partner_seg = groups_seg_map.at(partner_seg);
+    std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > group_partner;
+    GroupConvertSegToB2(group_partner_seg, group_partner, emulsions);
+    groups_partner.push_back(group_partner);
   }
 
   return;
 
 }
 
-
-void ConnectionFunction::GenerateGroupPrevPartner(B2EmulsionSummary* emulsion,
-						  boost::unordered_multimap<Segment, Segment > &link_next,
-						  boost::unordered_multimap<Segment, Segment > &link_prev,
-						  std::vector<std::pair<Segment, Segment > > &group_prev_partner) const {
-  std::set<std::pair<Segment, Segment > > all_link; // group_prev に含むべき全linklet
-  std::set<Segment > seen; // すでにall_link に入るか確認したbasetrack
-  std::set<Segment > add, now; // add : now :
-
-  Segment seg;
-  seg.plate = emulsion->GetPlate();
-  seg.rawid = emulsion->GetEmulsionTrackId();
-
-  add.insert(seg);
-  while ( !add.empty() ) {
-    now = add;
-    add.clear();
-
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      seen.insert(*itr);
-    }
-
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      if ( link_prev.find(*itr) == link_prev.end() ) continue;
-      auto range = link_prev.equal_range(*itr);
-      for ( auto res = range.first; res != range.second; res++ ) {
-	if ( seen.count(res->second) == 0 )
-	  add.insert(res->second);
-	if ( res->first.plate < res->second.plate ) {
-	  all_link.insert(std::make_pair(res->first, res->second));
-	} else {
-	  all_link.insert(std::make_pair(res->second, res->first));
-	}
-      }
-    }
-  }
-
-  seen.clear();
-
-  for ( auto itr = all_link.begin(); itr != all_link.end(); itr++ ) {
-    add.insert(itr->first);
-    add.insert(itr->second);
-  }
-
-  while ( !add.empty() ) {
-    now = add;
-    add.clear();
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      seen.insert(*itr);
-    }
-    for ( auto itr = now.begin(); itr != now.end(); itr++ ) {
-      if (link_next.find(*itr) == link_next.end() ) continue;
-      auto range = link_next.equal_range(*itr);
-      for ( auto res = range.first; res != range.second; res++ ) {
-	if ( res->second.plate > emulsion->GetPlate() + 4 ) continue;
-	
-	if ( seen.count(res->second) == 0 ) {
-	  add.insert(res->second);
-	}
-	if ( res->first.plate < res->second.plate ) {
-	  all_link.insert(std::make_pair(res->first, res->second));
-	} else {
-	  all_link.insert(std::make_pair(res->second, res->first));
-	}
-      }
-    }
-  }
-
-  if ( all_link.size() ) {
-    for ( auto itr = all_link.begin(); itr != all_link.end(); itr++ ) {
-      group_prev.push_back(std::make_pair(itr->first, itr->second));
-    }
-  }
-
-  return;
-
-}
-
-*/
 void ConnectionFunction::AddGroupsToEventInfo(Momentum_recon::Event_information &ev,
-					      std::vector<std::vector<B2EmulsionSummary* > > &groups) const {
+					      std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+					      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
+					      std::vector<B2EmulsionSummary* > &emulsions,
+					      int ecc_id) const {
+  AddGroupToEventInfo(ev, muon_group, emulsions, ecc_id); // muon
+  
+  for ( auto group_partner : groups_partner ) {
+    AddGroupToEventInfo(ev, group_partner, emulsions, ecc_id);
+  }
+  return;
+  
+}
+
+void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &ev,
+					     std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
+					     std::vector<B2EmulsionSummary* > &emulsions,
+					     int ecc_id) const {
+
   Momentum_recon::Mom_chain mom_chain;
   Momentum_recon::Mom_basetrack mom_basetrack;
   std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
 
-  for ( auto group : groups ) {
-    int num_base = group.size();
-    int num_link = num_base - 1;
-    mom_chain.base.clear();
-    mom_chain.base_pair.clear();
-    mom_chain.base.reserve(num_base);
-    mom_chain.base_pair.reserve(num_link);
+  std::set<Segment > segs_set;
+  for ( auto linklet : group.second ) {
+    std::pair<Segment, Segment > linklet_seg;
+    LinkletConvertB2ToSeg(linklet, linklet_seg);
+    segs_set.insert(linklet_seg.first);
+    segs_set.insert(linklet_seg.second);
+  }
 
-    mom_chain.chainid = group.front()->GetParentTrackId();
-    mom_chain.stop_flag = 0;
-    mom_chain.particle_flag = group.front()->GetParentTrack().GetParticlePdg();
-    if ( group.front()->GetPlate() == ev.vertex_pl )
-      mom_chain.direction = 1;
-    else if ( group.front()->GetPlate() == ev.vertex_pl + 1 )
-      mom_chain.direction = -1;
-    mom_chain.charge_sign = 0;
-    
-    double downstream_position_z = 0.;
+  std::vector<B2EmulsionSummary* > chain;
+  for ( auto itr = segs_set.begin(); itr != segs_set.end(); itr++ ) {
+    B2EmulsionSummary* tmp;
+    ConvertRawIdToB2((*itr).rawid, tmp, emulsions);
+    chain.push_back(tmp);
+  }
 
-    for ( auto emulsion : group ) {
-      TVector3 position = emulsion->GetAbsolutePosition().GetValue();
-      CalcPosInEccCoordinate(position, 4);
-      TVector3 tangent = emulsion->GetTangent().GetValue();
-      tangent = (1./tangent.Z()) * tangent;
+  int num_base = chain.size();
+  int num_link = num_base - 1;
+  if ( num_base < 2 ) return;
+  mom_chain.base.clear();
+  mom_chain.base_pair.clear();
+  mom_chain.base.reserve(num_base);
+  mom_chain.base_pair.reserve(num_link);
 
-      mom_basetrack.pl = emulsion->GetPlate() + 1;
-      mom_basetrack.rawid = emulsion->GetEmulsionTrackId();
-      mom_basetrack.x = position.X();
-      mom_basetrack.y = position.Y();
-      mom_basetrack.z = position.Z();
-      mom_basetrack.ax = tangent.X();
-      mom_basetrack.ay = tangent.Y();
-      mom_basetrack.m[0].zone = 0;
-      mom_basetrack.m[0].view = 0;
-      mom_basetrack.m[0].imager = 0;
-      mom_basetrack.m[0].ph = std::min((int)((emulsion->GetEdepSum() + emulsion->GetEdepDiff()) * 1000 / 2), 9999);
-      mom_basetrack.m[0].pixelnum = 0;
-      mom_basetrack.m[0].hitnum = 0;
-      mom_basetrack.m[1].zone = 0;
-      mom_basetrack.m[1].view = 0;
-      mom_basetrack.m[1].imager = 0;
-      mom_basetrack.m[1].ph = std::min((int)((emulsion->GetEdepSum() - emulsion->GetEdepDiff()) * 1000 / 2), 9999);
-      mom_basetrack.m[1].pixelnum = 0;
-      mom_basetrack.m[1].hitnum = 0;
+  mom_chain.chainid = chain.front()->GetParentTrackId();
+  mom_chain.stop_flag = 0;
+  mom_chain.particle_flag = chain.front()->GetParentTrack().GetParticlePdg();
+  mom_chain.direction = 1;
+  mom_chain.charge_sign = 0;
 
-      mom_chain.base.push_back(mom_basetrack);
+  double downstream_position_z = 0.;
 
-      mom_basetrack_pair.first = mom_basetrack_pair.second;
-      mom_basetrack_pair.first.z = 0.;
-      mom_basetrack_pair.second.pl = emulsion->GetPlate() + 1;
-      mom_basetrack_pair.second.rawid = emulsion->GetEmulsionTrackId();
-      mom_basetrack_pair.second.x = position.X();
-      mom_basetrack_pair.second.y = position.Y();
-      mom_basetrack_pair.second.z = position.Z() - downstream_position_z;
-      mom_basetrack_pair.second.ax = tangent.X();
-      mom_basetrack_pair.second.ay = tangent.Y();
-      if ( emulsion != group.front() )
-	mom_chain.base_pair.push_back(mom_basetrack_pair);
+  for ( auto emulsion : chain ) {
+    TVector3 position = emulsion->GetAbsolutePosition().GetValue();
+    CalcPosInEccCoordinate(position, ecc_id);
+    TVector3 tangent = emulsion->GetTangent().GetValue();
+    tangent = (1./tangent.Z()) * tangent;
 
-      downstream_position_z = position.Z();
-      
-    }
+    mom_basetrack.pl = emulsion->GetPlate() + 1;
+    mom_basetrack.rawid = emulsion->GetEmulsionTrackId();
+    mom_basetrack.x = position.X();
+    mom_basetrack.y = position.Y();
+    mom_basetrack.z = position.Z();
+    mom_basetrack.ax = tangent.X();
+    mom_basetrack.ay = tangent.Y();
+    mom_basetrack.m[0].zone = 0;
+    mom_basetrack.m[0].view = 0;
+    mom_basetrack.m[0].imager = 0;
+    mom_basetrack.m[0].ph = 0;
+    mom_basetrack.m[0].pixelnum = 0;
+    mom_basetrack.m[0].hitnum = 0;
+    mom_basetrack.m[1].zone = 0;
+    mom_basetrack.m[1].view = 0;
+    mom_basetrack.m[1].imager = 0;
+    mom_basetrack.m[1].ph = 0;
+    mom_basetrack.m[1].pixelnum = 0;
+    mom_basetrack.m[1].hitnum = 0;
 
-    ev.chains.push_back(mom_chain);
-  } // chains
+    mom_chain.base.push_back(mom_basetrack);
+
+    mom_basetrack_pair.first = mom_basetrack_pair.second;
+    mom_basetrack_pair.first.z = 0.;
+    mom_basetrack_pair.second.pl = emulsion->GetPlate() + 1;
+    mom_basetrack_pair.second.rawid = emulsion->GetEmulsionTrackId();
+    mom_basetrack_pair.second.x = position.X();
+    mom_basetrack_pair.second.y = position.Y();
+    mom_basetrack_pair.second.z = position.Z() - downstream_position_z;
+    mom_basetrack_pair.second.ax = tangent.X();
+    mom_basetrack_pair.second.ay = tangent.Y();
+    if ( emulsion != chain.front() ) 
+      mom_chain.base_pair.push_back(mom_basetrack_pair);
+
+    downstream_position_z = position.Z();
+
+  } // muon chain
+  
+  ev.chains.push_back(mom_chain);
 
   return;
-}
 
+}
 
 bool ConnectionFunction::JudgeConnect(B2EmulsionSummary* down, B2EmulsionSummary* up, t2l_param param) const {
   return JudgeConnectXY(down, up, param) && JudgeConnectRL(down, up, param);
@@ -1719,26 +1750,12 @@ void ConnectionFunction::CalculatePositionDifference(B2EmulsionSummary* down, B2
   dl = (extrapolate1 - extrapolate0) * unit_l;
 }
 
-bool ConnectionFunction::JudgeFiducialArea(std::vector<FiducialArea> &area, B2EmulsionSummary *emulsion) const {
+bool ConnectionFunction::JudgeFiducialArea(const std::vector<FiducialArea> &area, B2EmulsionSummary *emulsion) const {
   
   std::map<double, Point> point_map;
   TVector3 b_pos = emulsion->GetFilmPosition().GetValue();
   b_pos = 1000. * b_pos; // mm -> um
-  TVector3 b_ang = emulsion->GetTangent().GetValue();
-  b_ang = (1. / b_ang.Z()) * b_ang;
-  /*
-  double ex_x, ex_y, distance;
-  for ( auto itr = area.begin(); itr != area.end(); itr++ ) {
-    ex_x = b_pos.X() + b_ang.X() * (itr->p[0].z - b_pos.Z());
-    ex_y = b_pos.Y() + b_ang.Y() * (itr->p[0].z - b_pos.Z());
-    distance = std::pow(ex_x - itr->p[0].x, 2.) + std::pow(ex_y - itr->p[0].y, 2.);
-    point_map.insert(std::make_pair(distance, itr->p[0]));
-  }
-  // 外挿先から距離が一番近い点のz座標を使用
-  double z = point_map.begin()->second.z;
-  double x = b_pos.X() + b_ang.X() * (z - b_pos.Z());
-  double y = b_pos.Y() + b_ang.Y() * (z - b_pos.Z());
-  */
+
   double x = b_pos.X();
   double y = b_pos.Y();
   // (x, y) からx軸正の方向に直線を引き，その直線と多角形の辺が何回交わるか
@@ -1770,20 +1787,245 @@ bool ConnectionFunction::JudgeFiducialArea(std::vector<FiducialArea> &area, B2Em
   return false;
 
 }
-/*
-void ConnectionFunction::PartnerSearch(B2EmulsionSummary* target,
-				       std::vector<B2EmulsionSummary* > &emulsions_partner,
-				       std::vector<B2EmulsionSummary* > &emulsions,
-				       partner_param &param) {
-  for ( auto emulsion : emulsions ) {
-    if ( emulsion->GetEmulsionTrackId() == target->GetEmulsionTrackId() ) continue;
-    if ( emulsion->GetPlate() != target->GetPlate() &&
-	 emulsion->GetPlate() != target->GetPlate() +1 ) continue;
-    // MD & OA が入るか
-    
-    emulsions_partner.push_back(emulsion);
+
+bool ConnectionFunction::JudgeEdgeOut(B2EmulsionSummary* vertex_track, int ecc_id) const {
+  int vertex_plate = vertex_track->GetPlate() + 1;
+  TVector3 position = vertex_track->GetFilmPosition().GetValue();
+  TVector3 tangent = vertex_track->GetTangent().GetValue();
+  tangent = (1./tangent.Z()) * tangent;
+
+  bool edge_out_flag = false;
+
+  for ( int ipl = 1; ipl < 5; ipl++ ) {
+    double z_difference = 0.;
+    if ( vertex_plate < 12 ) { // 鉄ECC
+      z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * ipl;
+    } else if ( vertex_plate == 12 ) {
+      if ( ipl < 4 )
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * ipl;
+      else
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * 3
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK;
+    } else if ( vertex_plate == 13 ) { // 鉄-水ECC 接続部
+      if ( ipl < 3 ) 
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * ipl;
+      else if ( ipl == 3 )
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * 2
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK;
+      else
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * 2
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK - NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK;
+    } else if ( vertex_plate == 14 ) {
+      if ( ipl == 1 )
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK);
+      else if ( ipl == 2 )
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK)
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK;
+      else if ( ipl == 3 )
+	z_difference = -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK)
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK - NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK;
+      else
+	z_difference= -1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK)
+	  - 2. * NINJA_ENV_THICK - NINJA_FILM_THICK
+	  - 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK)
+	  - 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK);
+    } else if ( vertex_plate == 15 ) {
+      z_difference = -2. * NINJA_ENV_THICK - NINJA_FILM_THICK
+	- 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * (ipl / 2)
+	- 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK) * ((ipl-1) / 2);
+    } else if ( vertex_plate == 130 ) { // 最上流例外処理
+      if ( ipl < 4 )
+	z_difference =	- 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * ((ipl+1) / 2)
+	  - 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK) * (ipl / 2);
+      else continue;       	
+    } else if ( vertex_plate == 131 ) {
+      if ( ipl < 3 )
+	z_difference = - 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * (ipl / 2)
+	  - 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK) * ((ipl+1) / 2);
+      else continue;
+    } else if ( vertex_plate % 2 == 0 ) { // 鉄下流
+      z_difference = - 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * ((ipl+1) / 2)
+	- 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK) * (ipl / 2);
+    } else { // 水下流
+      z_difference = - 1. * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK) * (ipl / 2)
+	- 1. * (NINJA_FILM_THICK + NINJA_WATER_LAYER_THICK + 2. * NINJA_ENV_THICK) * ((ipl+1) / 2);
+    }
+
+    double x = position.X() + tangent.X() * z_difference;
+    double y = position.Y() + tangent.Y() * z_difference;
+    B2EmulsionSummary* tmp = new B2EmulsionSummary();
+    tmp->SetFilmPosition(TVector3(x, y, 0.));
+    if ( !JudgeFiducialArea(ecc_fiducial_[ecc_id].at(vertex_plate + ipl), tmp) ) {
+      BOOST_LOG_TRIVIAL(debug) << "Edge out : PL" << vertex_plate + ipl;
+      edge_out_flag = true;
+    }
+  }
+  
+  return edge_out_flag;
+  
+}
+
+bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
+					   B2EmulsionSummary* partner_track,
+					   int ecc_id,
+					   TVector3 &recon_vertex) const {
+  TVector3 parent_pos = vertex_track->GetAbsolutePosition().GetValue();
+  parent_pos = 1000. * parent_pos; // mm -> um
+  TVector3 daughter_pos = partner_track->GetAbsolutePosition().GetValue();
+  daughter_pos = 1000. * daughter_pos;
+  TVector3 parent_dir = vertex_track->GetTangent().GetValue();
+  TVector3 daughter_dir = partner_track->GetTangent().GetValue();
+
+  int vertex_plate = 0;
+
+  std::array<Double_t, 2 > z_range;
+
+  int vertex_material = GetVertexTargetMaterial(vertex_track->GetPlate() + 1);
+  if ( vertex_material == B2Material::kWater ) {
+    z_range.at(0) = (- NINJA_WATER_LAYER_THICK - NINJA_FILM_THICK - 2 * NINJA_ENV_THICK) * 1.e3 - 1000.;
+    z_range.at(1) = (+ NINJA_BASE_LAYER_THICK + NINJA_EMULSION_LAYER_THICK) * 1.e3 + 30.;
+  }
+  else if ( vertex_material == B2Material::kIron ) {
+    z_range.at(0) = (- NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK) * 1.e3 - 50.;
+    z_range.at(1) = (+ NINJA_BASE_LAYER_THICK + NINJA_EMULSION_LAYER_THICK) * 1.e3 + 30.;
   }
 
-  return;
+  z_range.at(0) += parent_pos.Z();
+  z_range.at(1) += parent_pos.Z();
+
+  std::array<Double_t, 2 > extrapolate_z;
+
+  Double_t minimum_distance = GetMinimumDistance(parent_pos, daughter_pos,
+						 parent_dir, daughter_dir,
+						 z_range, extrapolate_z,
+						 ecc_id, recon_vertex);
+  Double_t tangent = std::hypot(parent_dir.X(), parent_dir.Y());
+  if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.04 * tangent + 0.04) + 5, 2) +
+				    std::pow(extrapolate_z[1] * (0.04 * tangent + 0.04) + 5, 2)) ) {
+    return true;
+  }
+  else {
+    return false;
+  }
+
 }
-*/
+
+double ConnectionFunction::GetMinimumDistance(TVector3 parent_pos, TVector3 daughter_pos,
+					      TVector3 parent_dir, TVector3 daughter_dir,
+					      std::array<Double_t,2> z_range, std::array<Double_t,2> &extrapolate_z,
+					      int ecc_id, TVector3 &recon_vertex) const {
+
+  std::array<Double_t,2> extrapolate_distance;
+  TVector3 position_difference = daughter_pos - parent_pos;
+  // Almost parallel
+  if ( TMath::ACos((parent_dir * daughter_dir) / (parent_dir.Mag() * daughter_dir.Mag())) < 1.e-4) {
+    extrapolate_distance.at(0) = (parent_pos.Z() + daughter_pos.Z()) / 2. - parent_pos.Z();
+    extrapolate_distance.at(1) = (parent_pos.Z() + daughter_pos.Z()) / 2. - daughter_pos.Z();
+  }
+  else {
+    Double_t delta = parent_dir.Mag2() * daughter_dir.Mag2() - (parent_dir * daughter_dir) * (parent_dir * daughter_dir);
+    extrapolate_distance.at(0) = ( 1 * (position_difference * parent_dir) * daughter_dir.Mag2()
+				   - (parent_dir * daughter_dir) * (position_difference * daughter_dir) ) / delta;
+    extrapolate_distance.at(1) = (-1 * (position_difference * daughter_dir) * parent_dir.Mag2()
+				   + (parent_dir * daughter_dir) * (position_difference * parent_dir) ) / delta;
+  }
+  // z_range.at(0) : small, z_range.at(1) : large
+  if ( z_range.at(0) > z_range.at(1) ) {
+    std::swap(z_range.at(0), z_range.at(1));
+  }
+
+  if ( parent_pos.Z() + extrapolate_distance.at(0) < z_range.at(0) ||
+       daughter_pos.Z() + extrapolate_distance.at(1) * daughter_dir.Z() < z_range.at(0)) {
+    extrapolate_distance.at(0) = z_range.at(0) - parent_pos.Z();
+    extrapolate_distance.at(1) = z_range.at(0) - daughter_pos.Z();
+  }
+  else if ( parent_pos.Z() + extrapolate_distance.at(0) > z_range.at(1) ||
+	    daughter_pos.Z() + extrapolate_distance.at(1) * daughter_dir.Z() > z_range.at(1)) {
+    extrapolate_distance.at(0) = z_range.at(1) - parent_pos.Z();
+    extrapolate_distance.at(1) = z_range.at(1) - daughter_pos.Z();
+  }
+
+  extrapolate_z.at(0) = extrapolate_distance.at(0);
+  extrapolate_z.at(1) = extrapolate_distance.at(1);
+
+  TVector3 calculate_parent_position = parent_pos + extrapolate_distance.at(0) * parent_dir;
+  TVector3 calculate_daughter_position = daughter_pos + extrapolate_distance.at(1) * daughter_dir;
+
+  TVector3 distance_vec = calculate_parent_position - calculate_daughter_position;
+  recon_vertex += calculate_daughter_position + 0.5 * distance_vec;
+  recon_vertex = 1.e-3 * recon_vertex;
+  CalcPosInEccCoordinate(recon_vertex, ecc_id);
+  return distance_vec.Mag();
+
+}
+
+int ConnectionFunction::GetVertexMaterial(TVector3 recon_vertex) const {
+  double z_pos = recon_vertex.Z();
+  z_pos = 1.e-3 * z_pos; // um -> mm
+
+  if ( z_pos >= -15 * NINJA_FILM_THICK
+       - 11 * NINJA_IRON_LAYER_THICK
+       - NINJA_SS_AC_THICK
+       - NINJA_ENV_THICK ) { // Iron ECC
+    z_pos  = z_pos + 4 * NINJA_FILM_THICK + NINJA_SS_AC_THICK; // most downstream iron -> origin
+    if ( z_pos >= NINJA_EMULSION_LAYER_THICK + NINJA_BASE_LAYER_THICK ) return 5; // emulsion
+    else if ( z_pos >= NINJA_EMULSION_LAYER_THICK ) return B2Material::kCarbon; // base
+    else if ( z_pos >= 0 ) return 5; // emulsion
+    else {
+      int film_id = (int)(-z_pos / (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK));
+      z_pos = z_pos + film_id * (NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK); // certain iron downstream -> origin
+      if ( z_pos >= -NINJA_IRON_LAYER_THICK ) {
+	return B2Material::kIron;
+      }
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_EMULSION_LAYER_THICK ) {
+	return 5; // emulsion
+      }
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_EMULSION_LAYER_THICK - NINJA_BASE_LAYER_THICK ) {
+	return B2Material::kCarbon; // base
+      }
+      else return 5; // emulsion
+    }
+  }
+  else if ( z_pos >= -133 * NINJA_FILM_THICK
+	    - 58 * NINJA_WATER_LAYER_THICK
+	    - (59 * 2 + 1) * NINJA_ENV_THICK
+	    - 70 * NINJA_IRON_LAYER_THICK
+	    - NINJA_SS_AC_THICK ) { // Water ECC
+    z_pos = z_pos + 16 * NINJA_FILM_THICK + NINJA_SS_AC_THICK
+      + 11 * NINJA_IRON_LAYER_THICK + 2 * NINJA_ENV_THICK; // most downstream iron in Water ECC -> origin
+    if ( z_pos >= NINJA_EMULSION_LAYER_THICK + NINJA_BASE_LAYER_THICK ) return 5; // emulsion
+    else if ( z_pos >= NINJA_EMULSION_LAYER_THICK ) return B2Material::kCarbon; // base
+    else if ( z_pos >= 0. ) return 5; // emulsion
+    else {
+      int unit_id = (int)(-z_pos / (2 * NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK
+				    + NINJA_WATER_LAYER_THICK + 2 * NINJA_ENV_THICK));
+      z_pos = z_pos + unit_id * (2 * NINJA_FILM_THICK + NINJA_IRON_LAYER_THICK
+				 + NINJA_WATER_LAYER_THICK + 2 * NINJA_ENV_THICK); // certain iron downstream -> origin
+      if ( z_pos >= -NINJA_IRON_LAYER_THICK ) return B2Material::kIron;
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_EMULSION_LAYER_THICK ) return 5; // emulsion
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_EMULSION_LAYER_THICK
+		- NINJA_BASE_LAYER_THICK ) return B2Material::kCarbon; // base
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK ) return 5; // emulsion
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK - NINJA_ENV_THICK ) return 6; // envelope
+      else if ( z_pos >= -NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK - NINJA_ENV_THICK
+		- NINJA_WATER_LAYER_THICK ) return B2Material::kWater;
+      else if ( z_pos >= NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK - NINJA_ENV_THICK
+		- NINJA_WATER_LAYER_THICK - NINJA_ENV_THICK ) return 6; // envelope
+      else if ( z_pos >= NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK - NINJA_WATER_LAYER_THICK
+		- 2 * NINJA_ENV_THICK - NINJA_EMULSION_LAYER_THICK ) return 5; // emulsion
+      else if ( z_pos >= NINJA_IRON_LAYER_THICK - NINJA_FILM_THICK - NINJA_WATER_LAYER_THICK
+		- 2 * NINJA_ENV_THICK - NINJA_EMULSION_LAYER_THICK - NINJA_BASE_LAYER_THICK ) return B2Material::kCarbon; // base
+      else return 5; // emulsion
+    }
+  }
+  return -1;
+}
+
+int ConnectionFunction::GetVertexTargetMaterial(int vertex_plate) const {
+  if ( vertex_plate < 17 )
+    return B2Material::kIron;
+  else if ( vertex_plate % 2 == 1 )
+    return B2Material::kWater;
+  else
+    return B2Material::kIron;
+}

@@ -6,6 +6,7 @@
 #include <boost/unordered_map.hpp>
 
 #include <vector>
+#include <array>
 #include <string>
 #include <set>
 #include <unordered_set>
@@ -14,6 +15,8 @@
 
 #include <B2SpillSummary.hh>
 #include <B2EmulsionSummary.hh>
+
+#include <TVector3.h>
 
 #include "McsClass.hpp"
 #include "McsFunction.hpp"
@@ -62,6 +65,7 @@ private:
   t2l_param water_param_;
 
   std::map<int, std::vector<FiducialArea > > ecc_fiducial_[9];
+  std::map<int, std::vector<Efficiency > > ecc_efficiency_[9];
 
 public:
   explicit ConnectionFunction(const ConnectionData &connection_data);
@@ -81,6 +85,8 @@ public:
   void ApplyDetectionEfficiency(std::vector<B2EmulsionSummary* > &emulsions_detected,
 				std::vector<B2EmulsionSummary* > &emulsions_smeared,
 				int ecc_id) const;
+
+  int GetAngleBinId(double tangent) const;
 
   void ApplyFVCut(std::vector<B2EmulsionSummary* > &emulsions_detected_in_fv,
 		  std::vector<B2EmulsionSummary* > &emulsions_detected,
@@ -136,22 +142,53 @@ public:
 		       std::vector<B2EmulsionSummary* > &emulsions) const;
 
   bool SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
-		       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group) const;
+		       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+		       B2EmulsionSummary* &vertex_track,
+		       std::vector<B2EmulsionSummary* > &emulsions) const;
 
   void CollectEdgeTracks(boost::unordered_multimap<Segment, Segment > &upstream_tracks,
 			 boost::unordered_multimap<Segment, Segment > &downstream_tracks,
 			 boost::unordered_multimap<Segment, Segment > &upstream_tracks_start,
 			 boost::unordered_multimap<Segment, Segment > &downstream_tracks_start,
 			 Group &group, Segment &start_seg) const;
-   
+
+  void PartnerSearch(B2EmulsionSummary* vertex_track,
+		     std::vector<B2EmulsionSummary*> &emulsions_partner,
+		     std::vector<B2EmulsionSummary*> &emulsions,
+		     int ecc_id,
+		     TVector3 &recon_vertex) const;
+  void SelectPartnerGroups(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
+			   std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
+			   std::vector<B2EmulsionSummary* > &emulsions_partner,
+			   std::vector<B2EmulsionSummary* > &emulsions) const;
+
   void AddGroupsToEventInfo(Momentum_recon::Event_information &ev,
-			    std::vector<std::vector<B2EmulsionSummary* > > &groups) const;
+			    std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+			    std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
+			    std::vector<B2EmulsionSummary* > &emulsions,
+			    int ecc_id) const;
+
+  void AddGroupToEventInfo(Momentum_recon::Event_information &ev,
+			   std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
+			   std::vector<B2EmulsionSummary* > &emulsions,
+			   int ecc_id) const;
 
   bool JudgeConnect(B2EmulsionSummary* down, B2EmulsionSummary* up, t2l_param param) const;
   bool JudgeConnectXY(B2EmulsionSummary* down, B2EmulsionSummary* up, t2l_param param) const;
   bool JudgeConnectRL(B2EmulsionSummary* down, B2EmulsionSummary* up, t2l_param param) const;
   void CalculatePositionDifference(B2EmulsionSummary* down, B2EmulsionSummary* up, double &dr, double &dl) const;
-  bool JudgeFiducialArea(std::vector<FiducialArea> &area, B2EmulsionSummary *emulsion) const;
+  bool JudgeFiducialArea(const std::vector<FiducialArea> &area, B2EmulsionSummary *emulsion) const;
+  bool JudgeEdgeOut(B2EmulsionSummary* vertex_track, int ecc_id) const;
+  bool JudgePartnerTrack(B2EmulsionSummary* vertex_track, B2EmulsionSummary* partner_track,
+			 int ecc_id, TVector3 &recon_vertex) const;
+  double GetMinimumDistance(TVector3 parent_pos, TVector3 daughter_pos,
+			    TVector3 parent_dir, TVector3 daughter_dir,
+			    std::array<Double_t,2> z_range,
+			    std::array<Double_t,2> &extrapolate_z,
+			    int ecc_id,
+			    TVector3 &recon_vertex) const;
+  int GetVertexMaterial(TVector3 recon_vertex) const;
+  int GetVertexTargetMaterial(int vertex_plate) const;
 };
 
 #endif

@@ -41,7 +41,7 @@ int main (int argc, char *argv[]) {
   }
 
   try {
-
+    /*
     std::vector<Momentum_recon::Event_information > ev_vec = Momentum_recon::ReadEventInformationBin((std::string)argv[1]);
 
     B2Writer writer(argv[2]);
@@ -60,7 +60,7 @@ int main (int argc, char *argv[]) {
     std::vector<TVector3 > absolute_position_vec;
     std::vector<TVector3 > film_position_in_down_coordinate_vec;
     std::vector<TVector3 > tangent_in_down_coordinate_vec;
-
+    /*
     for ( auto ev : ev_vec ) {
       auto &spill_summary = writer.GetSpillSummary();
       auto &event_summary = spill_summary.AddTrueEvent();
@@ -97,15 +97,12 @@ int main (int argc, char *argv[]) {
       }
 
     }
-
-
+    */
+    /*
     Momentum_recon::Mom_chain mom_chain;
     Momentum_recon::Mom_basetrack mom_basetrack;
     std::pair<Momentum_recon::Mom_basetrack, Momentum_recon::Mom_basetrack > mom_basetrack_pair;
 
-    int ecc_id = std::atoi(argv[3]);
-
-    int num_entry = 0;
     int num_base, num_link;
 
 
@@ -255,7 +252,7 @@ int main (int argc, char *argv[]) {
       // auto time5 = std::chrono::system_clock::now();     
       num_entry++;
       // if (num_entry > 10) break;
-
+*/
       /*
       std::cout << "Binary read" << std::endl;
       std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time1 - start).count() << std::endl;
@@ -268,13 +265,13 @@ int main (int argc, char *argv[]) {
       std::cout << "B2 file write" << std::endl;
       std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(time5 - time4).count() << std::endl;
       */
-    }
+    /*    }
 
     auto size1 = eofpos - begpos;
     std::cerr << "\r now reading ..." << std::setw(4) << std::setprecision(1) << size1 * 100. / size2 << "%" << std::endl;
 
     BOOST_LOG_TRIVIAL(debug) << "Total number of entries : " << num_entry;
-
+*/
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
     std::exit(1);

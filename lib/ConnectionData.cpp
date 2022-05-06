@@ -9,6 +9,7 @@
 
 #include <TCanvas.h>
 #include <TGraph.h>
+#include <TGraphErrors.h>
 
 #include <B2EmulsionSummary.hh>
 
@@ -60,11 +61,22 @@ const fs::path ECC_FIDUCIAL_FILENAMES[9] = {"fa_new_mfile_local_ecc1.txt",
 					    "fa_new_mfile_local_ecc8.txt",
 					    "fa_new_mfile_local_ecc9.txt"};
 
+const fs::path ECC_EFFICIENCY_FILENAMES[9] = {"efficiency_ecc1.txt",
+					      "efficiency_ecc2.txt",
+					      "efficiency_ecc3.txt",
+					      "efficiency_ecc4.txt",
+					      "efficiency_ecc5.txt",
+					      "efficiency_ecc6.txt",
+					      "efficiency_ecc7.txt",
+					      "efficiency_ecc8.txt",
+					      "efficiency_ecc9.txt"};
+
 ConnectionData::ConnectionData(const std::string &file_dir_path) {
   fs::path file_dir(file_dir_path);
 
   ReadConnectData(file_dir);
   ReadFiducialData(file_dir);
+  ReadEfficiencyData(file_dir);
 
   BOOST_LOG_TRIVIAL(info) << "Connection data are initialized";
 }
@@ -122,6 +134,18 @@ void ConnectionData::ReadFiducialData(const fs::path &file_dir_path) {
     ReadFiducialAreaEcc(i, fiducial_dir_path);
   }
   
+}
+
+void ConnectionData::ReadEfficiencyData(const fs::path &file_dir_path) {
+  const fs::path efficiency_dir_path(file_dir_path/EFFICIENCY_DIRNAME);
+
+  if ( !fs::exists(efficiency_dir_path) )
+    throw std::runtime_error("Directory :" + efficiency_dir_path.string() + " not found");
+
+  for ( int i = 0; i < 9; i++ ) {
+    if ( i != 4 ) continue;
+    ReadEfficiencyEcc(i, efficiency_dir_path);
+  }
 }
 
 void ConnectionData::ReadETECCConnectData(const fs::path &file_dir_path) {
@@ -421,6 +445,51 @@ void ConnectionData::ReadFiducialArea(std::map<int, std::vector<FiducialArea > >
 
 }
 
+void ConnectionData::ReadEfficiencyEcc(int ecc, 
+				       const fs::path &file_dir_path) {
+  if ( ecc < 0 || ecc > 8 )
+    throw std::invalid_argument("ECC id not valid : " + ecc);
+  const std::string efficiency_file_path = (file_dir_path/ECC_EFFICIENCY_FILENAMES[ecc]).string();
+  ReadEfficiency(ecc_efficiency_[ecc], efficiency_file_path);
+}
+
+void ConnectionData::ReadEfficiency(std::map<int, std::vector<Efficiency > > &efficiency_map,
+				    const std::string file_dir_path) {
+
+  std::ifstream ifs(file_dir_path);
+  BOOST_LOG_TRIVIAL(trace) << "Efficiency file name : " << file_dir_path;
+  Efficiency eff;
+  int tmp;
+  std::vector<Efficiency > eff_vec;
+  eff_vec.reserve(EFFICIENCY_VECTOR_SIZE);
+  int i_eff_vec = 0;
+  while ( ifs >> eff.pl >> eff.range[0] >> eff.range[1]
+	  >> tmp >> tmp >> eff.efficiency >> eff.efficiency_err ) {
+    eff_vec.push_back(eff);
+    i_eff_vec++;
+    if ( i_eff_vec == EFFICIENCY_VECTOR_SIZE ) {
+      efficiency_map.insert(std::make_pair(eff.pl, eff_vec));
+      eff_vec.clear(); eff_vec.shrink_to_fit();
+      eff_vec.reserve(EFFICIENCY_VECTOR_SIZE);
+      i_eff_vec = 0;
+    }
+  }
+
+  ifs.close();
+
+  for ( auto itr = efficiency_map.begin(); itr != efficiency_map.end(); itr++ ) {
+    auto range = efficiency_map.equal_range(itr->first);
+    for ( auto itr2 = range.first; itr2 != range.second; itr2++ ) {
+      for ( auto eff2 : itr2->second)
+	BOOST_LOG_TRIVIAL(trace) << "pl : " << eff2.pl << ", "
+				 << "Angle : (" << eff2.range[0] << ", " << eff2.range[1] << "), "
+				 << "Efficiency : " << eff2.efficiency << ", "
+				 << " +/- " << eff2.efficiency_err;
+    }
+  }
+
+}
+
 void ConnectionData::GetETECCConnectData(t2l_param &et_ecc_param) const {
   et_ecc_param = et_ecc_param_;
   return;
@@ -573,6 +642,13 @@ void ConnectionData::GetFiducialAreaData(int ecc, std::map<int, std::vector<Fidu
   return;
 }
 
+void ConnectionData::GetEfficiencyData(int ecc, std::map<int, std::vector<Efficiency > > &ecc_efficiency) const {
+  if ( ecc < 0 || ecc > 8 )
+    throw std::invalid_argument("Ecc id not valid : " + ecc);
+  ecc_efficiency = ecc_efficiency_[ecc];
+  return;
+}
+
 void ConnectionData::DrawFiducialAreaData(int ecc, int plate,
 					  std::vector<B2EmulsionSummary* > &emulsions,
 					  int eventid) const {
@@ -609,5 +685,30 @@ void ConnectionData::DrawFiducialAreaData(int ecc, int plate,
     points->Draw("SAME P");
   }
 
-  c->SaveAs(Form("/home/t2k/odagawa/data/plots/fiducial_test/fiducial_ecc%d_plate%d_event%d.pdf", ecc, plate, eventid));
+  c->SaveAs(Form("/home/t2k/odagawa/data/plots/fiducial_test/fiducial_ecc%d_plate%d_event%d.pdf", ecc+1, plate, eventid));
+}
+
+void ConnectionData::DrawEfficiencyData(int ecc, int plate) const {
+  std::vector<double > ang_value, ang_error, eff_value, eff_error;
+  std::vector<Efficiency > eff = ecc_efficiency_[ecc].at(plate);
+  for ( auto ieff : eff ) {
+    double iang_value = (ieff.range[0] + ieff.range[1]) / 2.;
+    double iang_error = (ieff.range[1] - ieff.range[0]) / 2.;
+    ang_value.push_back(iang_value);
+    ang_error.push_back(iang_error);
+    eff_value.push_back(ieff.efficiency);    
+    eff_error.push_back(ieff.efficiency_err);
+  }
+
+  TGraphErrors *g_eff = new TGraphErrors(ang_value.size(),
+					 &ang_value[0],
+					 &eff_value[0],
+					 &ang_error[0],
+					 &eff_error[0]);
+  TCanvas *c = new TCanvas("c_eff", "c_eff");
+  g_eff->SetTitle(Form("Efficiency (ECC%d, PL%d);tan#theta;Efficiency", ecc+1, plate));
+  g_eff->Draw("AP");
+
+  c->SaveAs(Form("/home/t2k/odagawa/data/plots/efficiency_test/efficiency_ecc%d_plate%d.pdf", ecc+1, plate));
+
 }
