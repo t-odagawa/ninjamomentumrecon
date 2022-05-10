@@ -76,7 +76,7 @@ public:
 			     std::vector<const B2EmulsionSummary* > &emulsions) const;
   void AddTrueChainsToEventInfo(Momentum_recon::Event_information &ev,
 				std::vector<std::vector<const B2EmulsionSummary* > > &chains,
-				int ecc_id) const;
+				int ecc_id, int material_id) const;
   void CalcPosInEccCoordinate(TVector3 &position, int ecc_id) const;
   void SmearEmulsions(std::vector<B2EmulsionSummary* > &emulsions_smeared,
 		      std::vector<const B2EmulsionSummary*> &emulsions) const;
@@ -141,6 +141,16 @@ public:
 		       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 		       std::vector<B2EmulsionSummary* > &emulsions) const;
 
+  void ModifyGroups(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_modified,
+					std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_reconnected,
+					std::vector<B2EmulsionSummary* > &emulsions) const;
+
+  void ModifyGroup(std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group_modified,
+				       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
+				       std::vector<B2EmulsionSummary* > &emulsions) const;
+
+  bool IsValidGroup(std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group) const;
+
   bool SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 		       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 		       B2EmulsionSummary* &vertex_track,
@@ -153,6 +163,7 @@ public:
 			 Group &group, Segment &start_seg) const;
 
   void PartnerSearch(B2EmulsionSummary* vertex_track,
+		     std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 		     std::vector<B2EmulsionSummary*> &emulsions_partner,
 		     std::vector<B2EmulsionSummary*> &emulsions,
 		     int ecc_id,
@@ -179,7 +190,8 @@ public:
   void CalculatePositionDifference(B2EmulsionSummary* down, B2EmulsionSummary* up, double &dr, double &dl) const;
   bool JudgeFiducialArea(const std::vector<FiducialArea> &area, B2EmulsionSummary *emulsion) const;
   bool JudgeEdgeOut(B2EmulsionSummary* vertex_track, int ecc_id) const;
-  bool JudgePartnerTrack(B2EmulsionSummary* vertex_track, B2EmulsionSummary* partner_track,
+  bool JudgePartnerTrack(B2EmulsionSummary* vertex_track, B2EmulsionSummary* partner_track,\
+			 std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 			 int ecc_id, TVector3 &recon_vertex) const;
   double GetMinimumDistance(TVector3 parent_pos, TVector3 daughter_pos,
 			    TVector3 parent_dir, TVector3 daughter_dir,

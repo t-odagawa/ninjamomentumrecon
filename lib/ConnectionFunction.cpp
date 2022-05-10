@@ -113,7 +113,8 @@ void ConnectionFunction::GetTrueEmulsionChains(std::vector<std::vector<const B2E
 
 void ConnectionFunction::AddTrueChainsToEventInfo(Momentum_recon::Event_information &ev,
 						  std::vector<std::vector<const B2EmulsionSummary* > > &chains,
-						  int ecc_id) const {
+						  int ecc_id,
+						  int material_id) const {
 
   Momentum_recon::Mom_chain mom_chain;
   Momentum_recon::Mom_basetrack mom_basetrack;
@@ -122,6 +123,12 @@ void ConnectionFunction::AddTrueChainsToEventInfo(Momentum_recon::Event_informat
   for ( auto chain : chains ) {
     int num_base = chain.size();
     int num_link = num_base - 1;
+
+    if ( material_id == B2Material::kWater &&
+	 num_base < 2 ) continue;
+    else if ( material_id == B2Material::kIron &&
+	      num_base < 3 ) continue;
+
     mom_chain.base.clear();
     mom_chain.base_pair.clear();
     mom_chain.base.reserve(num_base);
@@ -1306,6 +1313,115 @@ void ConnectionFunction::ReconnectGroups(std::vector<std::pair<B2EmulsionSummary
 
 }
 
+
+void ConnectionFunction::ModifyGroups(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_modified,
+				      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_reconnected,
+				      std::vector<B2EmulsionSummary* > &emulsions) const {
+  for ( auto group : groups_reconnected ) {
+    std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > group_modified;
+    ModifyGroup(group_modified, group, emulsions);
+    if ( IsValidGroup(group_modified) )
+      groups_modified.push_back(group_modified);
+  }
+
+  return;
+}
+
+void ConnectionFunction::ModifyGroup(std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group_modified,
+				     std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
+				     std::vector<B2EmulsionSummary* > &emulsions) const {
+
+  group_modified.first = group.first;
+
+  // basetrack の set にする
+  std::set<Segment > segment_set;
+  for ( auto linklet_b2 : group.second ) {
+    std::pair<Segment, Segment > linklet_seg;
+    LinkletConvertB2ToSeg(linklet_b2, linklet_seg);
+    segment_set.insert(linklet_seg.first);
+    segment_set.insert(linklet_seg.second);
+  }
+
+  // plate ごとに multimap につめる
+  std::multimap<int, B2EmulsionSummary* > b2_multimap;
+  double ax_ave = 0.;
+  double ay_ave = 0.;
+  double ax_dev = 0.;
+  double ay_dev = 0.;
+  for ( auto itr = segment_set.begin(); itr != segment_set.end(); itr++ ) {
+    B2EmulsionSummary* tmp;
+    ConvertRawIdToB2((*itr).rawid, tmp, emulsions);    
+    b2_multimap.insert(std::make_pair((*itr).plate, tmp));
+    TVector3 tangent = tmp->GetTangent().GetValue();
+    tangent = (1. / tangent.Z()) * tangent;
+    ax_ave += tangent.X(); ay_ave += tangent.Z();
+    ax_dev += tangent.X() * tangent.X();
+    ay_dev += tangent.Y() * tangent.Y();
+  }
+
+  ax_ave /= segment_set.size(); ay_ave /= segment_set.size();
+  ax_dev /= segment_set.size(); ay_dev /= segment_set.size();
+  ax_dev = std::sqrt(ax_dev - ax_ave * ax_ave);
+  ay_dev = std::sqrt(ay_dev - ay_ave * ay_ave);
+
+  // 各 plate について 1 basetrack までにする
+  // 取り除かれた basetrack の list を生成
+  std::vector<int> removed_tracks;
+  for ( int iplate = 0; iplate < 134; iplate++ ) {
+    if ( b2_multimap.count(iplate) < 2 ) continue;
+    auto range = b2_multimap.equal_range(iplate);
+    int ncount = 0;
+    double smallest_angle_diff = 0.;
+    int smallest_rawid;
+    for ( auto itr = range.first; itr != range.second; itr++ ) {
+      B2EmulsionSummary* tmp = (*itr).second;
+      TVector3 tangent = tmp->GetTangent().GetValue();
+      tangent = (1. / tangent.Z()) * tangent;
+      double angle_diff_tmp = std::hypot((tangent.X() - ax_ave) / ax_dev,
+					 (tangent.Y() - ay_ave) / ay_dev);
+      if ( ncount == 0 ) {
+	smallest_rawid = tmp->GetEmulsionTrackId();
+	smallest_angle_diff = angle_diff_tmp;
+      }
+      else {
+	if ( angle_diff_tmp < smallest_angle_diff ) {
+	  removed_tracks.push_back(smallest_rawid);
+	  smallest_rawid = tmp->GetEmulsionTrackId();
+	  smallest_angle_diff = angle_diff_tmp;
+	}
+	else {
+	  removed_tracks.push_back(tmp->GetEmulsionTrackId());
+	}
+      }
+      ncount++;
+    }
+  }
+
+  // 取り除くべき basetrack を含む linklet を取り除きながら，group_modified に push back
+  for ( auto linklet_b2 : group.second ) {
+    bool is_removed = false;
+    for ( auto removed_track : removed_tracks ) {      
+      if ( linklet_b2.first->GetEmulsionTrackId() == removed_track ||
+	   linklet_b2.second->GetEmulsionTrackId() == removed_track ) {
+	is_removed = true;
+      }
+    }
+    if ( is_removed ) continue;
+    group_modified.second.push_back(linklet_b2);
+  }
+
+  return;
+
+}
+
+bool ConnectionFunction::IsValidGroup(std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group) const {
+  for ( auto linklet : group.second ) {
+    if ( linklet.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ||
+	 linklet.second->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) return true;
+  }
+  return false;
+}
+
 void ConnectionFunction::CollectEdgeTracks(boost::unordered_multimap<Segment, Segment > &upstream_tracks,
 					   boost::unordered_multimap<Segment, Segment > &downstream_tracks,
 					   boost::unordered_multimap<Segment, Segment > &upstream_tracks_start,
@@ -1433,6 +1549,7 @@ bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary
 }
 
 void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
+				       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 				       std::vector<B2EmulsionSummary* > &emulsions_partner,
 				       std::vector<B2EmulsionSummary* > &emulsions,
 				       int ecc_id,
@@ -1444,7 +1561,7 @@ void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
     if ( emulsion == vertex_track ) continue;
     if ( emulsion->GetPlate() + 1 == vertex_plate ||
 	 emulsion->GetPlate() + 1 == vertex_plate + 1 ) {
-      if ( JudgePartnerTrack(vertex_track, emulsion, ecc_id, recon_vertex) ) {
+      if ( JudgePartnerTrack(vertex_track, emulsion, groups, ecc_id, recon_vertex) ) {
 	num_partner++;
 	emulsions_partner.push_back(emulsion);
       }      
@@ -1499,6 +1616,7 @@ void ConnectionFunction::SelectPartnerGroups(std::vector<std::pair<B2EmulsionSum
   }
 
   for ( auto partner_seg : partner_seg_vec ) {
+    if ( groups_seg_map.find(partner_seg) == groups_seg_map.end() ) continue;
     Group group_partner_seg = groups_seg_map.at(partner_seg);
     std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > group_partner;
     GroupConvertSegToB2(group_partner_seg, group_partner, emulsions);
@@ -1867,6 +1985,7 @@ bool ConnectionFunction::JudgeEdgeOut(B2EmulsionSummary* vertex_track, int ecc_i
 
 bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
 					   B2EmulsionSummary* partner_track,
+					   std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 					   int ecc_id,
 					   TVector3 &recon_vertex) const {
   TVector3 parent_pos = vertex_track->GetAbsolutePosition().GetValue();
@@ -1902,6 +2021,38 @@ bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
   Double_t tangent = std::hypot(parent_dir.X(), parent_dir.Y());
   if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.04 * tangent + 0.04) + 5, 2) +
 				    std::pow(extrapolate_z[1] * (0.04 * tangent + 0.04) + 5, 2)) ) {
+
+    // 対応する group の端を探して，start_seg が端かを確認する
+    Segment start_seg;
+    start_seg.plate = partner_track->GetPlate() + 1;
+    start_seg.rawid = partner_track->GetEmulsionTrackId();
+    Group group_seg;
+    for ( auto group : groups ) {
+      Segment tmp;
+      tmp.plate = group.first->GetPlate() + 1;
+      tmp.rawid = group.first->GetEmulsionTrackId();
+      if ( tmp != start_seg ) continue;
+      GroupConvertB2ToSeg(group, group_seg);
+      break;
+    }
+
+    boost::unordered_multimap<Segment, Segment > ups;
+    boost::unordered_multimap<Segment, Segment > downs;
+    boost::unordered_multimap<Segment, Segment > ups_start;
+    boost::unordered_multimap<Segment, Segment > downs_start;
+    CollectEdgeTracks(ups, downs, ups_start, downs_start,
+		      group_seg, start_seg);
+
+    if ( vertex_track->GetPlate() == partner_track->GetPlate() ) { // 最上流確認
+      for ( auto itr = ups.begin(); itr != ups.end(); itr++ ) {
+	if ( (*itr).second.plate > start_seg.plate ) return false;
+      }
+    }
+    else if ( vertex_track->GetPlate() + 1 == partner_track->GetPlate() ) { // 最下流確認
+      for ( auto itr = downs.begin(); itr != downs.end(); itr++ ) {
+	if ( (*itr).second.plate < start_seg.plate ) return false;
+      }
+    }    
     return true;
   }
   else {
