@@ -1555,14 +1555,16 @@ void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
 				       int ecc_id,
 				       TVector3 &recon_vertex) const {
   int num_partner = 0;
+  TVector3 recon_vertex_tmp(0., 0., 0.);
 
   int vertex_plate = vertex_track->GetPlate() + 1;
   for ( auto emulsion : emulsions ) {
     if ( emulsion == vertex_track ) continue;
     if ( emulsion->GetPlate() + 1 == vertex_plate ||
 	 emulsion->GetPlate() + 1 == vertex_plate + 1 ) {
-      if ( JudgePartnerTrack(vertex_track, emulsion, groups, ecc_id, recon_vertex) ) {
+      if ( JudgePartnerTrack(vertex_track, emulsion, groups, ecc_id, recon_vertex_tmp) ) {
 	num_partner++;
+	recon_vertex += recon_vertex_tmp;
 	emulsions_partner.push_back(emulsion);
       }      
     }
@@ -2098,12 +2100,10 @@ double ConnectionFunction::GetMinimumDistance(TVector3 parent_pos, TVector3 daug
 
   extrapolate_z.at(0) = extrapolate_distance.at(0);
   extrapolate_z.at(1) = extrapolate_distance.at(1);
-
   TVector3 calculate_parent_position = parent_pos + extrapolate_distance.at(0) * parent_dir;
   TVector3 calculate_daughter_position = daughter_pos + extrapolate_distance.at(1) * daughter_dir;
-
   TVector3 distance_vec = calculate_parent_position - calculate_daughter_position;
-  recon_vertex += calculate_daughter_position + 0.5 * distance_vec;
+  recon_vertex = calculate_daughter_position + 0.5 * distance_vec;
   recon_vertex = 1.e-3 * recon_vertex;
   CalcPosInEccCoordinate(recon_vertex, ecc_id);
   return distance_vec.Mag();

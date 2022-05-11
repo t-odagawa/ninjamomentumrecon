@@ -80,8 +80,8 @@ int main ( int argc, char* argv[] ) {
 
     while ( reader.ReadNextSpill() > 0 ) {
 
-      //  if ( reader.GetEntryNumber() > 1000 ) continue;
-      if ( reader.GetEntryNumber() > 1862 ) continue;
+      // if ( reader.GetEntryNumber() > 1000 ) continue;
+      // if ( reader.GetEntryNumber() != 3295 ) continue;
 
       Momentum_recon::Event_information ev;
 
@@ -114,7 +114,7 @@ int main ( int argc, char* argv[] ) {
 
       if ( emulsions.empty() ) continue;
       std::sort(emulsions.begin(), emulsions.end(), EmulsionCompareDownToUp);
-      std::cout << "Entry:" << reader.GetEntryNumber() << std::endl;
+      // std::cout << "Entry:" << reader.GetEntryNumber() << std::endl;
       // Get true chains
       std::vector<std::vector<const B2EmulsionSummary* > > chains = {};
       connection_function.GetTrueEmulsionChains(chains, emulsions);
@@ -134,8 +134,8 @@ int main ( int argc, char* argv[] ) {
       // Fiducial volume cut
       std::vector<B2EmulsionSummary* > emulsions_detected_in_fv;
       connection_function.ApplyFVCut(emulsions_detected_in_fv, emulsions_detected, ecc_id);     
-      // if ( reader.GetEntryNumber() == 202 )
-      // connection_data.DrawFiducialAreaData(ecc_id, 37, emulsions_detected, reader.GetEntryNumber());
+      // if ( reader.GetEntryNumber() == 22 )
+      //   connection_data.DrawFiducialAreaData(ecc_id, 37, emulsions_detected, reader.GetEntryNumber());
       
       // Linklet
       // Black については VPH <-> PID が同じものだけを対象に loose につなぐ
@@ -206,16 +206,12 @@ int main ( int argc, char* argv[] ) {
 	ev.vertex_pl += vertex_track->GetPlate() + 1;
 	ev.ecc_id += ecc_id + 1;
       }
-      if ( ev.chains.size() > ev.true_chains.size() && 
-	   ev.true_chains.size() > 1 ) {
-	std::cout << "chain size error" << std::endl;
-	BOOST_LOG_TRIVIAL(warning) << "Filename : "  << ofilename << ", eventid : " << ev.groupid;
-      }
       if ( ev.recon_vertex_position[2] < -250e3 ) {
 	std::cout << "vertex depth error" << std::endl;
 	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
       }
-      if ( ev.true_chains.size() > 7 ) {
+      if ( ev.true_chains.size() > 7 &&
+	   ev.chains.size() == 1 ) {
 	std::cout << "chain size large" << std::endl;
 	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
       }

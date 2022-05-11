@@ -708,6 +708,7 @@ void ConnectionData::DrawEfficiencyData(int ecc, int plate) const {
 					 &ang_error[0],
 					 &eff_error[0]);
   TCanvas *c = new TCanvas("c_eff", "c_eff");
+  c->DrawFrame(0., 0., 250.e3, 250.e3);
   g_eff->SetTitle(Form("Efficiency (ECC%d, PL%d);tan#theta;Efficiency", ecc+1, plate));
   g_eff->Draw("AP");
 

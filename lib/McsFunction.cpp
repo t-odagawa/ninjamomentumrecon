@@ -88,6 +88,10 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
   
 }
 
+// NegativeLogLikelihoodWater()
+
+// NegativeLogLikelihoodBoth()
+
 Double_t FuncNegativeLogLikelihood(Double_t pbeta,
 				   UInt_t ncell,
 				   Int_t particle_id,
