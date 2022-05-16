@@ -63,7 +63,6 @@ int main (int argc, char* argv[]) {
     Int_t fit_status[3][2] = {};
     mcstree->SetBranchAddress("entry_in_daily_file", &entry_in_daily_file);
     mcstree->SetBranchAddress("npl", &npl);
-    //mcstree->SetBranchAddress("muon_track_id", &muon_track_id);
     mcstree->SetBranchAddress("true_pbeta",  &true_pbeta);
     mcstree->SetBranchAddress("initial_pbeta", &initial_pbeta);
     mcstree->SetBranchAddress("recon_pbeta", &recon_pbeta);
@@ -86,9 +85,33 @@ int main (int argc, char* argv[]) {
     otree->Branch("range_pbeta", &range_pbeta, "range_pbeta/D");
     otree->Branch("range_momentum", &range_momentum, "range_momentum/D");
 
+    int tmp_bm_entry = -1;
+    int entry_in_daily_file_previous;
+    int entry_in_daily_file_next;
+
     for ( Int_t imcsentry = 0; imcsentry < mcstree->GetEntries(); imcsentry++ ) {
+      // MCS file 側の multi を除く
+      if ( imcsentry != 0 ) {
+	mcstree->GetEntry(imcsentry - 1);
+	entry_in_daily_file_previous = entry_in_daily_file;
+      }
+      if ( imcsentry != mcstree->GetEntries() - 1 ) {
+	mcstree->GetEntry(imcsentry + 1);
+	entry_in_daily_file_next = entry_in_daily_file;
+      }
+      
       mcstree->GetEntry(imcsentry);
+
+      if ( imcsentry != 0 &&
+	   entry_in_daily_file == entry_in_daily_file_previous ) continue;
+      if ( imcsentry != mcstree->GetEntries() - 1 &&
+	   entry_in_daily_file == entry_in_daily_file_next ) continue;
+
       ntbmtree->GetEntry(entry_in_daily_file - 1);
+
+      mcs_pbeta = recon_pbeta;
+      mcs_momentum = CalculateMomentumFromPBeta(mcs_pbeta, MCS_MUON_MASS);
+
       BOOST_LOG_TRIVIAL(debug) << "Target entry in daily file : " << entry_in_daily_file;
       if ( ntbm->GetEntryInDailyFile() != entry_in_daily_file ) {
 	BOOST_LOG_TRIVIAL(debug) << "Entry in daily file is not the same!";
@@ -96,20 +119,38 @@ int main (int argc, char* argv[]) {
 	BOOST_LOG_TRIVIAL(debug) << "Entry in daily file in NTBM file : " << ntbm->GetEntryInDailyFile();
       }
 
-      mcs_pbeta = recon_pbeta;
-      mcs_momentum = CalculateMomentumFromPBeta(mcs_pbeta, MCS_MUON_MASS);
-
       best_log_likelihood = log_likelihood[0][0];
+      
+      if ( ntbm->GetNumberOfTracks() == 0 ) continue;      
 
-      if ( ntbm->GetNumberOfTracks() == 0 ) continue;
+      int n_3d_clusters = 0;
+      int cluster_id = -1;
+
+      // NTBM 側の multi を削除
+      for ( int icluster = 0; icluster < ntbm->GetNumberOfNinjaClusters(); icluster ++ ) {
+	if ( ntbm->GetNumberOfHits(icluster).at(0) != 0 &&
+	     ntbm->GetNumberOfHits(icluster).at(1) != 0 ) {
+	  n_3d_clusters++;
+	  cluster_id = icluster;
+	}	  
+      }
+      if ( n_3d_clusters != 1 ) continue;
+
+      muon_track_id = ntbm->GetBabyMindTrackId(cluster_id);
       if ( ntbm->GetMomentumType(muon_track_id) != 0 ) continue;
+
       range_momentum = ntbm->GetMomentum(muon_track_id);
       range_pbeta = CalculatePBetaFromMomentum(range_momentum, MCS_MUON_MASS);
+      if ( mcs_momentum > range_momentum + 500. &&
+	   range_momentum < 1000. ) {
+	std::cout << "Entry : " << entry_in_daily_file << std::endl;
+	std::cout << "MCS : " << mcs_momentum << ", " << "Range : " << range_momentum << std::endl;
+      }
+      
 
       otree->Fill();
 
     }
-
     ofile->cd();
     otree->Write();
     ofile->Close();

@@ -174,7 +174,10 @@ int main ( int argc, char* argv[] ) {
 
 	int stop_flag = -1;
 
-	if ( vertex_track->GetPlate() + 1 > 131 ) { stop_flag = 0; } // penetrate
+	if ( vertex_track->GetPlate() + 1 > 131 ) {
+	  stop_flag = 0;
+	  ev.vertex_material = -2;
+	} // penetrate
 	else if ( !connection_function.JudgeEdgeOut(vertex_track, ecc_id) ) { // stop check
 	  stop_flag = 1; // ECC stop
 	  // vertex plate に attach する basetrack を探す
@@ -184,6 +187,7 @@ int main ( int argc, char* argv[] ) {
 	  				    emulsions_partner, emulsions_detected_in_fv,
 	  				    ecc_id,
 	  				    recon_vertex);
+
 	  ev.recon_vertex_position[0] = recon_vertex.X();
 	  ev.recon_vertex_position[1] = recon_vertex.Y();
 	  ev.recon_vertex_position[2] = recon_vertex.Z();
@@ -199,6 +203,7 @@ int main ( int argc, char* argv[] ) {
 	}
 	else { // side escape
 	  stop_flag = 2;
+	  ev.vertex_material = -3;
 	}
 
 	// group を event information に変換
@@ -206,20 +211,13 @@ int main ( int argc, char* argv[] ) {
 	ev.vertex_pl += vertex_track->GetPlate() + 1;
 	ev.ecc_id += ecc_id + 1;
       }
-      if ( ev.recon_vertex_position[2] < -250e3 ) {
-	std::cout << "vertex depth error" << std::endl;
-	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
-      }
+
       if ( ev.true_chains.size() > 7 &&
 	   ev.chains.size() == 1 ) {
 	std::cout << "chain size large" << std::endl;
 	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
       }
-      if ( ev.vertex_pl % 1000 > ev.vertex_pl / 1000 ) {
-	std::cout << "Vertex plate error" << std::endl;
-	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
-      }
-	
+
       ev_vec.push_back(ev);
 
     }

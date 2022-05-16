@@ -87,11 +87,81 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
 				lateral_angle_difference);
   
 }
+/*
+Double_t FuncNegativeLogLikelihood(Double_t pbeta,
+				   UInt_t ncell,
+				   Int_t particle_id,
+				   Int_t direction,
+				   Double_t radial_cut_value,
+				   Double_t lateral_cut_value,
+				   Bool_t smear_flag,
+				   Int_t material_mode_id,
+				   std::vector<Double_t > basetrack_distance,
+				   std::vector<Double_t > water_basetrack_distance,
+				   std::vector<Double_t > track_tangent,
+				   std::vector<Int_t > plate_id,
+				   std::vector<Double_t > radial_angle_difference,
+				   std::vector<Double_t > lateral_angle_difference) {
+  // vector size check
+  std::vector<std::size_t > par_vect_sizes = {};
+  par_vect_sizes.push_back(basetrack_distance.size());
+  par_vect_sizes.push_back(water_basetrack_distance.size());
+  par_vect_sizes.push_back(track_tangent.size());
+  par_vect_sizes.push_back(plate_id.size());
+  par_vect_sizes.push_back(radial_angle_difference.size());
+  par_vect_sizes.push_back(lateral_angle_difference.size());
 
-// NegativeLogLikelihoodWater()
+  for (Int_t ivect = 0; ivect < par_vect_sizes.size() - 1; ivect++) {
+    if (par_vect_sizes.at(ivect) != par_vect_sizes.at(ivect + 1)) {
+      BOOST_LOG_TRIVIAL(error) << "Vector size different";
+      BOOST_LOG_TRIVIAL(error) << "Basetrack distance size : " << basetrack_distance.size() << ", "
+			       << "Water basetrack distance size : " << water_basetrack_distance.size() << ", "
+			       << "Tangent size : " << track_tangent.size() << ", "
+			       << "Plate size : " << plate_id.size() << ", "
+			       << "Radial angle difference size : " << radial_angle_difference.size() << ", "
+			       << "Lateral angle difference size : " << lateral_angle_difference.size();
+      std::exit(1);
+    }
+  }
+  const Int_t number_of_pairs = basetrack_distance.size();
 
-// NegativeLogLikelihoodBoth()
+  switch ( material_mode_id ) {
+  case 0 :
+    BOOST_LOG_TRIVIAL(debug) << "Water only reconstruction";
+    return FuncNegativeLogLikelihoodWater(pbeta, ncell, particle_id, direction,
+					  radial_cut_value, lateral_cut_value, smear_flag,
+					  basetrack_distance,
+					  water_basetrack_distance,
+					  track_tangent,
+					  plate_id,
+					  radial_angle_difference,
+					  lateral_angle_difference);
+  case 1 :
+    BOOST_LOG_TRIVIAL(debug) << "Iron only reconstruction";
+    return FuncNegativeLogLikelihoodIron(pbeta, ncell, particle_id, direction,
+					 radial_cut_value, lateral_cut_value, smear_flag,
+					 basetrack_distance,
+					 water_basetrack_distance,
+					 track_tangent,
+					 plate_id,
+					 radial_angle_difference,
+					 lateral_angle_difference);
+  case 2 :
+    BOOST_LOG_TRIVIAL(debug) << "Iron + water reconstruction";
+    return FuncNegativeLogLikelihoodCombo(pbeta, ncell, particle_id, direction,
+					  radial_cut_value, lateral_cut_value, smear_flag,
+					  basetrack_distance,
+					  water_basetrack_distance,
+					  track_tangent,
+					  plate_id,
+					  radial_angle_difference,
+					  lateral_angle_difference);
+  default :
+    throw std::runtime_error("Material mode id in NLL function is not appropriate");
+  }
 
+}
+*/
 Double_t FuncNegativeLogLikelihood(Double_t pbeta,
 				   UInt_t ncell,
 				   Int_t particle_id,

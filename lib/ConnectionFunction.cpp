@@ -1587,7 +1587,7 @@ void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
   else {
     recon_vertex = (1. / num_partner) * recon_vertex;
   }
-  
+
   return;
 
 }

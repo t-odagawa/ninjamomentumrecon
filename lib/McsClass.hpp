@@ -43,7 +43,7 @@ namespace Momentum_recon
   class Event_information {
   public :
     int groupid, unixtime, tracker_track_id, entry_in_daily_file, vertex_pl, ecc_id;
-    // 0 : water, 2 : iron
+    // 0 : water, 2 : iron, -2 : penetrate,-3 : side out
     int vertex_material;
     double recon_vertex_position[3], true_vertex_position[3];
     double weight, nu_energy, nu_ax, nu_ay; // energy : MeV
