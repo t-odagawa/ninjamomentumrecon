@@ -174,12 +174,15 @@ public:
 			   std::vector<B2EmulsionSummary* > &emulsions) const;
 
   void AddGroupsToEventInfo(Momentum_recon::Event_information &ev,
+			    B2EmulsionSummary* vertex_track,
 			    std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 			    std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
 			    std::vector<B2EmulsionSummary* > &emulsions,
 			    int ecc_id) const;
 
   void AddGroupToEventInfo(Momentum_recon::Event_information &ev,
+			   B2EmulsionSummary* vertex_track,
+			   std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 			   std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
 			   std::vector<B2EmulsionSummary* > &emulsions,
 			   int ecc_id) const;

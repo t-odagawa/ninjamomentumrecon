@@ -16,22 +16,8 @@
 #include "McsConst.hpp"
 #include "McsFunction.hpp"
 
-// par[0]           : reconstructed pbeta obtained from minimum log likelihood
-// par[1]           : Ncell (number of skipped film between the pair)
-// par[2]           : particle id (muon, charged pion, proton)
-// par[3]           : direction (1 or -1)
-// par[4]           : radial angle difference cut value
-// par[5]           : lateral angle difference cut value
-// par[6]           : true(0)/smear(1) flag
-// par[7]           : number of pairs of the basetracks ( = N )
-// par[   8 -  N+7] : basetrack distance (used for energy deposition and radiation length calculation)
-// par[ N+8 - 2N+7] : downstream water basetrack distance (used for energy deposition)
-// par[2N+8 - 3N+7] : upstream track tangent
-// par[3N+8 - 4N+7] : upstream plate id
-// par[4N+8 - 5N+7] : radial angle differences between basetracks
-// par[5N+8 - 6N+7] : lateral angle differences between basetracks
 void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
-  
+
   // Initialzation of parameters
   // Momentum
   Double_t pbeta = par[0];
@@ -45,22 +31,31 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
   Double_t radial_cut_value = par[4];
   // lateral angle difference cut value
   Double_t lateral_cut_value = par[5];
+  // radial angle difference water cut value
+  Double_t radial_cut_value_water = par[6];
+  // lateral angle difference water cut value
+  Double_t lateral_cut_value_water = par[7];
   // Smear flag
-  Bool_t smear_flag = (Bool_t) par[6];
+  Bool_t smear_flag = (Bool_t)par[8];
+  // Reconstruction material mode
+  Int_t material_mode = par[9];
   // number of pairs
-  const UInt_t number_of_pairs = (UInt_t)par[7];
+  const UInt_t number_of_pairs = (UInt_t)par[10];
   // basetrack distance
   std::vector<Double_t > basetrack_distance = {};
   basetrack_distance.resize(number_of_pairs);
   // downstream water basetrack distance
-  std::vector<Double_t > water_basetrack_distance = {};
-  water_basetrack_distance.resize(number_of_pairs);
+  std::vector<Double_t > basetrack_distance_water = {};
+  basetrack_distance_water.resize(number_of_pairs);
   // upstream track tangent
   std::vector<Double_t > track_tangent = {};
   track_tangent.resize(number_of_pairs);
   // upstream plate id
   std::vector<Int_t > plate_id = {};
   plate_id.resize(number_of_pairs);
+  // downstream plate id
+  std::vector<Int_t > plate_id_next = {};
+  plate_id_next.resize(number_of_pairs);
   // radial angle differences
   std::vector<Double_t > radial_angle_difference = {};
   radial_angle_difference.resize(number_of_pairs);
@@ -68,24 +63,340 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
   std::vector<Double_t > lateral_angle_difference = {};
   lateral_angle_difference.resize(number_of_pairs);
   for(Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
-    basetrack_distance.at(ipairs)       =        par[8                       + ipairs];
-    water_basetrack_distance.at(ipairs) =        par[8 + 1 * number_of_pairs + ipairs];
-    track_tangent.at(ipairs)            =        par[8 + 2 * number_of_pairs + ipairs];
-    plate_id.at(ipairs)                 = (Int_t)par[8 + 3 * number_of_pairs + ipairs];
-    radial_angle_difference.at(ipairs)  =        par[8 + 4 * number_of_pairs + ipairs];
-    lateral_angle_difference.at(ipairs) =        par[8 + 5 * number_of_pairs + ipairs];
+    basetrack_distance.at(ipairs)       =        par[11                       + ipairs];
+    basetrack_distance_water.at(ipairs) =        par[11 + 1 * number_of_pairs + ipairs];
+    track_tangent.at(ipairs)            =        par[11 + 2 * number_of_pairs + ipairs];
+    plate_id.at(ipairs)                 = (Int_t)par[11 + 3 * number_of_pairs + ipairs];
+    plate_id_next.at(ipairs)            = (Int_t)par[11 + 4 * number_of_pairs + ipairs];
+    radial_angle_difference.at(ipairs)  =        par[11 + 5 * number_of_pairs + ipairs];
+    lateral_angle_difference.at(ipairs) =        par[11 + 6 * number_of_pairs + ipairs];
   }
   
   f = FuncNegativeLogLikelihood(pbeta, ncell, particle_id, direction,
 				radial_cut_value, lateral_cut_value,
-				smear_flag,
+				radial_cut_value_water, lateral_cut_value_water,
+				smear_flag, material_mode,
 				basetrack_distance,
-				water_basetrack_distance,
+				basetrack_distance_water,
 				track_tangent,
 				plate_id,
+				plate_id_next,
 				radial_angle_difference,
 				lateral_angle_difference);
   
+}
+
+Double_t FuncNegativeLogLikelihood(Double_t pbeta,
+				   UInt_t ncell,
+				   Int_t particle_id,
+				   Int_t direction,
+				   Double_t radial_cut_value,
+				   Double_t lateral_cut_value,
+				   Double_t radial_cut_value_water,
+				   Double_t lateral_cut_value_water,
+				   Bool_t smear_flag,
+				   Int_t material_mode,
+				   std::vector<Double_t > basetrack_distance,
+				   std::vector<Double_t > basetrack_distance_water,
+				   std::vector<Double_t > track_tangent,
+				   std::vector<Int_t > plate_id,
+				   std::vector<Int_t > plate_id_next,
+				   std::vector<Double_t > radial_angle_difference,
+				   std::vector<Double_t > lateral_angle_difference) {
+  // vector size check
+  std::vector<std::size_t > par_vect_sizes = {};
+  par_vect_sizes.push_back(basetrack_distance.size());
+  par_vect_sizes.push_back(basetrack_distance_water.size());
+  par_vect_sizes.push_back(track_tangent.size());
+  par_vect_sizes.push_back(plate_id.size());
+  par_vect_sizes.push_back(radial_angle_difference.size());
+  par_vect_sizes.push_back(lateral_angle_difference.size());
+
+  for (Int_t ivect = 0; ivect < par_vect_sizes.size() - 1; ivect++) {
+    if (par_vect_sizes.at(ivect) != par_vect_sizes.at(ivect + 1)) {
+      BOOST_LOG_TRIVIAL(error) << "Vector size different";
+      BOOST_LOG_TRIVIAL(error) << "Basetrack distance size : " << basetrack_distance.size() << ", "
+			       << "Water basetrack distance size : " << basetrack_distance_water.size() << ", "
+			       << "Tangent size : " << track_tangent.size() << ", "
+			       << "Plate size : " << plate_id.size() << ", "
+			       << "Radial angle difference size : " << radial_angle_difference.size() << ", "
+			       << "Lateral angle difference size : " << lateral_angle_difference.size();
+      std::exit(1);
+    }
+  }
+
+  switch ( material_mode ) {
+  case kNinjaIron :
+    return FuncNegativeLogLikelihoodIron(pbeta, ncell, particle_id, direction,
+					 radial_cut_value, lateral_cut_value,
+					 smear_flag,
+					 basetrack_distance,
+					 basetrack_distance_water,
+					 track_tangent,
+					 plate_id,
+					 plate_id_next,
+					 radial_angle_difference,
+					 lateral_angle_difference);
+    break;
+  case kNinjaWater :
+    return FuncNegativeLogLikelihoodWater(pbeta, ncell, particle_id, direction,
+					  radial_cut_value_water, lateral_cut_value_water,
+					  smear_flag,
+					  basetrack_distance,
+					  basetrack_distance_water,
+					  track_tangent,
+					  plate_id,
+					  plate_id_next,
+					  radial_angle_difference,
+					  lateral_angle_difference);
+    break;
+  case 2 :
+    return FuncNegativeLogLikelihoodCombo(pbeta, ncell, particle_id, direction,
+					  radial_cut_value, lateral_cut_value, 
+					  radial_cut_value_water, lateral_cut_value_water,
+					  smear_flag,
+					  basetrack_distance,
+					  basetrack_distance_water,
+					  track_tangent,
+					  plate_id,
+					  plate_id_next,
+					  radial_angle_difference,
+					  lateral_angle_difference);
+    break;
+  default :
+    throw std::runtime_error("Material mode id in NLL function is not appropriate");
+  }
+
+}
+
+Double_t FuncNegativeLogLikelihoodWater(Double_t pbeta,
+					UInt_t ncell,
+					Int_t particle_id,
+					Int_t direction,
+					Double_t radial_cut_value_water,
+					Double_t lateral_cut_value_water,
+					Bool_t smear_flag,
+					std::vector<Double_t > basetrack_distance,
+					std::vector<Double_t > basetrack_distance_water,
+					std::vector<Double_t > track_tangent,
+					std::vector<Int_t > plate_id,
+					std::vector<Int_t > plate_id_next,
+					std::vector<Double_t > radial_angle_difference,
+					std::vector<Double_t > lateral_angle_difference) {
+
+  const Int_t number_of_pairs = basetrack_distance.size();
+
+  Double_t nll = 0.; // constat is ignored
+  Double_t radial_sigma, lateral_sigma; // variables for sigma in each step
+  for ( Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++ ) {
+    
+    if ( basetrack_distance_water.at(ipairs) < 1. ) continue;
+
+    GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
+		       basetrack_distance_water.at(ipairs),
+		       track_tangent.at(ipairs),
+		       radial_sigma, lateral_sigma);
+    
+    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 && 
+	 TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
+	 TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+      nll += 2 * TMath::Log(radial_sigma)
+	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+      nll += 2 * TMath::Log(lateral_sigma)
+	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+    }
+
+    // Consider energy deposit
+    Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+    Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+
+    energy -= basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+    energy -= basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
+
+    if ( energy <= PARTICLE_MASS[particle_id]) break;
+    pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
+
+  }
+
+  return nll;
+
+}
+
+Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
+				       UInt_t ncell,
+				       Int_t particle_id,
+				       Int_t direction,
+				       Double_t radial_cut_value,
+				       Double_t lateral_cut_value,
+				       Bool_t smear_flag,
+				       std::vector<Double_t > basetrack_distance,
+				       std::vector<Double_t > basetrack_distance_water,
+				       std::vector<Double_t > track_tangent,
+				       std::vector<Int_t > plate_id,
+				       std::vector<Int_t > plate_id_next,
+				       std::vector<Double_t > radial_angle_difference,
+				       std::vector<Double_t > lateral_angle_difference) {
+
+  const Int_t number_of_pairs = basetrack_distance.size();
+
+  Double_t nll = 0.; // constant (= n * log(2pi) / 2) is ignored
+  Double_t radial_sigma, lateral_sigma; // variables for sigma in each step
+  for ( Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++ ) {
+
+    if ( basetrack_distance.at(ipairs) < 1. ) continue;
+    
+    GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
+		       basetrack_distance.at(ipairs),
+		       track_tangent.at(ipairs),
+		       radial_sigma, lateral_sigma);
+
+    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 && 
+	 TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	 TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+      nll += 2 * TMath::Log(radial_sigma)
+	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+      nll += 2 * TMath::Log(lateral_sigma)
+	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+    }
+
+    // Consider energy deposit
+    Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+    Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+
+    energy -= basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+    energy -= basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
+
+    if ( energy <= PARTICLE_MASS[particle_id]) break;
+    pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
+
+  }
+
+  return nll;
+
+}
+
+Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta,
+					UInt_t ncell,
+					Int_t particle_id,
+					Int_t direction,
+					Double_t radial_cut_value,
+					Double_t lateral_cut_value,
+					Double_t radial_cut_value_water,
+					Double_t lateral_cut_value_water,
+					Bool_t smear_flag,
+					std::vector<Double_t > basetrack_distance,
+					std::vector<Double_t > basetrack_distance_water,
+					std::vector<Double_t > track_tangent,
+					std::vector<Int_t > plate_id,
+					std::vector<Int_t > plate_id_next,
+					std::vector<Double_t > radial_angle_difference,
+					std::vector<Double_t > lateral_angle_difference) {
+
+  const Int_t number_of_pairs = basetrack_distance.size();
+
+  Double_t nll = 0.;
+  Double_t radial_sigma, lateral_sigma;
+  
+  for ( Int_t ipairs = 0.; ipairs < number_of_pairs; ipairs++ ) {
+
+    if ( basetrack_distance.at(ipairs) < 1. ||
+	 basetrack_distance_water.at(ipairs) < 1.) continue;
+
+    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
+      
+      int material = -1;
+      
+      if ( direction == 1 ) {
+	if ( (plate_id.at(ipairs) > 4 && plate_id.at(ipairs) < 16) ||
+	     plate_id.at(ipairs) % 2 == 1 ) {	  
+	  material = kNinjaIron;
+	}
+	else if ( plate_id.at(ipairs) % 2 == 0 ) {
+	  material = kNinjaWater;
+	}
+      }
+      else if ( direction == -1 ) {
+	if ( (plate_id_next.at(ipairs) > 4 && plate_id_next.at(ipairs) < 16) ||
+	     plate_id_next.at(ipairs) % 2 == 1 ) {
+	  material = kNinjaIron;
+	}
+	else if ( plate_id_next.at(ipairs) % 2 == 0 ) {
+	  material = kNinjaWater;
+	}
+      }
+
+      if ( material == kNinjaIron ) {
+	GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
+			   basetrack_distance.at(ipairs), // ここおかしい
+			   track_tangent.at(ipairs),
+			   radial_sigma, lateral_sigma);
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	  nll += 2 * TMath::Log(radial_sigma)
+	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+      else if ( material == kNinjaWater ) {
+	GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
+			   basetrack_distance_water.at(ipairs), // ここおかしい
+			   track_tangent.at(ipairs),
+			   radial_sigma, lateral_sigma);
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water) {
+	  nll += 2 * TMath::Log(radial_sigma)
+	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+
+      
+    }
+    
+    // Consider energy deposit
+    Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+    Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
+
+    energy -= basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+    energy -= basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
+
+    if ( energy <= PARTICLE_MASS[particle_id] ) break;
+    pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
+
+  }
+
+  return nll;
+
+}
+
+void GetSigmaAtEachStep(Double_t pbeta,
+			UInt_t ncell,
+			Bool_t smear_flag,
+			Int_t material,
+			Double_t basetrack_distance,
+			Double_t track_tangent,
+			Double_t &radial_sigma,
+			Double_t &lateral_sigma) {
+  if ( smear_flag ) {
+    radial_sigma = RadialSigmaAtIfilm(pbeta, ncell,
+				      basetrack_distance,
+				      material,
+				      track_tangent);
+    lateral_sigma = LateralSigmaAtIfilm(pbeta, ncell,
+					basetrack_distance,
+					material,
+					track_tangent);
+  } else { 
+    radial_sigma = HighlandSigmaAtIfilm(pbeta, ncell,
+					material, basetrack_distance);
+    lateral_sigma = HighlandSigmaAtIfilm(pbeta, ncell,
+					 material, basetrack_distance);
+  }
+
+  return;
+
 }
 /*
 Double_t FuncNegativeLogLikelihood(Double_t pbeta,
@@ -95,82 +406,8 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
 				   Double_t radial_cut_value,
 				   Double_t lateral_cut_value,
 				   Bool_t smear_flag,
-				   Int_t material_mode_id,
 				   std::vector<Double_t > basetrack_distance,
-				   std::vector<Double_t > water_basetrack_distance,
-				   std::vector<Double_t > track_tangent,
-				   std::vector<Int_t > plate_id,
-				   std::vector<Double_t > radial_angle_difference,
-				   std::vector<Double_t > lateral_angle_difference) {
-  // vector size check
-  std::vector<std::size_t > par_vect_sizes = {};
-  par_vect_sizes.push_back(basetrack_distance.size());
-  par_vect_sizes.push_back(water_basetrack_distance.size());
-  par_vect_sizes.push_back(track_tangent.size());
-  par_vect_sizes.push_back(plate_id.size());
-  par_vect_sizes.push_back(radial_angle_difference.size());
-  par_vect_sizes.push_back(lateral_angle_difference.size());
-
-  for (Int_t ivect = 0; ivect < par_vect_sizes.size() - 1; ivect++) {
-    if (par_vect_sizes.at(ivect) != par_vect_sizes.at(ivect + 1)) {
-      BOOST_LOG_TRIVIAL(error) << "Vector size different";
-      BOOST_LOG_TRIVIAL(error) << "Basetrack distance size : " << basetrack_distance.size() << ", "
-			       << "Water basetrack distance size : " << water_basetrack_distance.size() << ", "
-			       << "Tangent size : " << track_tangent.size() << ", "
-			       << "Plate size : " << plate_id.size() << ", "
-			       << "Radial angle difference size : " << radial_angle_difference.size() << ", "
-			       << "Lateral angle difference size : " << lateral_angle_difference.size();
-      std::exit(1);
-    }
-  }
-  const Int_t number_of_pairs = basetrack_distance.size();
-
-  switch ( material_mode_id ) {
-  case 0 :
-    BOOST_LOG_TRIVIAL(debug) << "Water only reconstruction";
-    return FuncNegativeLogLikelihoodWater(pbeta, ncell, particle_id, direction,
-					  radial_cut_value, lateral_cut_value, smear_flag,
-					  basetrack_distance,
-					  water_basetrack_distance,
-					  track_tangent,
-					  plate_id,
-					  radial_angle_difference,
-					  lateral_angle_difference);
-  case 1 :
-    BOOST_LOG_TRIVIAL(debug) << "Iron only reconstruction";
-    return FuncNegativeLogLikelihoodIron(pbeta, ncell, particle_id, direction,
-					 radial_cut_value, lateral_cut_value, smear_flag,
-					 basetrack_distance,
-					 water_basetrack_distance,
-					 track_tangent,
-					 plate_id,
-					 radial_angle_difference,
-					 lateral_angle_difference);
-  case 2 :
-    BOOST_LOG_TRIVIAL(debug) << "Iron + water reconstruction";
-    return FuncNegativeLogLikelihoodCombo(pbeta, ncell, particle_id, direction,
-					  radial_cut_value, lateral_cut_value, smear_flag,
-					  basetrack_distance,
-					  water_basetrack_distance,
-					  track_tangent,
-					  plate_id,
-					  radial_angle_difference,
-					  lateral_angle_difference);
-  default :
-    throw std::runtime_error("Material mode id in NLL function is not appropriate");
-  }
-
-}
-*/
-Double_t FuncNegativeLogLikelihood(Double_t pbeta,
-				   UInt_t ncell,
-				   Int_t particle_id,
-				   Int_t direction,
-				   Double_t radial_cut_value,
-				   Double_t lateral_cut_value,
-				   Bool_t smear_flag,
-				   std::vector<Double_t > basetrack_distance,
-				   std::vector<Double_t > water_basetrack_distance,
+				   std::vector<Double_t > basetrack_distance_water,
 				   std::vector<Double_t > track_tangent,
 				   std::vector<Int_t > plate_id,
 				   std::vector<Double_t > radial_angle_difference,
@@ -179,7 +416,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
   // vector size check
   std::vector<std::size_t > par_vect_sizes = {};
   par_vect_sizes.push_back(basetrack_distance.size());
-  par_vect_sizes.push_back(water_basetrack_distance.size());
+  par_vect_sizes.push_back(basetrack_distance_water.size());
   par_vect_sizes.push_back(track_tangent.size());
   par_vect_sizes.push_back(plate_id.size());
   par_vect_sizes.push_back(radial_angle_difference.size());
@@ -189,7 +426,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
     if (par_vect_sizes.at(ivect) != par_vect_sizes.at(ivect + 1)) {
       BOOST_LOG_TRIVIAL(error) << "Vector size different";
       BOOST_LOG_TRIVIAL(error) << "Basetrack distance size : " << basetrack_distance.size() << ", "
-			       << "Water basetrack distance size : " << water_basetrack_distance.size() << ", "
+			       << "Water basetrack distance size : " << basetrack_distance_water.size() << ", "
 			       << "Tangent size : " << track_tangent.size() << ", "
 			       << "Plate size : " << plate_id.size() << ", "
 			       << "Radial angle difference size : " << radial_angle_difference.size() << ", "
@@ -229,7 +466,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
     if (plate_id.at(ipairs) > 16) {
       energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
       // Water smearing is considered separately
-      energy -= direction * ncell * water_basetrack_distance.at(ipairs) * EnergyDepositWater(beta);
+      energy -= direction * ncell * basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
       // } if else (plate_id.at(ipairs) > 15 && plate_id.at(ipairs)%2 == 1) {
     } else {
       energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
@@ -241,6 +478,110 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
   }
   
   return nll;
+  
+}
+*/
+void GetBasetrackDistancePair(int plate, int plate_next, int direction,
+			      TVector3 up_position, TVector3 down_position,
+			      TVector3 &basetrack_distance_pair,
+			      TVector3 &basetrack_distance_water_pair,
+			      Bool_t smear_flag) {
+
+  if ( std::abs(direction) != 1 )
+    throw std::runtime_error("Direction is invalid");
+
+  if ( direction == -1 )
+    std::swap(plate, plate_next);
+
+  auto distance_vec = up_position - down_position;
+  auto distance_tangent = (1. / distance_vec.Z()) * distance_vec;
+  TVector3 zero_vec(0., 0., 0.);
+  if ( plate < 5 ) return;
+  else if ( plate == 5 && plate - plate_next == 2 ) { // ISS とかぶるため例外処理
+    basetrack_distance_water_pair = zero_vec; // 水は存在しない
+    basetrack_distance_pair = distance_tangent;
+  }
+  else if ( plate == 6 && plate - plate_next == 3 ) {
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = 2 * distance_tangent;
+  }
+  else if ( plate == 7 && plate - plate_next == 4 ) {
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = 3 * distance_tangent;
+  }
+  else if ( plate == 8 && plate - plate_next == 5 ) {
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = 4 * distance_tangent;
+  }
+  else if ( plate < 16 ) { // 鉄 ECC
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = (plate - plate_next) * distance_tangent; // 鉄とフィルムのみの繰り返し
+  }
+  else if ( plate == 16 ) { // 鉄 ECC とかぶるため例外処理
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = (plate - plate_next - 1) * distance_tangent;
+  }
+  else if ( plate == 17 && plate - plate_next == 3) {
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = 2 * distance_tangent;
+  }
+  else if ( plate == 17 && plate - plate_next == 4 ) {
+    basetrack_distance_water_pair = zero_vec;
+    basetrack_distance_pair = 3 * distance_tangent;
+  }
+  else if ( plate == 18 && plate - plate_next == 3 ) {
+    basetrack_distance_water_pair = distance_tangent;
+    basetrack_distance_pair = distance_tangent;
+  }
+  else if ( plate == 19 && plate - plate_next == 4 ) {
+    basetrack_distance_water_pair = distance_tangent;
+    basetrack_distance_pair = 2 * distance_tangent;
+  }
+  else if ( plate%2 == 0 ) { // 水上流/鉄下流のトラックからはじまる linklet
+    if ( plate - plate_next == 1 ) {
+      basetrack_distance_water_pair = distance_tangent;
+      basetrack_distance_pair = zero_vec;
+    }
+    else if ( plate - plate_next == 2 ) {
+      basetrack_distance_water_pair = distance_tangent;
+      basetrack_distance_pair = distance_tangent;
+    }
+    else if ( plate - plate_next == 3 ) {
+      basetrack_distance_water_pair = 2 * distance_tangent;
+      basetrack_distance_pair = distance_tangent;
+    }
+  }
+  else { // 水下流/鉄上流のトラックからはじまる linklet
+    if ( plate - plate_next == 1 ) {
+      basetrack_distance_water_pair = zero_vec;
+      basetrack_distance_pair = distance_tangent;
+    }
+    else if ( plate - plate_next == 2 ) {
+      basetrack_distance_water_pair = distance_tangent;
+      basetrack_distance_pair = distance_tangent;
+    }
+    else if ( plate - plate_next == 3 ) {
+      basetrack_distance_water_pair = distance_tangent;
+      basetrack_distance_pair = 2 * distance_tangent;
+    }
+    else if ( plate - plate_next == 4 ) {
+      basetrack_distance_water_pair = 2 * distance_tangent;
+      basetrack_distance_pair = 2 * distance_tangent;
+    }
+  }    
+
+  if ( smear_flag ) {
+    basetrack_distance_water_pair = 2868. * basetrack_distance_water_pair;
+    basetrack_distance_pair = 850. * basetrack_distance_pair;
+
+    SmearDistanceVector(basetrack_distance_pair, kNinjaIron);
+    SmearDistanceVector(basetrack_distance_water_pair, kNinjaWater);
+
+    basetrack_distance_water_pair = (1 / 2868.) * basetrack_distance_water_pair;
+    basetrack_distance_pair = (1 / 850.) * basetrack_distance_pair;
+  }
+  
+  return;
   
 }
 
@@ -319,21 +660,27 @@ Double_t EnergyDepositWaterBetheBloch(Double_t beta) {
   return WATER_BB_FUNC_PAR.at(0) * ( (TMath::Log(beta * beta / (1 - beta * beta)) + WATER_BB_FUNC_PAR.at(1)) / beta / beta - 1 );
 }
 
-Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz) {
+Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Int_t material) {
   Double_t beta = 1.;
-  Double_t radiation_length = CalcRadLength(ncell, dz);
-  return MCS_SCALE_FACTOR * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
+  Double_t radiation_length = CalcRadLength(ncell, dz, material);
+  if ( material == kNinjaIron)
+    return MCS_SCALE_FACTOR * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
+  else if ( material == kNinjaWater )
+    return MCS_SCALE_FACTOR * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta)); // MCS scale factor water?
+  else return 0.;
 }
 
-Double_t RadialSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent) {
-  Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz);
+Double_t RadialSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz,
+			    Int_t material, Double_t tangent) {
+  Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz, material);
   Double_t tangent_xy = TMath::Sqrt(tangent * tangent - 1);
   Double_t radial_precision = RadialAnglePrecision(tangent_xy);
   return TMath::Hypot(sigma_highland, radial_precision);
 }
 
-Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Double_t tangent) {
-  Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz);
+Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz,
+			     Int_t material, Double_t tangent) {
+  Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz, material);
   Double_t tangent_xy = TMath::Sqrt(tangent * tangent - 1);
   Double_t lateral_precision = LateralAnglePrecision(tangent_xy);
   return TMath::Hypot(sigma_highland, lateral_precision);
@@ -447,21 +794,25 @@ Double_t LateralAnglePrecision(Double_t tangent) {
       (min_max_pair.second - min_max_pair.first) * (tangent - min_max_pair.first);
 }
 
-std::array<Double_t, 5> ReconstructPBeta(Double_t initial_pbeta,
-					 UInt_t ncell,
-					 Int_t particle_id,
-					 Int_t direction,
-					 Double_t radial_cut_value,
-					 Double_t lateral_cut_value,
-					 Bool_t smear_flag,
-					 std::vector<Double_t > basetrack_distance,
-					 std::vector<Double_t > water_basetrack_distance,
-					 std::vector<Double_t > track_tangent,
-					 std::vector<Int_t > plate_id,
-					 std::vector<Double_t > radial_angle_difference,
-					 std::vector<Double_t > lateral_angle_difference) {
+std::array<Double_t, 5 > ReconstructPBeta(Double_t initial_pbeta,
+					  UInt_t ncell,
+					  Int_t particle_id,
+					  Int_t direction,
+					  Double_t radial_cut_value,
+					  Double_t lateral_cut_value,
+					  Double_t radial_cut_value_water,
+					  Double_t lateral_cut_value_water,
+					  Bool_t smear_flag,
+					  Int_t material_mode,
+					  std::vector<Double_t > basetrack_distance,
+					  std::vector<Double_t > basetrack_distance_water,
+					  std::vector<Double_t > track_tangent,
+					  std::vector<Int_t > plate_id,
+					  std::vector<Int_t > plate_id_next,
+					  std::vector<Double_t > radial_angle_difference,
+					  std::vector<Double_t > lateral_angle_difference) {
 
-  const UInt_t num_of_param = 8 + 6 * basetrack_distance.size();
+  const UInt_t num_of_param = 11 + 7 * basetrack_distance.size();
 
   TMinuit *min = new TMinuit(num_of_param); // TMinuit(n), n = number of parameters
   min->SetPrintLevel(-1);
@@ -470,40 +821,48 @@ std::array<Double_t, 5> ReconstructPBeta(Double_t initial_pbeta,
   
   // Parameter Names
   TString parname[num_of_param];
-  parname[0] = "Reconstructed pbeta";
-  parname[1] = "Ncell";
-  parname[2] = "Particle id";
-  parname[3] = "Track direction";
-  parname[4] = "Radial angle difference cut value";
-  parname[5] = "Lateral angle difference cut value";
-  parname[6] = "Smear flag";
-  parname[7] = "Number of track pairs";
+  parname[0]  = "Reconstructed pbeta";
+  parname[1]  = "Ncell";
+  parname[2]  = "Particle id";
+  parname[3]  = "Track direction";
+  parname[4]  = "Radial angle difference cut value";
+  parname[5]  = "Lateral angle difference cut value";
+  parname[6]  = "Radial angle difference cut value water";
+  parname[7]  = "Lateral angle difference cut value water";
+  parname[8]  = "Smear flag";
+  parname[9]  = "Material mode name";
+  parname[10] = "Number of track pairs";
   for (Int_t ipar = 0; ipar < basetrack_distance.size(); ipar++) {
-    parname[8 +                                 ipar] = Form("Basetrack distance %d",       ipar);
-    parname[8 + 1 * basetrack_distance.size() + ipar] = Form("Water basetrack distance %d", ipar);
-    parname[8 + 2 * basetrack_distance.size() + ipar] = Form("Track tangent %d",            ipar);
-    parname[8 + 3 * basetrack_distance.size() + ipar] = Form("Plate id %d",                 ipar);
-    parname[8 + 4 * basetrack_distance.size() + ipar] = Form("Radial angle difference %d",  ipar);
-    parname[8 + 5 * basetrack_distance.size() + ipar] = Form("Lateral angle difference %d", ipar);
+    parname[11 +                                 ipar] = Form("Basetrack distance %d",       ipar);
+    parname[11 + 1 * basetrack_distance.size() + ipar] = Form("Water basetrack distance %d", ipar);
+    parname[11 + 2 * basetrack_distance.size() + ipar] = Form("Track tangent %d",            ipar);
+    parname[11 + 3 * basetrack_distance.size() + ipar] = Form("Plate id %d",                 ipar);
+    parname[11 + 4 * basetrack_distance.size() + ipar] = Form("Plate id next %d",            ipar);
+    parname[11 + 5 * basetrack_distance.size() + ipar] = Form("Radial angle difference %d",  ipar);
+    parname[11 + 6 * basetrack_distance.size() + ipar] = Form("Lateral angle difference %d", ipar);
   }
 
   // Initial values
   Double_t vstart[num_of_param];
-  vstart[0] = initial_pbeta;
-  vstart[1] = ncell;
-  vstart[2] = particle_id;
-  vstart[3] = direction;
-  vstart[4] = radial_cut_value;
-  vstart[5] = lateral_cut_value;
-  vstart[6] = smear_flag;
-  vstart[7] = basetrack_distance.size();
+  vstart[0]  = initial_pbeta;
+  vstart[1]  = ncell;
+  vstart[2]  = particle_id;
+  vstart[3]  = direction;
+  vstart[4]  = radial_cut_value;
+  vstart[5]  = lateral_cut_value;
+  vstart[6]  = radial_cut_value_water;
+  vstart[7]  = lateral_cut_value_water;
+  vstart[8]  = smear_flag;
+  vstart[9]  = material_mode;
+  vstart[10] = basetrack_distance.size();
   for (Int_t ipar = 0; ipar < basetrack_distance.size(); ipar++) {
-    vstart[8 +                                 ipar] = basetrack_distance.at(ipar);
-    vstart[8 + 1 * basetrack_distance.size() + ipar] = water_basetrack_distance.at(ipar);
-    vstart[8 + 2 * basetrack_distance.size() + ipar] = track_tangent.at(ipar);
-    vstart[8 + 3 * basetrack_distance.size() + ipar] = plate_id.at(ipar);
-    vstart[8 + 4 * basetrack_distance.size() + ipar] = radial_angle_difference.at(ipar);
-    vstart[8 + 5 * basetrack_distance.size() + ipar] = lateral_angle_difference.at(ipar);
+    vstart[11 +                                 ipar] = basetrack_distance.at(ipar);
+    vstart[11 + 1 * basetrack_distance.size() + ipar] = basetrack_distance_water.at(ipar);
+    vstart[11 + 2 * basetrack_distance.size() + ipar] = track_tangent.at(ipar);
+    vstart[11 + 3 * basetrack_distance.size() + ipar] = plate_id.at(ipar);
+    vstart[11 + 4 * basetrack_distance.size() + ipar] = plate_id_next.at(ipar);
+    vstart[11 + 5 * basetrack_distance.size() + ipar] = radial_angle_difference.at(ipar);
+    vstart[11 + 6 * basetrack_distance.size() + ipar] = lateral_angle_difference.at(ipar);
   }
   
   // Step
@@ -587,10 +946,23 @@ void PositionAddOffset(TVector3 &absolute_position, int ecc_id) {
 
 }
 
-Double_t CalcRadLength(Int_t skip, Double_t dz) {
+Double_t CalcRadLength(Int_t skip, Double_t dz, Int_t material) {
 
   if (skip >= MAX_NUM_SKIP)
     throw std::out_of_range("skip should be less than MAX_NUM_SKIP");
+
+  if ( material == kNinjaIron ) {
+    return CalcRadLengthIron(skip, dz);
+  }
+  else if ( material == kNinjaWater ) {
+    return CalcRadLengthWater(skip, dz);
+  }
+  else
+    throw std::runtime_error("Material is not proper");
+
+}
+
+Double_t CalcRadLengthIron(Int_t skip, Double_t dz) {
 
   Double_t rad_length = 0.;
 
@@ -616,6 +988,40 @@ Double_t CalcRadLength(Int_t skip, Double_t dz) {
       break;
     }
     rad_length += num_layers * dz * MATERIAL_THICK[material] / RAD_LENGTH[material];
+  }
+
+  return rad_length;
+
+}
+
+Double_t CalcRadLengthWater(Int_t skip, Double_t dz) {
+
+  Double_t rad_length = 0.;
+  
+  for ( Int_t material = 0; material < kNumberOfNinjaMaterials; material++ ) {
+
+    int num_layers = 0;
+
+    switch ( material ) {
+    case kNinjaIron :
+      num_layers = skip - 1;
+      break;
+    case kNinjaWater :
+      num_layers = skip;
+      break;
+    case kNinjaGel :
+      num_layers = 4 * skip - 2;
+      break;
+    case kNinjaBase :
+      num_layers = 2 * skip - 1;
+      break;
+    case kNinjaPacking :
+      num_layers = 2 * skip;
+      break;
+    }
+
+    rad_length += num_layers * dz * MATERIAL_THICK[material] / RAD_LENGTH[material];
+
   }
 
   return rad_length;

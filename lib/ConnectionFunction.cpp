@@ -1630,20 +1630,23 @@ void ConnectionFunction::SelectPartnerGroups(std::vector<std::pair<B2EmulsionSum
 }
 
 void ConnectionFunction::AddGroupsToEventInfo(Momentum_recon::Event_information &ev,
+					      B2EmulsionSummary* vertex_track,
 					      std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 					      std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups_partner,
 					      std::vector<B2EmulsionSummary* > &emulsions,
 					      int ecc_id) const {
-  AddGroupToEventInfo(ev, muon_group, emulsions, ecc_id); // muon
+  AddGroupToEventInfo(ev, vertex_track, muon_group, muon_group, emulsions, ecc_id); // muon
   
   for ( auto group_partner : groups_partner ) {
-    AddGroupToEventInfo(ev, group_partner, emulsions, ecc_id);
+    AddGroupToEventInfo(ev, vertex_track, muon_group, group_partner, emulsions, ecc_id);
   }
   return;
   
 }
 
 void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &ev,
+					     B2EmulsionSummary* vertex_track,
+					     std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 					     std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &group,
 					     std::vector<B2EmulsionSummary* > &emulsions,
 					     int ecc_id) const {
@@ -1678,7 +1681,16 @@ void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &
   mom_chain.chainid = chain.front()->GetParentTrackId();
   mom_chain.stop_flag = 0;
   mom_chain.particle_flag = chain.front()->GetParentTrack().GetParticlePdg();
-  mom_chain.direction = 1;
+
+  if ( muon_group.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) { // muon
+    mom_chain.direction = 1;
+  }
+  else if ( vertex_track->GetPlate() == group.first->GetPlate() ) { // forward partner
+    mom_chain.direction = 1;
+  }
+  else if ( vertex_track->GetPlate() + 1 == group.first->GetPlate() ) { // backward
+    mom_chain.direction = -1;
+  }
   mom_chain.charge_sign = 0;
 
   double downstream_position_z = 0.;
@@ -2021,8 +2033,9 @@ bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
 						 z_range, extrapolate_z,
 						 ecc_id, recon_vertex);
   Double_t tangent = std::hypot(parent_dir.X(), parent_dir.Y());
+  Double_t tangent_partner = std::hypot(daughter_dir.X(). dauguter_dir.Y());
   if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.04 * tangent + 0.04) + 5, 2) +
-				    std::pow(extrapolate_z[1] * (0.04 * tangent + 0.04) + 5, 2)) ) {
+				    std::pow(extrapolate_z[1] * (0.04 * tangent_partner + 0.04) + 5, 2)) ) {
 
     // 対応する group の端を探して，start_seg が端かを確認する
     Segment start_seg;
