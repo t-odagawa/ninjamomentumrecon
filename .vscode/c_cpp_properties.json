@@ -4,10 +4,9 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/Cellar/boost/1.74.0/include",
-                "/usr/local/Cellar/root/6.22.04/include/root",
-                "/usr/local/Cellar/geant4/10.6.2/include/Geant4",
-                "${B2MCDIR}/include/wagasci/b2"
+                "${B2MCDIR}/include/wagasci/b2",
+                "${BOOST_ROOT}/lib",
+                "/home/t2k/odagawa/Programs/ROOT/6-22-02"
             ],
             "defines": [],
             "macFrameworkPath": [],

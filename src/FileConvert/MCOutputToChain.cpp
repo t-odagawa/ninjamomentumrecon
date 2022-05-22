@@ -48,7 +48,8 @@ int main ( int argc, char* argv[] ) {
   
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::debug
+     logging::trivial::severity >= logging::trivial::info
+     // logging::trivial::severity >= logging::trivial::debug
      // logging::trivial::severity >= logging::trivial::trace
      );
 
@@ -207,7 +208,7 @@ int main ( int argc, char* argv[] ) {
 	}
 
 	// group を event information に変換
-	connection_function.AddGroupsToEventInfo(ev, muon_group, groups_partner, emulsions_detected_in_fv, ecc_id);
+	connection_function.AddGroupsToEventInfo(ev, vertex_track, muon_group, groups_partner, emulsions_detected_in_fv, ecc_id);
 	ev.vertex_pl += vertex_track->GetPlate() + 1;
 	ev.ecc_id += ecc_id + 1;
       }

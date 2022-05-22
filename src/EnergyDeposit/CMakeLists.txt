@@ -57,3 +57,15 @@ target_link_libraries(MinimizerTestMomch
 )
 
 install(TARGETS MinimizerTestMomch DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+add_executable(MinimizerTestMomchMaterial
+	MinimizerTestMomchMaterial.cpp
+)
+
+target_include_directories(MinimizerTestMomchMaterial PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(MinimizerTestMomchMaterial
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES}
+)
+
+install(TARGETS MinimizerTestMomchMaterial DESTINATION "${CMAKE_INSTALL_BINDIR}")

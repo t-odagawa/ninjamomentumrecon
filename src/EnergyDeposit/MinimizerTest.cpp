@@ -78,7 +78,7 @@ int main (int argc, char *argv[]) {
     std::vector<Int_t> pl;
     std::vector<Double_t> ax, ay;
     std::vector<Double_t> vph, pixel_count;
-    Double_t initial_pbeta = -1.;
+    Double_t initial_pbeta[2] = {-1., -1.};
     Double_t recon_pbeta;
     Double_t recon_pbeta_err;
     Double_t recon_pbeta_err_plus;
@@ -104,7 +104,7 @@ int main (int argc, char *argv[]) {
     otree->Branch("ay", &ay);
     otree->Branch("vph", &vph);
     otree->Branch("pixel_count", &pixel_count);
-    otree->Branch("initial_pbeta", &initial_pbeta, "initial_pbeta/D");
+    otree->Branch("initial_pbeta", initial_pbeta, "initial_pbeta[2]/D");
     otree->Branch("recon_pbeta", &recon_pbeta, "recon_pbeta/D");
     otree->Branch("recon_pbeta_err", &recon_pbeta_err, "recon_pbeta_err/D");
     otree->Branch("recon_pbeta_err_plus", &recon_pbeta_err_plus, "recon_pbeta_err_plus/D");
@@ -151,152 +151,10 @@ int main (int argc, char *argv[]) {
     }
 
     const Int_t ecc_id = 4;
-    /*
+
     while ( reader.ReadNextSpill() > 0 ) {
-      auto &spill_summary = reader.GetSpillSummary();
-      entry_in_daily_file = reader.GetEntryNumber();
-      
-      // MC weight
-      if ( datatype == B2DataType::kMonteCarlo ) {
-	auto it_event = spill_summary.BeginTrueEvent();
-	const auto *event = it_event.Next();
-	auto &primary_vertex_summary = event->GetPrimaryVertex();
-	weight = primary_vertex_summary.GetMcWeight();
-      }
+      // if ( reader.GetEntryNumber() > 1000 ) break;
 
-      // Get emulsion tracks
-      std::vector<const B2EmulsionSummary* > emulsions;
-      auto it_emulsion = spill_summary.BeginEmulsion();
-      while ( const auto *emulsion = it_emulsion.Next() ) {
-	if ( datatype == B2DataType::kMonteCarlo &&
-	     emulsion->GetParentTrackId() == 0 ) continue;
-	if ( emulsion->GetFilmType() != B2EmulsionType::kECC ) continue;
-	if ( emulsion->GetEcc() != ecc_id ) continue;
-	emulsions.push_back(emulsion);
-      }
-
-      if ( emulsions.empty() ) continue;
-      std::sort(emulsions.begin(), emulsions.end(), EmulsionCompare);
-
-      // Get chains
-      std::vector<std::vector<const B2EmulsionSummary* > > chains;
-      std::vector<const B2EmulsionSummary* > chain;
-      Int_t track_id_tmp = emulsions.front()->GetParentTrackId();
-      for ( auto &emulsion : emulsions ) {
-	if ( emulsion->GetParentTrackId() == track_id_tmp )
-	  chain.push_back(emulsion);
-	else {
-	  chains.push_back(chain);
-	  chain.clear();
-	  track_id_tmp = emulsion->GetParentTrackId();
-	  chain.push_back(emulsion);
-	}
-      }
-      chains.push_back(chain);
-
-      // Loop for each chain
-      for ( auto chain : chains ) {
-
-	// Get true information of chain
-	if ( datatype == B2DataType::kMonteCarlo ) {
-	  true_particle_id = chain.front()->GetParentTrack().GetParticlePdg();
-	  Double_t vertex_direction_ = chain.front()->GetTangent().GetValue().Z();
-	  if ( vertex_direction_ > 0 )
-	    true_direction = 1;
-	  else
-	    true_direction = -1;
-	  vertex_pl = chain.front()->GetPlate();
-	  true_pbeta = chain.front()->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
-	  if ( B2Pdg::IsMuonPlusOrMinus(true_particle_id) )
-	    true_pbeta = CalculatePBetaFromMomentum(true_pbeta, MCS_MUON_MASS);
-	  else if ( B2Pdg::IsChargedPion(true_particle_id) )
-	    true_pbeta = CalculatePBetaFromMomentum(true_pbeta, MCS_PION_MASS);
-	  else if ( true_particle_id == PDG_t::kProton )
-	    true_pbeta = CalculatePBetaFromMomentum(true_pbeta, MCS_PROTON_MASS);
-	  else
-	    BOOST_LOG_TRIVIAL(warning) << "Particle is not in interest";
-	}
-
-	// Input parameter vectors for minimization
-	
-	// Get tracks within angular acceptance
-	for ( auto emulsion : chain ) {
-	  TVector3 tangent_ = emulsion->GetTangent().GetValue();
-	  tangent_ = (1. / tangent_.Z()) * tangent_;
-	  if ( smear_flag ) {
-	    SmearTangentVector(tangent_);
-	    if ( tangent_.X() > 4. || tangent_.Y() > 4. ) continue;
-	    pl.push_back(emulsion->GetPlate() + 1);
-	    ax.push_back(tangent_.X());
-	    ay.push_back(tangent_.Y());
-	    vph.push_back(emulsion->GetVphUp() + emulsion->GetVphDown());
-	    pixel_count.push_back(emulsion->GetPixelCountUp() + emulsion->GetPixelCountDown());
-	  }
-	}
-	
-	if ( pl.front() != vertex_pl ) continue; // Vertex is not correctly detected
-	
-	// Calculate initial state of fitting
-	TVector3 vertex_tangent;
-	vertex_tangent.SetXYZ(ax.front(), ay.front(), 1.);
-	
-	
-
-	TVector3 vertex_tangent = chain.at(0)->GetTangent().GetValue();
-	if ( smear_flag ) SmearTangentVector(vertex_tangent);
-
-	Double_t radial_angle_difference_rms = 0.;
-	Double_t lateral_angle_difference_rms = 0.;
-	for ( Int_t ipair = 0; ipair < radial_angle_difference.size(); ipair++ ) {
-	  radial_angle_difference_rms += radial_angle_difference.at(ipair) * radial_angle_difference.at(ipair);
-	  lateral_angle_difference_rms += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
-	}
-
-	if ( smear_flag || datatype == B2DataType::kRealData ) {
-	  radial_angle_difference_rms /= radial_angle_difference.size();
-	  lateral_angle_difference_rms /= lateral_angle_difference.size();      
-	} else {
-	  radial_angle_difference_rms = (radial_angle_difference_rms + lateral_angle_difference_rms) 
-	    / (radial_angle_difference.size() + lateral_angle_difference.size());
-	}
-	radial_angle_difference_rms = TMath::Sqrt(radial_angle_difference_rms);
-	lateral_angle_difference_rms = TMath::Sqrt(lateral_angle_difference_rms);
-	if ( !smear_flag )
-	  lateral_angle_difference_rms = radial_angle_difference_rms; // angle difference are equivalent in true-level
-
-	Double_t radial_cut_value, lateral_cut_value;
-	radial_cut_value = 3. * radial_angle_difference_rms;
-	lateral_cut_value = 3. * lateral_angle_difference_rms;
-	// It is better if cut value is too small, accept all angle differences
-	Double_t radiation_length = CalcRadLength(ncell, vertex_tangent.Mag());
-	initial_pbeta = MCS_SCALE_FACTOR * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
-	// only used in the performance study
-	const Double_t initial_pbeta_bias = std::atof(argv[4]);
-	initial_pbeta *= initial_pbeta_bias;
-	
-
-	// Minimization
-	std::array<Double_t, 5 > result_array = {};
-	for ( Int_t particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
-
-	}
-	
-	// NLL drawing
-	
-	// Fill
-	otree->Fill();
-	pl.clear();
-	ax.clear(); ay.clear();
-	vph.clear(); pixel_count.clear();
-	
-      }
-
-
-    }
-*/
-    // START pbeta reconstruction process
-    while ( reader.ReadNextSpill() > 0 ) {
-      // if ( reader.GetEntryNumber() > 10 ) break;
       auto &spill_summary = reader.GetSpillSummary();
 
       if ( datatype == B2DataType::kMonteCarlo ) {
@@ -346,7 +204,8 @@ int main (int argc, char *argv[]) {
 	npl = chain.size();
 	if ( chain.at(0)->GetTangent().GetValue().Z() )
 	  true_direction = 1;
-	else true_direction = -1;
+	else
+	  true_direction = -1;
 
 	// Get true information
 	if ( datatype == B2DataType::kMonteCarlo ) {
@@ -362,7 +221,8 @@ int main (int argc, char *argv[]) {
 	  else 
 	    BOOST_LOG_TRIVIAL(warning) << "Particle is not in interest";
 	}
-	
+
+	// loop for each chain
 	for ( const auto emulsion : chain ) {
 	  pl.push_back(emulsion->GetPlate() + 1);
 	  ax.push_back(emulsion->GetTangent().GetValue().X());
@@ -374,255 +234,317 @@ int main (int argc, char *argv[]) {
 	// input parameter vectors for TMinuit
 	std::vector<Double_t > basetrack_distance = {};
 	std::vector<Double_t > basetrack_distance_back = {};
-	std::vector<Double_t > water_basetrack_distance = {};
-	std::vector<Double_t > water_basetrack_distance_back = {};
+	std::vector<Double_t > basetrack_distance_water = {};
+	std::vector<Double_t > basetrack_distance_water_back = {};
 	std::vector<Double_t > track_tangent = {};
 	std::vector<Double_t > track_tangent_back = {};
 	std::vector<Int_t > plate_id = {};
+	std::vector<Int_t > plate_id_next = {};
 	std::vector<Int_t > plate_id_back = {};
+	std::vector<Int_t > plate_id_next_back = {};
 	std::vector<Double_t > radial_angle_difference = {};
-	std::vector<Double_t > radial_abgle_difference_back = {};
+	std::vector<Double_t > radial_angle_difference_back = {};
 	std::vector<Double_t > lateral_angle_difference = {};
 	std::vector<Double_t > lateral_angle_difference_back = {};
 
 	for ( Int_t iemulsion_up = 0; iemulsion_up < chain.size(); iemulsion_up++ ) {
 	  const auto emulsion_up = chain.at(iemulsion_up);
-	  // Only use films across one iron plate
-	  if ( emulsion_up->GetPlate() <= 3 ) continue;
-	  if ( emulsion_up->GetPlate()%2 == 1 &&
-	       emulsion_up->GetPlate() >= 15 ) continue;
 
+	  Int_t plate_up = emulsion_up->GetPlate() + 1;
 	  TVector3 position_up = emulsion_up->GetFilmPositionInDownCoordinate().GetValue();
+	  position_up = 1000. * position_up; // mm -> um
 	  TVector3 tangent_up = emulsion_up->GetTangentInDownCoordinate().GetValue();
 	  tangent_up = (1. / tangent_up.Z()) * tangent_up;
 	  for ( Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < chain.size(); iemulsion_down++ ) {
 	    const auto emulsion_down = chain.at(iemulsion_down);
 	    
-	    Int_t plate_difference = emulsion_up->GetPlate() - emulsion_down->GetPlate();
+	    Int_t plate_down = emulsion_down->GetPlate() + 1;
+	    Int_t plate_difference = plate_up - plate_down;
 	    if ( plate_difference != 2 * ncell - 1 ) continue;
 
 	    TVector3 position_down = emulsion_down->GetFilmPosition().GetValue();
+	    position_down = 1000. * position_down; // mm -> um
 	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
 	    tangent_down = (1. / tangent_down.Z()) * tangent_down;
 
-
-	  }
-	  
-	}
-
-	for ( Int_t iemulsion_up = 0; iemulsion_up < chain.size(); iemulsion_up++ ) {
-	  const auto emulsion_up = chain.at(iemulsion_up);
-	  // Only use films across one iron plate
-	  if ( emulsion_up->GetPlate() <= 3 ) continue;
-	  if ( emulsion_up->GetPlate()%2 == 1 &&
-	       emulsion_up->GetPlate() >= 15 ) continue;
-
-	  TVector3 position_up = emulsion_up->GetFilmPositionInDownCoordinate().GetValue();
-	  TVector3 tangent_up = emulsion_up->GetTangentInDownCoordinate().GetValue();
-	  tangent_up = (1. / tangent_up.Z()) * tangent_up;
-	  for ( Int_t iemulsion_down = iemulsion_up + 1; iemulsion_down < chain.size(); iemulsion_down++ ) {
-	    const auto emulsion_down = chain.at(iemulsion_down);
+	    TVector3 basetrack_distance_pair(0.,0.,0.);
+	    TVector3 basetrack_distance_pair_water(0.,0.,0.);
+	    GetBasetrackDistancePair(plate_up, plate_down, 1,
+				     position_up, position_down,
+				     basetrack_distance_pair,
+				     basetrack_distance_pair_water,
+				     smear_flag);
 	    
-	    Int_t plate_difference = emulsion_up->GetPlate() - emulsion_down->GetPlate();
-	    if ( plate_difference != 2 * ncell - 1 ) continue;
-
-	    TVector3 position_down = emulsion_down->GetFilmPosition().GetValue();
-	    TVector3 tangent_down = emulsion_down->GetTangent().GetValue();
-	    tangent_down = (1. / tangent_down.Z()) * tangent_down;
-	    
-	    TVector3 displacement = position_down - position_up;
-	    if ( smear_flag ) SmearDistanceVector(displacement, kNinjaIron);
-	    basetrack_distance.push_back(displacement.Mag() / 850.e-3); // 500 + 350 um
-	    // vector push back should be done after the corresponding downstream film found
+	    basetrack_distance.push_back(basetrack_distance_pair.Mag());
+	    basetrack_distance_back.push_back(basetrack_distance_pair.Mag());
+	    basetrack_distance_water.push_back(basetrack_distance_pair_water.Mag());
+	    basetrack_distance_water_back.push_back(basetrack_distance_pair_water.Mag());
 	    track_tangent.push_back(tangent_up.Mag());
-	    plate_id.push_back(emulsion_up->GetPlate());
-
-	    // Water distance calculation
-	    if ( emulsion_up->GetPlate() >= 18 && iemulsion_down < chain.size() - 1 ) {
-	      const auto emulsion_2pl_down = chain.at(iemulsion_down + 1);
-	      TVector3 position_down_for_water = emulsion_down->GetFilmPositionInDownCoordinate().GetValue();
-	      TVector3 position_2pl_down = emulsion_2pl_down->GetFilmPosition().GetValue();
-	      TVector3 water_displacement = position_2pl_down - position_down_for_water;
-	      if ( smear_flag ) SmearDistanceVector(water_displacement, kNinjaWater);
-	      water_basetrack_distance.push_back(water_displacement.Mag() / 2.868);
-	    } else {
-	      water_basetrack_distance.push_back(0.);
-	    }
+	    track_tangent_back.push_back(tangent_down.Mag());
+	    plate_id.push_back(emulsion_up->GetPlate() + 1);
+	    plate_id_back.push_back(emulsion_down->GetPlate() + 1);
+	    plate_id_next.push_back(emulsion_down->GetPlate() + 1);
+	    plate_id_next_back.push_back(emulsion_up->GetPlate() + 1);
 
 	    Double_t angle_difference_radial_new, angle_difference_lateral_new;
+	    Double_t angle_difference_radial_new_back, angle_difference_lateral_new_back;
 	    Double_t radial_angle_precision_new = 0.;
+	    Double_t radial_angle_precision_new_back = 0.;
 	    Double_t lateral_angle_precision_new = 0.;
+	    Double_t lateral_angle_precision_new_back = 0.;
 	    Double_t tangent_accuracy_radial_new = 0.;
 	    Double_t tangent_accuracy_lateral_new = 0.;
 	    angle_difference_radial_new = RadialAngleDiffNew(tangent_up, tangent_down);
+	    angle_difference_radial_new_back = RadialAngleDiffNew(tangent_down, tangent_up);
 	    angle_difference_lateral_new = LateralAngleDiffNew(tangent_up, tangent_down);
+	    angle_difference_lateral_new_back = LateralAngleDiffNew(tangent_down, tangent_up);
+
 	    if ( smear_flag ) {
 	      radial_angle_precision_new = RadialAnglePrecision(TMath::Hypot(tangent_up.X(), tangent_up.Y()));
+	      radial_angle_precision_new_back = RadialAnglePrecision(TMath::Hypot(tangent_down.X(), tangent_down.Y()));
 	      lateral_angle_precision_new = LateralAnglePrecision(TMath::Hypot(tangent_up.X(), tangent_up.Y()));
+	      lateral_angle_precision_new_back = LateralAnglePrecision(TMath::Hypot(tangent_down.X(), tangent_down.Y()));
 	    }
-	    radial_angle_difference.push_back(gRandom->Gaus(angle_difference_radial_new, radial_angle_precision_new));
+	    radial_angle_difference.push_back(gRandom->Gaus(angle_difference_radial_new, radial_angle_precision_new));	    
 	    lateral_angle_difference.push_back(gRandom->Gaus(angle_difference_lateral_new, lateral_angle_precision_new));
-	    
-	    BOOST_LOG_TRIVIAL(debug) << " Film " << emulsion_up->GetPlate() << " and"
-				     << " Film " << emulsion_down->GetPlate()
-				     << " Radial angle difference is " << radial_angle_difference.back() << ", "
-				     << " Lateral angle difference is " << lateral_angle_difference.back() << ", "
-				     << " Base track distance is " << basetrack_distance.back() << ", "
-				     << " Water base track distance is " << water_basetrack_distance.back() << ","
-				     << " Track tangnet is " << track_tangent.back();
+	    radial_angle_difference_back.push_back(gRandom->Gaus(angle_difference_radial_new_back, radial_angle_precision_new_back));
+	    lateral_angle_difference_back.push_back(gRandom->Gaus(angle_difference_lateral_new_back, lateral_angle_precision_new_back));
+
 	    break;
-
-	  }
-
-	}
+	  } // emulsion down
+	} // emulsion up
 
 	// Get initial pbeta value
-	TVector3 vertex_tangent = chain.at(0)->GetTangent().GetValue();
-	if ( smear_flag ) SmearTangentVector(vertex_tangent);
+	TVector3 vertex_tangent = chain.front()->GetTangent().GetValue();
+	TVector3 vertex_tangent_back = chain.back()->GetTangent().GetValue();
+	if ( smear_flag ) {
+	  SmearTangentVector(vertex_tangent);
+	  SmearTangentVector(vertex_tangent_back);
+	}
+
+	Int_t num_angle_diff = 0;
+	Int_t num_angle_diff_water = 0;
 
 	Double_t radial_angle_difference_rms = 0.;
+	Double_t radial_angle_difference_rms_water = 0.;
+	Double_t radial_angle_difference_rms_back = 0.;
+	Double_t radial_angle_difference_rms_water_back = 0.;
+
 	Double_t lateral_angle_difference_rms = 0.;
+	Double_t lateral_angle_difference_rms_water = 0.;
+	Double_t lateral_angle_difference_rms_back = 0.;
+	Double_t lateral_angle_difference_rms_water_back = 0.;
 	for ( Int_t ipair = 0; ipair < radial_angle_difference.size(); ipair++ ) {
-	  radial_angle_difference_rms += radial_angle_difference.at(ipair) * radial_angle_difference.at(ipair);
-	  lateral_angle_difference_rms += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
+	  if ( (plate_id.at(ipair) > 4 && plate_id.at(ipair) < 16 ) ||
+	       plate_id.at(ipair) % 2 == 1 ) {
+	    radial_angle_difference_rms += radial_angle_difference.at(ipair) * radial_angle_difference.at(ipair);
+	    radial_angle_difference_rms_back += radial_angle_difference_back.at(ipair) * radial_angle_difference_back.at(ipair);
+	    lateral_angle_difference_rms += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
+	    lateral_angle_difference_rms_back += lateral_angle_difference.at(ipair) * lateral_angle_difference_back.at(ipair);
+	    num_angle_diff++;
+	  }
+	  else if ( plate_id.at(ipair) % 2 == 0 ) {
+	    radial_angle_difference_rms_water += radial_angle_difference.at(ipair) * radial_angle_difference.at(ipair);
+	    radial_angle_difference_rms_water_back += radial_angle_difference_back.at(ipair) * radial_angle_difference_back.at(ipair);
+	    lateral_angle_difference_rms_water += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
+	    lateral_angle_difference_rms_water_back += lateral_angle_difference.at(ipair) * lateral_angle_difference_back.at(ipair);
+	    num_angle_diff_water++;
+	  }
 	}
 
 	if ( smear_flag || datatype == B2DataType::kRealData ) {
-	  radial_angle_difference_rms /= radial_angle_difference.size();
-	  lateral_angle_difference_rms /= lateral_angle_difference.size();      
+	  radial_angle_difference_rms /= num_angle_diff;
+	  radial_angle_difference_rms_back /= num_angle_diff;
+	  lateral_angle_difference_rms /= num_angle_diff;
+	  lateral_angle_difference_rms /= num_angle_diff;
+	  radial_angle_difference_rms_water /= num_angle_diff_water;
+	  radial_angle_difference_rms_water_back /= num_angle_diff_water;
+	  lateral_angle_difference_rms_water /= num_angle_diff_water;
+	  lateral_angle_difference_rms_water /= num_angle_diff_water;
 	} else {
 	  radial_angle_difference_rms = (radial_angle_difference_rms + lateral_angle_difference_rms) 
-	    / (radial_angle_difference.size() + lateral_angle_difference.size());
+	    / 2 / num_angle_diff;
+	  radial_angle_difference_rms_back = (radial_angle_difference_rms_back + lateral_angle_difference_rms_back)
+	    / 2 / num_angle_diff;
+	  radial_angle_difference_rms_water = (radial_angle_difference_rms_water + lateral_angle_difference_rms_water)
+	    / 2 / num_angle_diff_water;
+	  radial_angle_difference_rms_water_back = (radial_angle_difference_rms_water_back + lateral_angle_difference_rms_water_back)
+	    / 2 / num_angle_diff_water;
 	}
 	radial_angle_difference_rms = TMath::Sqrt(radial_angle_difference_rms);
+	radial_angle_difference_rms_back = TMath::Sqrt(radial_angle_difference_rms_back);
+	radial_angle_difference_rms_water = TMath::Sqrt(radial_angle_difference_rms_water);
+	radial_angle_difference_rms_water_back = TMath::Sqrt(radial_angle_difference_rms_water_back);
 	lateral_angle_difference_rms = TMath::Sqrt(lateral_angle_difference_rms);
-	if ( !smear_flag )
+	lateral_angle_difference_rms_back = TMath::Sqrt(lateral_angle_difference_rms_back);
+	lateral_angle_difference_rms_water = TMath::Sqrt(lateral_angle_difference_rms_water);
+	lateral_angle_difference_rms_water_back = TMath::Sqrt(lateral_angle_difference_rms_water_back);
+	if ( !smear_flag ) {
 	  lateral_angle_difference_rms = radial_angle_difference_rms; // angle difference are equivalent in true-level
+	  lateral_angle_difference_rms_back = radial_angle_difference_rms_back;
+	  lateral_angle_difference_rms_water = radial_angle_difference_rms_water;
+	  lateral_angle_difference_rms_water_back = radial_angle_difference_rms_water_back;
+	}
 
 	Double_t radial_cut_value, lateral_cut_value;
+	Double_t radial_cut_value_back, lateral_cut_value_back;
+	Double_t radial_cut_value_water, lateral_cut_value_water;
+	Double_t radial_cut_value_water_back, lateral_cut_value_water_back;
 	radial_cut_value = 3. * radial_angle_difference_rms;
+	radial_cut_value_back = 3. * radial_angle_difference_rms_back;
+	radial_cut_value_water = 3. * radial_angle_difference_rms_water;
+	radial_cut_value_water_back = 3. * radial_angle_difference_rms_water_back;
 	lateral_cut_value = 3. * lateral_angle_difference_rms;
+	lateral_cut_value_back = 3. * lateral_angle_difference_rms_back;
+	lateral_cut_value_water = 3. * lateral_angle_difference_rms_water;
+	lateral_cut_value_water_back = 3. * lateral_angle_difference_rms_water_back;
 	// It is better if cut value is too small, accept all angle differences
-	Double_t radiation_length = CalcRadLength(ncell, vertex_tangent.Mag());
-	initial_pbeta = MCS_SCALE_FACTOR * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
+	Double_t radiation_length = CalcRadLength(ncell, vertex_tangent.Mag(), kNinjaIron);
+	Double_t radiation_length_back = CalcRadLength(ncell, vertex_tangent_back.Mag(), kNinjaIron);
+	initial_pbeta[0] = MCS_SCALE_FACTOR * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length));
+	initial_pbeta[1] = MCS_SCALE_FACTOR * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length_back));
 	// only used in the performance study
 	const Double_t initial_pbeta_bias = std::atof(argv[4]);
-	initial_pbeta *= initial_pbeta_bias;
+	initial_pbeta[0] *= initial_pbeta_bias;
+	initial_pbeta[1] *= initial_pbeta_bias;
 
-	Int_t direction;
-	std::array<std::array<Double_t, 5>, 2> result_array = {};
-	for ( Int_t particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
-	  for ( Int_t idirection = 0; idirection < kNumberOfNinjaMcsDirections; idirection++ ) {
-	    
-	    direction = MCS_DIRECTION[idirection];
-	    
-	    result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
-							   radial_cut_value, lateral_cut_value,
-							   smear_flag || (datatype == B2DataType::kRealData),
-							   basetrack_distance,
-							   water_basetrack_distance,
-							   track_tangent,
-							   plate_id,
-							   radial_angle_difference,
-							   lateral_angle_difference);
-	    recon_pbeta_candidate[particle_id][idirection] = result_array.at(idirection).at(0);
-	    recon_pbeta_err_candidate[particle_id][idirection] = result_array.at(idirection).at(1);
-	    fit_status[particle_id][idirection] = (Int_t)result_array.at(idirection).at(2);
-	    log_likelihood[particle_id][idirection] = FuncNegativeLogLikelihood(result_array.at(idirection).at(0),
-										ncell, particle_id, direction,
-										radial_cut_value, lateral_cut_value,
-										smear_flag || (datatype == B2DataType::kRealData),
-										basetrack_distance,
-										water_basetrack_distance,
-										track_tangent,
-										plate_id,
-										radial_angle_difference,
-										lateral_angle_difference);
+	// Reconstruction
+	for ( int particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
+	  // Forward reconstruction
+	  auto results = ReconstructPBeta(initial_pbeta[0], ncell, particle_id, 1,
+					  radial_cut_value, lateral_cut_value,
+					  radial_cut_value_water, lateral_cut_value_water,
+					  smear_flag || (datatype == B2DataType::kRealData),
+					  kNinjaIron,
+					  basetrack_distance,
+					  basetrack_distance_water,
+					  track_tangent,
+					  plate_id,
+					  plate_id_next,
+					  radial_angle_difference,
+					  lateral_angle_difference);
 
-	    if ( scan_flag && direction == 1 && particle_id == 0) {
-	      int i = 1;
-	      do {
-		x_plus.push_back(result_array.at(0).at(0) + 1. * i);
-		y_plus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) + 1. * i,
-							   ncell, 0, 1,
-							   radial_cut_value, lateral_cut_value,
-							   smear_flag || (datatype == B2DataType::kRealData),
-							   basetrack_distance,
-							   water_basetrack_distance,
-							   track_tangent,
-							   plate_id,
-							   radial_angle_difference,
-							   lateral_angle_difference) - log_likelihood[0][0]);
-		i++;
-	      } while ( y_plus.back() <= 10. && i < 1000);
-	      i = 1;
-	      do {
-		x_minus.push_back(result_array.at(0).at(0) - 1. * i);
-		y_minus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) - 1. * i,
-							    ncell, 0, 1,
-							    radial_cut_value, lateral_cut_value,
-							    smear_flag || (datatype == B2DataType::kRealData),
-							    basetrack_distance,
-							    water_basetrack_distance,
-							    track_tangent,
-							    plate_id,
-							    radial_angle_difference,
-							    lateral_angle_difference) - log_likelihood[0][0]);
-		i++;
-	      } while ( (y_minus.back() <= 10. || 
-			 x_minus.back() > 0) &&
-			i < 1000 );
-	      std::reverse(x_minus.begin(), x_minus.end());
-	      std::reverse(y_minus.begin(), y_minus.end());
-	      x.insert(x.end(), x_minus.begin(), x_minus.end());
-	      y.insert(y.end(), y_minus.begin(), y_minus.end());
-	      x.push_back(result_array.at(0).at(0));
-	      y.push_back(0.);
-	      x.insert(x.end(), x_plus.begin(), x_plus.end());
-	      y.insert(y.end(), y_plus.begin(), y_plus.end());
-	      
-	      TGraph *g = new TGraph(x.size(), &x[0], &y[0]);
-	      g->SetMarkerStyle(4);
-	      g->SetMarkerSize(1);
-	      g->SetTitle(Form("Negative Log Likelihood Scan (Entry %lld);Reconstructed p#beta [MeV/c];-2ln(L) + 2ln(L_{max})",
-			       reader.GetEntryNumber()));
-	      g->GetYaxis()->SetRangeUser(-.5, 20.);
-	      g->Draw("AP");
-	      l->DrawLine(true_pbeta, -0.5, true_pbeta, 20.);
-	      c->Print(ofilename + ".pdf", "pdf");
-	      x.clear(); x_plus.clear(); x_minus.clear();
-	      y.clear(); y_plus.clear(); y_minus.clear();
-	    } // scan flag	    
+	  recon_pbeta_candidate[particle_id][0] = results.at(0);
+	  recon_pbeta_err_candidate[particle_id][0] = results.at(1);
+	  fit_status[particle_id][0] = (Int_t)results.at(2);
+	  log_likelihood[particle_id][0] = FuncNegativeLogLikelihood(results.at(0),
+								     ncell, particle_id, 1,
+								     radial_cut_value, lateral_cut_value,
+								     radial_cut_value_water, lateral_cut_value_water,
+								     smear_flag || (datatype == B2DataType::kRealData), kNinjaIron,
+								     basetrack_distance,
+								     basetrack_distance_water,
+								     track_tangent,
+								     plate_id,
+								     plate_id_next,
+								     radial_angle_difference,
+								     lateral_angle_difference);
 
-	  } // direction loop
-	  
-	  if ( particle_id == 0 ) {
-	    if ( log_likelihood[0][0] <= log_likelihood[0][1] ) {
-	      recon_pbeta = result_array.at(0).at(0);
-	      recon_pbeta_err = result_array.at(0).at(1);
-	    } else {
-	      recon_pbeta = result_array.at(1).at(0);
-	      recon_pbeta_err = result_array.at(1).at(1);
-	    }
-	  }
-	} // particle id loop
-	
+	  // Backward reconstruction
+	  results = ReconstructPBeta(initial_pbeta[1], ncell, particle_id, -1,
+				     radial_cut_value_back, lateral_cut_value_back,
+				     radial_cut_value_water_back, lateral_cut_value_water_back,
+				     smear_flag || (datatype == B2DataType::kRealData),
+				     kNinjaIron,
+				     basetrack_distance_back,
+				     basetrack_distance_water_back,
+				     track_tangent_back,
+				     plate_id_back,
+				     plate_id_next_back,
+				     radial_angle_difference_back,
+				     lateral_angle_difference_back);
+	  recon_pbeta_candidate[particle_id][1] = results.at(0);
+	  recon_pbeta_err_candidate[particle_id][1] = results.at(1);
+	  fit_status[particle_id][1] = (Int_t)results.at(2);
+	  log_likelihood[particle_id][1] = FuncNegativeLogLikelihood(results.at(0), ncell, particle_id, -1,
+								     radial_cut_value_back, lateral_cut_value_back,
+								     radial_cut_value_water_back, lateral_cut_value_water_back,
+								     smear_flag || (datatype == B2DataType::kRealData), kNinjaIron,
+								     basetrack_distance_back,
+								     basetrack_distance_water_back,
+								     track_tangent_back,
+								     plate_id_back,
+								     plate_id_next_back,
+								     radial_angle_difference_back,
+								     lateral_angle_difference_back);
+	}
+
 	// Fill 
 	otree->Fill();
 	ax.clear(); ay.clear();
 	vph.clear(); pixel_count.clear();
+	
+      } // chain
 
-      } // chain loop
 
-    }
-    
+    } // reader
+   
     ofile->cd();
     otree->Write();
     ofile->Close();
 
     if ( scan_flag )
       c->Print(ofilename + ".pdf" + "]", "pdf");
-      
+  
+    /*  
+	if ( scan_flag && direction == 1 && particle_id == 0) {
+	int i = 1;
+	do {
+	x_plus.push_back(result_array.at(0).at(0) + 1. * i);
+	y_plus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) + 1. * i,
+	ncell, 0, 1,
+	radial_cut_value, lateral_cut_value, 0., 0.,
+	smear_flag || (datatype == B2DataType::kRealData), kNinjaIron,
+	basetrack_distance,
+	water_basetrack_distance,
+	track_tangent,
+	plate_id,
+	plate_id_next,
+	radial_angle_difference,
+	lateral_angle_difference) - log_likelihood[0][0]);
+	i++;
+	} while ( y_plus.back() <= 10. && i < 1000);
+	i = 1;
+	do {
+	x_minus.push_back(result_array.at(0).at(0) - 1. * i);
+	y_minus.push_back(FuncNegativeLogLikelihood(result_array.at(0).at(0) - 1. * i,
+	ncell, 0, 1,
+	radial_cut_value, lateral_cut_value, 0., 0.,
+	smear_flag || (datatype == B2DataType::kRealData), kNinjaIron,
+	basetrack_distance,
+	water_basetrack_distance,
+	track_tangent,
+	plate_id,
+	plate_id_next,
+	radial_angle_difference,
+	lateral_angle_difference) - log_likelihood[0][0]);
+	i++;
+	} while ( (y_minus.back() <= 10. || 
+	x_minus.back() > 0) &&
+	i < 1000 );
+	std::reverse(x_minus.begin(), x_minus.end());
+	std::reverse(y_minus.begin(), y_minus.end());
+	x.insert(x.end(), x_minus.begin(), x_minus.end());
+	y.insert(y.end(), y_minus.begin(), y_minus.end());
+	x.push_back(result_array.at(0).at(0));
+	y.push_back(0.);
+	x.insert(x.end(), x_plus.begin(), x_plus.end());
+	y.insert(y.end(), y_plus.begin(), y_plus.end());
+	
+	TGraph *g = new TGraph(x.size(), &x[0], &y[0]);
+	g->SetMarkerStyle(4);
+	g->SetMarkerSize(1);
+	g->SetTitle(Form("Negative Log Likelihood Scan (Entry %lld);Reconstructed p#beta [MeV/c];-2ln(L) + 2ln(L_{max})",
+	reader.GetEntryNumber()));
+	g->GetYaxis()->SetRangeUser(-.5, 20.);
+	g->Draw("AP");
+	l->DrawLine(true_pbeta, -0.5, true_pbeta, 20.);
+	c->Print(ofilename + ".pdf", "pdf");
+	x.clear(); x_plus.clear(); x_minus.clear();
+	y.clear(); y_plus.clear(); y_minus.clear();
+	} // scan flag	    
+    */
+    
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
     std::exit(1);
