@@ -40,8 +40,8 @@ int main (int argc, char *argv[]) {
   logging::core::get()->set_filter
     (
      logging::trivial::severity >= logging::trivial::info
-     //logging::trivial::severity >= logging::trivial::trace
-     //logging::trivial::severity >= logging::trivial::debug
+     // logging::trivial::severity >= logging::trivial::trace
+     // logging::trivial::severity >= logging::trivial::debug
      );
   
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Start==========";
@@ -175,6 +175,7 @@ int main (int argc, char *argv[]) {
 	    emulsion->GetParentTrackId() == 0 ) continue; // track id should be assigned when MC
 	if ( emulsion->GetFilmType() != B2EmulsionType::kECC ) continue; // only ECC films
 	if ( emulsion->GetEcc() != ecc_id ) continue;
+	if ( emulsion->GetPlate() < 2 ) continue;
 	emulsions.push_back(emulsion);
       }
 
@@ -310,6 +311,14 @@ int main (int argc, char *argv[]) {
 	    radial_angle_difference_back.push_back(gRandom->Gaus(angle_difference_radial_new_back, radial_angle_precision_new_back));
 	    lateral_angle_difference_back.push_back(gRandom->Gaus(angle_difference_lateral_new_back, lateral_angle_precision_new_back));
 
+	    BOOST_LOG_TRIVIAL(debug) << " Film " << plate_id.back() << " and"
+				     << " Film " << plate_id_next.back() << ", "
+				     << " Track tangent " << track_tangent.back() << ", "
+				     << " Basetrack distance " << basetrack_distance.back() << ", "
+				     << " Basetrack distance water " << basetrack_distance_water.back() << ", "
+				     << " Radial angle difference "  << radial_angle_difference.back() << ", "
+				     << " Lateral angle difference " << lateral_angle_difference.back();
+
 	    break;
 	  } // emulsion down
 	} // emulsion up
@@ -340,7 +349,7 @@ int main (int argc, char *argv[]) {
 	    radial_angle_difference_rms += radial_angle_difference.at(ipair) * radial_angle_difference.at(ipair);
 	    radial_angle_difference_rms_back += radial_angle_difference_back.at(ipair) * radial_angle_difference_back.at(ipair);
 	    lateral_angle_difference_rms += lateral_angle_difference.at(ipair) * lateral_angle_difference.at(ipair);
-	    lateral_angle_difference_rms_back += lateral_angle_difference.at(ipair) * lateral_angle_difference_back.at(ipair);
+	    lateral_angle_difference_rms_back += lateral_angle_difference_back.at(ipair) * lateral_angle_difference_back.at(ipair);
 	    num_angle_diff++;
 	  }
 	  else if ( plate_id.at(ipair) % 2 == 0 ) {
@@ -356,11 +365,11 @@ int main (int argc, char *argv[]) {
 	  radial_angle_difference_rms /= num_angle_diff;
 	  radial_angle_difference_rms_back /= num_angle_diff;
 	  lateral_angle_difference_rms /= num_angle_diff;
-	  lateral_angle_difference_rms /= num_angle_diff;
+	  lateral_angle_difference_rms_back /= num_angle_diff;
 	  radial_angle_difference_rms_water /= num_angle_diff_water;
 	  radial_angle_difference_rms_water_back /= num_angle_diff_water;
 	  lateral_angle_difference_rms_water /= num_angle_diff_water;
-	  lateral_angle_difference_rms_water /= num_angle_diff_water;
+	  lateral_angle_difference_rms_water_back /= num_angle_diff_water;
 	} else {
 	  radial_angle_difference_rms = (radial_angle_difference_rms + lateral_angle_difference_rms) 
 	    / 2 / num_angle_diff;
@@ -408,6 +417,10 @@ int main (int argc, char *argv[]) {
 	initial_pbeta[0] *= initial_pbeta_bias;
 	initial_pbeta[1] *= initial_pbeta_bias;
 
+	BOOST_LOG_TRIVIAL(debug) << "Radial cut value " << radial_cut_value << ", "
+				 << "Lateral cut value " << lateral_cut_value << ", "
+				 << "Initial pbeta " << initial_pbeta[0];
+
 	// Reconstruction
 	for ( int particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
 	  // Forward reconstruction
@@ -416,6 +429,8 @@ int main (int argc, char *argv[]) {
 					  radial_cut_value_water, lateral_cut_value_water,
 					  smear_flag || (datatype == B2DataType::kRealData),
 					  kNinjaIron,
+					  // kNinjaWater,
+					  // 2, 
 					  basetrack_distance,
 					  basetrack_distance_water,
 					  track_tangent,
@@ -439,8 +454,9 @@ int main (int argc, char *argv[]) {
 								     plate_id_next,
 								     radial_angle_difference,
 								     lateral_angle_difference);
-
+	  
 	  // Backward reconstruction
+	  /*
 	  results = ReconstructPBeta(initial_pbeta[1], ncell, particle_id, -1,
 				     radial_cut_value_back, lateral_cut_value_back,
 				     radial_cut_value_water_back, lateral_cut_value_water_back,
@@ -466,7 +482,11 @@ int main (int argc, char *argv[]) {
 								     plate_id_back,
 								     plate_id_next_back,
 								     radial_angle_difference_back,
-								     lateral_angle_difference_back);
+	  							     lateral_angle_difference_back);
+	  */
+	  
+	  BOOST_LOG_TRIVIAL(debug) << "Reconstructed pbeta " << recon_pbeta_candidate[particle_id][0];
+
 	}
 
 	// Fill 

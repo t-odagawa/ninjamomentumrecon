@@ -188,22 +188,23 @@ Double_t FuncNegativeLogLikelihoodWater(Double_t pbeta,
 
   Double_t nll = 0.; // constat is ignored
   Double_t radial_sigma, lateral_sigma; // variables for sigma in each step
-  for ( Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++ ) {
-    
-    if ( basetrack_distance_water.at(ipairs) < 1. ) continue;
+  for ( Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++ ) {    
 
-    GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
-		       basetrack_distance_water.at(ipairs),
-		       track_tangent.at(ipairs),
-		       radial_sigma, lateral_sigma);
-    
-    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 && 
-	 TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
-	 TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
-      nll += 2 * TMath::Log(radial_sigma)
-	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-      nll += 2 * TMath::Log(lateral_sigma)
-	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+    if ( basetrack_distance_water.at(ipairs) >= 1. &&
+	 TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
+
+      GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
+			 basetrack_distance_water.at(ipairs),
+			 track_tangent.at(ipairs),
+			 radial_sigma, lateral_sigma);
+
+      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
+	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+	nll += 2 * TMath::Log(radial_sigma)
+	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	nll += 2 * TMath::Log(lateral_sigma)
+	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      }
     }
 
     // Consider energy deposit
@@ -243,20 +244,21 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
   Double_t radial_sigma, lateral_sigma; // variables for sigma in each step
   for ( Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++ ) {
 
-    if ( basetrack_distance.at(ipairs) < 1. ) continue;
+    if ( basetrack_distance.at(ipairs) >= 1. && 
+	 TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
     
-    GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
-		       basetrack_distance.at(ipairs),
-		       track_tangent.at(ipairs),
-		       radial_sigma, lateral_sigma);
+      GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
+			 basetrack_distance.at(ipairs),
+			 track_tangent.at(ipairs),
+			 radial_sigma, lateral_sigma);
 
-    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 && 
-	 TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
-	 TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
-      nll += 2 * TMath::Log(radial_sigma)
-	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-      nll += 2 * TMath::Log(lateral_sigma)
-	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	nll += 2 * TMath::Log(radial_sigma)
+	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	nll += 2 * TMath::Log(lateral_sigma)
+	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      }
     }
 
     // Consider energy deposit
@@ -264,6 +266,7 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
 
     energy -= basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
+
     energy -= basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
 
     if ( energy <= PARTICLE_MASS[particle_id]) break;
@@ -299,48 +302,47 @@ Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta,
   
   for ( Int_t ipairs = 0.; ipairs < number_of_pairs; ipairs++ ) {
 
-    if ( basetrack_distance.at(ipairs) < 1. ||
-	 basetrack_distance_water.at(ipairs) < 1.) continue;
+    int material = -1;
 
-    if ( TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
-      
-      int material = -1;
-      
-      if ( direction == 1 ) {
-	if ( (plate_id.at(ipairs) > 4 && plate_id.at(ipairs) < 16) ||
-	     plate_id.at(ipairs) % 2 == 1 ) {	  
-	  material = kNinjaIron;
-	}
-	else if ( plate_id.at(ipairs) % 2 == 0 ) {
-	  material = kNinjaWater;
-	}
+    if ( direction == 1 ) {
+      if ( (plate_id.at(ipairs) > 4 && plate_id.at(ipairs) < 16) ||
+	   plate_id.at(ipairs) % 2 == 1 ) {	  
+	material = kNinjaIron;
       }
-      else if ( direction == -1 ) {
-	if ( (plate_id_next.at(ipairs) > 4 && plate_id_next.at(ipairs) < 16) ||
-	     plate_id_next.at(ipairs) % 2 == 1 ) {
-	  material = kNinjaIron;
-	}
-	else if ( plate_id_next.at(ipairs) % 2 == 0 ) {
-	  material = kNinjaWater;
-	}
+      else if ( plate_id.at(ipairs) % 2 == 0 ) {
+	material = kNinjaWater;
       }
+    }
+    else if ( direction == -1 ) {
+      if ( (plate_id_next.at(ipairs) > 4 && plate_id_next.at(ipairs) < 16) ||
+	   plate_id_next.at(ipairs) % 2 == 1 ) {
+	material = kNinjaIron;
+      }
+      else if ( plate_id_next.at(ipairs) % 2 == 0 ) {
+	material = kNinjaWater;
+      }
+    }
 
-      if ( material == kNinjaIron ) {
-	GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
-			   basetrack_distance.at(ipairs), // ここおかしい
-			   track_tangent.at(ipairs),
-			   radial_sigma, lateral_sigma);
-	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
-	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
-	  nll += 2 * TMath::Log(radial_sigma)
-	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-	  nll += 2 * TMath::Log(lateral_sigma)
-	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
-	}
+    if ( material == kNinjaIron && 
+	 basetrack_distance.at(ipairs) >= 1. && 
+	 TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
+      GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaIron,
+			 basetrack_distance.at(ipairs), 
+			 track_tangent.at(ipairs),
+			 radial_sigma, lateral_sigma);
+      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	nll += 2 * TMath::Log(radial_sigma)
+	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	nll += 2 * TMath::Log(lateral_sigma)
+	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
       }
-      else if ( material == kNinjaWater ) {
+    }
+    else if ( material == kNinjaWater &&
+	      basetrack_distance_water.at(ipairs) >= 1 &&
+	      TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
 	GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
-			   basetrack_distance_water.at(ipairs), // ここおかしい
+			   basetrack_distance_water.at(ipairs), 
 			   track_tangent.at(ipairs),
 			   radial_sigma, lateral_sigma);
 	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
@@ -350,11 +352,8 @@ Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta,
 	  nll += 2 * TMath::Log(lateral_sigma)
 	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
 	}
-      }
-
-      
     }
-    
+
     // Consider energy deposit
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
@@ -389,98 +388,16 @@ void GetSigmaAtEachStep(Double_t pbeta,
 					material,
 					track_tangent);
   } else { 
-    radial_sigma = HighlandSigmaAtIfilm(pbeta, ncell,
-					material, basetrack_distance);
-    lateral_sigma = HighlandSigmaAtIfilm(pbeta, ncell,
-					 material, basetrack_distance);
+    radial_sigma = HighlandSigmaAtIfilm(pbeta, ncell, basetrack_distance,
+					material);
+    lateral_sigma = HighlandSigmaAtIfilm(pbeta, ncell, basetrack_distance,
+					 material);
   }
 
   return;
 
 }
-/*
-Double_t FuncNegativeLogLikelihood(Double_t pbeta,
-				   UInt_t ncell,
-				   Int_t particle_id,
-				   Int_t direction,
-				   Double_t radial_cut_value,
-				   Double_t lateral_cut_value,
-				   Bool_t smear_flag,
-				   std::vector<Double_t > basetrack_distance,
-				   std::vector<Double_t > basetrack_distance_water,
-				   std::vector<Double_t > track_tangent,
-				   std::vector<Int_t > plate_id,
-				   std::vector<Double_t > radial_angle_difference,
-				   std::vector<Double_t > lateral_angle_difference) {
-  
-  // vector size check
-  std::vector<std::size_t > par_vect_sizes = {};
-  par_vect_sizes.push_back(basetrack_distance.size());
-  par_vect_sizes.push_back(basetrack_distance_water.size());
-  par_vect_sizes.push_back(track_tangent.size());
-  par_vect_sizes.push_back(plate_id.size());
-  par_vect_sizes.push_back(radial_angle_difference.size());
-  par_vect_sizes.push_back(lateral_angle_difference.size());
 
-  for (Int_t ivect = 0; ivect < par_vect_sizes.size() - 1; ivect++) {
-    if (par_vect_sizes.at(ivect) != par_vect_sizes.at(ivect + 1)) {
-      BOOST_LOG_TRIVIAL(error) << "Vector size different";
-      BOOST_LOG_TRIVIAL(error) << "Basetrack distance size : " << basetrack_distance.size() << ", "
-			       << "Water basetrack distance size : " << basetrack_distance_water.size() << ", "
-			       << "Tangent size : " << track_tangent.size() << ", "
-			       << "Plate size : " << plate_id.size() << ", "
-			       << "Radial angle difference size : " << radial_angle_difference.size() << ", "
-			       << "Lateral angle difference size : " << lateral_angle_difference.size();
-      std::exit(1);
-    }
-  }
-  const Int_t number_of_pairs = basetrack_distance.size();
-  
-  // Calculate negative log likelihood
-  Double_t nll = 0; // constant (= n * log(2pi) / 2) is ignored
-  Double_t radial_sigma, lateral_sigma;
-  for (Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
-    
-    if (smear_flag){
-      radial_sigma = RadialSigmaAtIfilm(pbeta, ncell, basetrack_distance.at(ipairs),
-					track_tangent.at(ipairs));
-      lateral_sigma = LateralSigmaAtIfilm(pbeta, ncell, basetrack_distance.at(ipairs),
-					  track_tangent.at(ipairs));
-    } else {
-      radial_sigma = HighlandSigmaAtIfilm(pbeta, ncell, basetrack_distance.at(ipairs));
-      lateral_sigma = HighlandSigmaAtIfilm(pbeta, ncell, basetrack_distance.at(ipairs));
-    }
-
-    if (TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
-    	TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
-      nll += 2 * TMath::Log(radial_sigma)
-      	+ radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-      nll += 2 * TMath::Log(lateral_sigma)
-      	+ lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
-    }
-    
-    Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
-    Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
-    
-    // Consider energy deposit (upstream -> downstream)
-    if (plate_id.at(ipairs) > 16) {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
-      // Water smearing is considered separately
-      energy -= direction * ncell * basetrack_distance_water.at(ipairs) * EnergyDepositWater(beta);
-      // } if else (plate_id.at(ipairs) > 15 && plate_id.at(ipairs)%2 == 1) {
-    } else {
-      energy -= direction * ncell * basetrack_distance.at(ipairs) * EnergyDepositIron(beta);
-    }
-    
-    if (energy <= PARTICLE_MASS[particle_id]) break;
-    pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
-    
-  }
-  
-  return nll;
-  
-}
-*/
 void GetBasetrackDistancePair(int plate, int plate_next, int direction,
 			      TVector3 up_position, TVector3 down_position,
 			      TVector3 &basetrack_distance_pair,
@@ -666,7 +583,7 @@ Double_t HighlandSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz, Int_t m
   if ( material == kNinjaIron)
     return MCS_SCALE_FACTOR * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
   else if ( material == kNinjaWater )
-    return MCS_SCALE_FACTOR * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta)); // MCS scale factor water?
+    return MCS_SCALE_FACTOR_WATER * 13.6 / pbeta * TMath::Sqrt(radiation_length) * (1. + 0.038 * TMath::Log(radiation_length / beta));
   else return 0.;
 }
 

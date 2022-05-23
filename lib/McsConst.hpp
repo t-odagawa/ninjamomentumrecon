@@ -96,29 +96,31 @@ const static double Z_POSITION_ACCURACY = 1.64e-3;
 
 ///> Scale factor for MCS correction
 const static double MCS_SCALE_FACTOR = 1.0265;
+// const static double MCS_SCALE_FACTOR = 1.;
+const static double MCS_SCALE_FACTOR_WATER = 1.;
 
 ///> Energy deposit function parameters for iron
-const std::array<double, 5> IRON_ENEDEP_FUNC_PAR = {  11.3616,
-						       -41.0421,
-						        63.9158,
-						       -47.3527,
-						        13.7393
+const std::array<double, 5> IRON_ENEDEP_FUNC_PAR = { 11.3616,
+						     -41.0421,
+						     63.9158,
+						     -47.3527,
+						     13.7393
 };
 
-const std::array<double, 2> IRON_BB_FUNC_PAR = {6.619e-2,
-						7.994
+const std::array<double, 2> IRON_BB_FUNC_PAR = { 6.619e-2,
+						 7.994
 };
 
 ///> Energy deposit function parameters for water
-const std::array<double, 5> WATER_ENEDEP_FUNC_PAR = {  16.677,
-						        -68.1774,
-						        114.435,
-						        -88.6891,
-						         26.3072
+const std::array<double, 5> WATER_ENEDEP_FUNC_PAR = { 16.677,
+						      -68.1774,
+						      114.435,
+						      -88.6891,
+						      26.3072
 };
 
-const std::array<double, 2> WATER_BB_FUNC_PAR = {5.083e-2,
-						 9.343
+const std::array<double, 2> WATER_BB_FUNC_PAR = { 5.083e-2,
+						  9.343
 };
 
 #endif
