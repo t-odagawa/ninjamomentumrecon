@@ -404,8 +404,8 @@ void GetBasetrackDistancePair(int plate, int plate_next, int direction,
 			      TVector3 &basetrack_distance_water_pair,
 			      Bool_t smear_flag) {
 
-  if ( std::abs(direction) != 1 )
-    throw std::runtime_error("Direction is invalid");
+  //if ( std::abs(direction) != 1 )
+  //  throw std::runtime_error("Direction is invalid");
 
   if ( direction == -1 )
     std::swap(plate, plate_next);

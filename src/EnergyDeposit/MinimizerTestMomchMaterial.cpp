@@ -288,30 +288,6 @@ int main (int argc, char* argv[]) {
 	    chain.ecc_mcs_mom_error[1][1] = momentum_plus - chain.ecc_mcs_mom[1];
 	  }	    
 	}
-
-	// PID likelihood?
-	double vph = 0.;
-	if ( chain.particle_flag == 13 ) { // 
-	  vph = 0.;
-	} else if ( std::fabs(chain.particle_flag) == 211 ) {
-	  vph = 0.;
-	} else if ( chain.particle_flag == 2212 ) {
-	  vph = 0.;
-	}
-	chain.muon_likelihood = 1.;
-	chain.proton_likelihood = 1.;
-	int recon_particle_flag;
-	if ( chain.particle_flag == 13 ) {
-	  recon_particle_flag = 13;
-	}
-	else if ( chain.muon_likelihood  / (chain.muon_likelihood + chain.proton_likelihood) > 0.5 ) {
-	  recon_particle_flag = 211;
-	}
-	else {
-	  recon_particle_flag = 2212;
-	}
-	chain.particle_flag = std::fabs(chain.particle_flag) * 10000;
-	chain.particle_flag += recon_particle_flag;
       }
 
       // Range?

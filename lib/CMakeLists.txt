@@ -44,3 +44,21 @@ set_target_properties(Connection PROPERTIES PUBLIC_HEADER "${CONNECTION_LIB_INCL
 install(TARGETS Connection
 	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")
+
+add_library(Pid SHARED
+		PidData.hpp
+		PidData.cpp
+		PidClass.hpp
+		PidClass.cpp
+		PidFunction.hpp
+		PidFunction.cpp
+)
+
+target_include_directories(Pid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+file(GLOB PID_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+set_target_properties(Pid PROPERTIES PUBLIC_HEADER "${PID_LIB_INCLUDES}")
+
+install(TARGETS Pid
+	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")

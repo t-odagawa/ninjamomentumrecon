@@ -1684,6 +1684,8 @@ void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &
 
   if ( muon_group.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) { // muon
     mom_chain.direction = 1;
+    mom_chain.particle_flag = std::fabs(mom_chain.particle_flag) * 10000;
+    mom_chain.particle_flag += 13;
   }
   else if ( vertex_track->GetPlate() == group.first->GetPlate() ) { // forward partner
     mom_chain.direction = 1;
@@ -2033,7 +2035,7 @@ bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
 						 z_range, extrapolate_z,
 						 ecc_id, recon_vertex);
   Double_t tangent = std::hypot(parent_dir.X(), parent_dir.Y());
-  Double_t tangent_partner = std::hypot(daughter_dir.X(). dauguter_dir.Y());
+  Double_t tangent_partner = std::hypot(daughter_dir.X(), daughter_dir.Y());
   if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.04 * tangent + 0.04) + 5, 2) +
 				    std::pow(extrapolate_z[1] * (0.04 * tangent_partner + 0.04) + 5, 2)) ) {
 
