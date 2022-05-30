@@ -12,6 +12,8 @@
 
 // my includes
 #include "McsClass.hpp"
+#include "McsConst.hpp"
+#include "McsFunction.hpp"
 #include "PidData.hpp"
 #include "PidClass.hpp"
 #include "PidFunction.hpp"
@@ -51,7 +53,8 @@ int main ( int argc, char* argv[]) {
     
     for ( auto &ev : ev_vec ) {
       
-      BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
+      BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry << ", " << ev.groupid;
+
       num_entry++;
 
       if ( ev.chains.empty() ) continue;
@@ -64,8 +67,14 @@ int main ( int argc, char* argv[]) {
 
 	double vph = 0.;
 	std::vector<double> tangent(3);
-	tangent.at(0) = chain.base.front().ax;
-	tangent.at(1) = chain.base.front().ay; // direction の違いを考慮できていない
+	if ( chain.direction == 1 ) {
+	  tangent.at(0) = chain.base.front().ax;
+	  tangent.at(1) = chain.base.front().ay;
+	}
+	else if ( chain.direction == -1 ) {
+	  tangent.at(0) = chain.base.back().ax;
+	  tangent.at(1) = chain.base.back().ay;
+	}
 	tangent.at(2) = 1.;
 
 	// particle id を確認，muon はすでに終わっている
@@ -87,16 +96,12 @@ int main ( int argc, char* argv[]) {
 	// likelihood に基づき recon particle id を決定
 	int recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
 	chain.particle_flag += recon_particle_id * 10000;
-	std::cout << "VPH : " << vph << std::endl;
-	std::cout << chain.muon_likelihood << ", " << chain.proton_likelihood << std::endl;
-	std::cout << "Momentum : " << chain.ecc_mcs_mom[0] << std::endl;
-	std::cout << "Tangent : " << std::hypot(tangent.at(0), tangent.at(1)) << std::endl;
-	std::cout << "true : " << true_particle_id << ", "
-		  << "recon : " << recon_particle_id << std::endl;
+
 	// ECC 内で partner が止まっているかを確認
 	
+	
 	// Range momentum を計算
-	/*
+
 	std::vector<double > ax, ay;
 	std::vector<int > pl;
 	ax.reserve(chain.base.size());
@@ -107,11 +112,17 @@ int main ( int argc, char* argv[]) {
 	  ay.push_back(base.ay);
 	  pl.push_back(base.pl);
 	}
+	range_function.ModifyVectors(ax, ay, pl);
 	chain.ecc_range_mom[0] = range_function.CalculateEnergyFromRange(ax, ay, pl,
-									  211, chain.direction);
+									 211, chain.direction);
+	chain.ecc_range_mom[0] += MCS_PION_MASS;
+	chain.ecc_range_mom[0] = CalculateMomentumFromEnergy(chain.ecc_range_mom[0],
+							     MCS_PION_MASS);
 	chain.ecc_range_mom[1] = range_function.CalculateEnergyFromRange(ax, ay, pl,
-									  2212, chain.direction);
-	*/
+									 2212, chain.direction);
+	chain.ecc_range_mom[1] += MCS_PROTON_MASS;
+	chain.ecc_range_mom[1] = CalculateMomentumFromEnergy(chain.ecc_range_mom[1],
+							     MCS_PROTON_MASS);
       }
 
     }

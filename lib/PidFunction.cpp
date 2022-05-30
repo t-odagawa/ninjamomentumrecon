@@ -147,8 +147,7 @@ double PidFunction::GetVph(int true_particle_id,
     mean = CalcVphMuon(ecc_mcs_mom, tangent);
     sigma = CalcVphSigmaMuon(ecc_mcs_mom, tangent);
   }
-  std::cout << "Mean : " << mean << ", "
-	    << "Sigma : " << sigma << std::endl;
+
   double vph = gRandom->Gaus(mean, sigma);
   if ( vph < 0 ) vph = 0.;
   return vph;
@@ -438,7 +437,6 @@ int PidFunction::GetReconPid(double muon_likelihood, double proton_likelihood) c
   }
   else {
     double likelihood_ratio = muon_likelihood / (muon_likelihood + proton_likelihood);
-    std::cout << likelihood_ratio << std::endl;
     if ( likelihood_ratio < 0.5 ) {
       return 211;
     }

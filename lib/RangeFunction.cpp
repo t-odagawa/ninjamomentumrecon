@@ -159,7 +159,7 @@ void RangeFunction::ModifyVectors(std::vector<double> &ax, std::vector<double> &
       for (int jpl = 1; jpl < pl_difference; jpl++ ) {
 	ax.insert(ax.begin() + ipl + jpl, ax.at(ipl));
 	ay.insert(ay.begin() + ipl + jpl, ay.at(ipl));
-	pl.insert(pl.begin() + ipl + jpl, pl.at(ipl));
+	pl.insert(pl.begin() + ipl + jpl, pl.at(ipl)+jpl);
       }
     }
   }
