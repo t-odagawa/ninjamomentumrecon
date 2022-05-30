@@ -70,6 +70,8 @@ ConnectionFunction::ConnectionFunction(const ConnectionData &connection_data) : 
     connection_data_.GetEfficiencyData(ecc, ecc_efficiency_[ecc]);
   }
 
+  gRandom->SetSeed(time(NULL));
+
   BOOST_LOG_TRIVIAL(info) << "Connection functions are initilized";
 
 }
@@ -1679,7 +1681,7 @@ void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &
   mom_chain.base_pair.reserve(num_link);
 
   mom_chain.chainid = chain.front()->GetParentTrackId();
-  mom_chain.stop_flag = 0;
+  mom_chain.stop_flag = -1;
   mom_chain.particle_flag = chain.front()->GetParentTrack().GetParticlePdg();
 
   if ( muon_group.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) { // muon

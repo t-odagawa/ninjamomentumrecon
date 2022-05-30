@@ -4,6 +4,9 @@
 #include <vector>
 #include <map>
 
+#include <TRandom3.h>
+
+#include "McsClass.hpp"
 #include "PidClass.hpp"
 #include "PidData.hpp"
 
@@ -11,6 +14,7 @@ class PidFunction {
 
 private:
   PidData pid_data_;
+  TRandom3 r_;
 
   // Pid likelihood bin
   std::vector<std::pair<double, double > > pid_ang_bin_vec_;
@@ -56,6 +60,10 @@ public:
   double CalcVphSigmaProton(double pbeta, double tangent) const;
 
   int GetReconPid(double muon_likelihood, double proton_likelihood) const;
+  void CalculateStopFlag(Momentum_recon::Mom_chain &chain,
+			 std::vector<Momentum_recon::Mom_chain> true_chains) const;
+
+  void CheckMeanSigmaValues() const;
   
 };
 

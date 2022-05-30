@@ -55,6 +55,7 @@ int main (int argc, char *argv[]) {
   try {
 
     gErrorIgnoreLevel = kWarning;
+    gRandom->SetSeed(tim(NULL));
 
     // Input file
     B2Reader reader(argv[1]);

@@ -49,6 +49,8 @@ int main ( int argc, char* argv[]) {
     const RangeSpline range_spline(data_dir_path);
     const RangeFunction range_function(range_spline);
 
+    // pid_function.CheckMeanSigmaValues();
+
     Int_t num_entry = 0;
     
     for ( auto &ev : ev_vec ) {
@@ -68,12 +70,12 @@ int main ( int argc, char* argv[]) {
 	double vph = 0.;
 	std::vector<double> tangent(3);
 	if ( chain.direction == 1 ) {
-	  tangent.at(0) = chain.base.front().ax;
-	  tangent.at(1) = chain.base.front().ay;
-	}
-	else if ( chain.direction == -1 ) {
 	  tangent.at(0) = chain.base.back().ax;
 	  tangent.at(1) = chain.base.back().ay;
+	}
+	else if ( chain.direction == -1 ) {
+	  tangent.at(0) = chain.base.front().ax;
+	  tangent.at(1) = chain.base.front().ay;
 	}
 	tangent.at(2) = 1.;
 
@@ -86,6 +88,9 @@ int main ( int argc, char* argv[]) {
 	// VPH を計算 (data-driven, つまり validation ではない)
 	vph = pid_function.GetVph(true_particle_id, chain.ecc_mcs_mom[0], 
 				  std::hypot(tangent.at(0), tangent.at(1)));
+	if ( vph <= 0.1 ) {
+	  std::cout << "VPH : " <<  vph << ", " << ev.groupid << std::endl;
+	}
 	chain.base.front().m[0].ph = vph;
 	
 	// p/pi likelihood を計算
@@ -98,7 +103,7 @@ int main ( int argc, char* argv[]) {
 	chain.particle_flag += recon_particle_id * 10000;
 
 	// ECC 内で partner が止まっているかを確認
-	
+	pid_function.CalculateStopFlag(chain, ev.true_chains);
 	
 	// Range momentum を計算
 
