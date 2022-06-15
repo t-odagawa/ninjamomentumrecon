@@ -76,11 +76,13 @@ int main (int argc, char* argv[]) {
     TFile *ofile = new TFile(ofilename, "recreate");
     TTree *otree = new TTree("tree", "tree");
     Double_t mcs_pbeta, mcs_momentum, best_log_likelihood;
+    Double_t mcs_pbeta_err;
     Double_t range_pbeta, range_momentum;
     otree->Branch("entry_in_daily_file", &entry_in_daily_file, "entry_in_daily_file/I");
     otree->Branch("npl", &npl, "npl/I");
     otree->Branch("mcs_pbeta", &mcs_pbeta, "mcs_pbeta/D");
     otree->Branch("mcs_momentum", &mcs_momentum, "mcs_momentum/D");
+    otree->Branch("mcs_pbeta_err", &mcs_pbeta_err, "mcs_pbeta_err/D");
     otree->Branch("best_log_likelihood", &best_log_likelihood, "best_log_likelihood/D");
     otree->Branch("range_pbeta", &range_pbeta, "range_pbeta/D");
     otree->Branch("range_momentum", &range_momentum, "range_momentum/D");
@@ -110,6 +112,7 @@ int main (int argc, char* argv[]) {
       ntbmtree->GetEntry(entry_in_daily_file - 1);
 
       mcs_pbeta = recon_pbeta;
+      mcs_pbeta_err = recon_pbeta_err;
       mcs_momentum = CalculateMomentumFromPBeta(mcs_pbeta, MCS_MUON_MASS);
 
       BOOST_LOG_TRIVIAL(debug) << "Target entry in daily file : " << entry_in_daily_file;

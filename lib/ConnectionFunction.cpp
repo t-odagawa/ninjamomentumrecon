@@ -137,12 +137,45 @@ void ConnectionFunction::AddTrueChainsToEventInfo(Momentum_recon::Event_informat
     mom_chain.base_pair.reserve(num_link);
 
     mom_chain.chainid = chain.front()->GetParentTrackId();
-    mom_chain.stop_flag = 0;
+
     mom_chain.particle_flag = chain.front()->GetParentTrack().GetParticlePdg();
     if ( chain.front()->GetTangent().GetValue().Z() > 0 )
       mom_chain.direction = 1;
     else
       mom_chain.direction = -1;
+
+    // stop flag
+    TVector3 stop_position;
+    double stop_mom = 1000.;
+    if ( mom_chain.direction == 1 ) {
+      stop_position = chain.front()->GetParentTrack().GetFinalPosition().GetValue();
+      stop_mom = chain.front()->GetMomentum().GetValue().Mag();
+    }
+    else if ( mom_chain.direction == -1 ) {
+      stop_position = chain.back()->GetParentTrack().GetFinalPosition().GetValue();
+      stop_mom = chain.back()->GetMomentum().GetValue().Mag();
+    }
+
+    CalcPosInEccCoordinate(stop_position, ecc_id);
+    if ( 0. < stop_position.X() &&
+	 stop_position.X() < 250.e3 &&
+	 0. < stop_position.Y() &&
+	 stop_position.Y() < 250.e3 &&
+	 -228.e3 < stop_position.Z() &&
+	 stop_position.Z() < 0. ) {
+      mom_chain.stop_flag = 2;
+    }
+    else
+      mom_chain.stop_flag = 0;
+    
+    if ( mom_chain.particle_flag == 2212 ) {
+      if ( stop_mom > 200. )
+	mom_chain.stop_flag = 0;
+    }
+    else if ( stop_mom > 50.) {
+      mom_chain.stop_flag = 0;
+    }
+
     mom_chain.charge_sign = 0;
     mom_chain.bm_range_mom = chain.front()->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
 
@@ -1683,17 +1716,36 @@ void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &
   mom_chain.chainid = chain.front()->GetParentTrackId();
   mom_chain.stop_flag = -1;
   mom_chain.particle_flag = chain.front()->GetParentTrack().GetParticlePdg();
+  mom_chain.particle_flag = std::fabs(mom_chain.particle_flag) * 10000;
 
   if ( muon_group.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) { // muon
     mom_chain.direction = 1;
-    mom_chain.particle_flag = std::fabs(mom_chain.particle_flag) * 10000;
     mom_chain.particle_flag += 13;
   }
   else if ( vertex_track->GetPlate() == group.first->GetPlate() ) { // forward partner
     mom_chain.direction = 1;
+    if ( group.first->GetPlate() < 16 ) { // iron ECC
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 1 ) return;
+    }
+    else if ( group.first->GetPlate() % 2 == 0 ) { // water
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 1 ) return;
+    }
+    else { // iron
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 2 ) return;
+    }
   }
   else if ( vertex_track->GetPlate() + 1 == group.first->GetPlate() ) { // backward
     mom_chain.direction = -1;
+    if ( group.first->GetPlate() < 16 ) { // iron ECC
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 1 ) return;
+    }
+    else if ( group.first->GetPlate() % 2 == 1 ) { // water
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 1 ) return;
+    }
+    else { // iron
+      if ( group.second.back().second->GetPlate() - group.second.front().first->GetPlate() < 2 ) return;
+    }
+
   }
   mom_chain.charge_sign = 0;
 

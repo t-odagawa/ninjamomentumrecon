@@ -42,6 +42,8 @@ int main ( int argc, char* argv[] ) {
 
   try {
 
+    gRandom->SetSeed(time(NULL));
+
     B2Reader reader((std::string)argv[1]);
     std::string ntbmfilename = argv[2];
     TFile *ntbmfile = new TFile(ntbmfilename, "read");
@@ -68,7 +70,7 @@ int main ( int argc, char* argv[] ) {
 
 	if ( chain.particle_flag % 10000 != 13 ) continue;
 
-
+	
 
 	// 対応するトラックが Baby MIND にあるかを確認する
 
@@ -81,6 +83,12 @@ int main ( int argc, char* argv[] ) {
 
 
 	  // 対応する Baby MIND range momentum などを追加
+	  if ( track->GetIsStopping() ) {
+	    chain.stop_flag = 1;
+	  }
+	  else {
+	    chain.stop_flag = 0;
+	  }
 	  chain.bm_range_mom = track->GetFinalAbsoluteMomentum().GetValue();
 	  chain.bm_range_mom_err[0] = track->GetFinalAbsoluteMomentum().GetError();
 	  chain.bm_range_mom_err[1] = track->GetFinalAbsoluteMomentum().GetError();
@@ -94,6 +102,8 @@ int main ( int argc, char* argv[] ) {
 	double efficiency = GetEfficiency();
 	double prob = gRandom->Uniform();
 	if ( prob < efficiency ) fill_flag = false;	
+
+	break;
 
       }
 

@@ -265,6 +265,91 @@ int main (int argc, char* argv[]) {
 	  double pbeta_err_minus = results.at(3);
 	  double pbeta_err_plus = results.at(2);
 	  double momentum_minus, momentum_plus; // p +/- 1 sigma
+
+	  // mis fitting treatment
+	  if ( std::fabs(pbeta - 20.) < 1.e-4 ) {
+	    double nll_min = FuncNegativeLogLikelihood(20., 1, particle_id, chain.direction,
+						       radial_cut_value, lateral_cut_value,
+						       radial_cut_value_water,
+						       lateral_cut_value_water,
+						       kTRUE,
+						       material_mode,
+						       basetrack_distance,
+						       basetrack_distance_water,
+						       track_tangent,
+						       plate_id,
+						       plate_id_next,
+						       radial_angle_difference,
+						       lateral_angle_difference);
+	    for ( double ipbeta = 20.; ipbeta < 10000.; ipbeta += 1. ) {
+	      double nll = FuncNegativeLogLikelihood(ipbeta, 1, particle_id, chain.direction,
+						     radial_cut_value, lateral_cut_value,
+						     radial_cut_value_water,
+						     lateral_cut_value_water,
+						     kTRUE,
+						     material_mode,
+						     basetrack_distance,
+						     basetrack_distance_water,
+						     track_tangent,
+						     plate_id,
+						     plate_id_next,
+						     radial_angle_difference,
+						     lateral_angle_difference);
+	      if ( nll - nll_min > 0.5 ) {
+		pbeta_err_minus = ipbeta - pbeta;
+		break;
+	      }
+	    }
+	    if ( pbeta_err_minus < 1.e-4 ) {
+	      pbeta_err_minus = 10000. - pbeta;
+	    }
+	  }
+	  else if ( std::fabs(pbeta - 10000.) < 1.e-4 ) {
+	    double nll_min = FuncNegativeLogLikelihood(10000., 1, particle_id, chain.direction,
+						       radial_cut_value, lateral_cut_value,
+						       radial_cut_value_water,
+						       lateral_cut_value_water,
+						       kTRUE,
+						       material_mode,
+						       basetrack_distance,
+						       basetrack_distance_water,
+						       track_tangent,
+						       plate_id,
+						       plate_id_next,
+						       radial_angle_difference,
+						       lateral_angle_difference);
+	    for ( double ipbeta = 10000.; ipbeta >= 20.; ipbeta -= 1. ) {
+	      double nll = FuncNegativeLogLikelihood(ipbeta, 1, particle_id, chain.direction,
+						     radial_cut_value, lateral_cut_value,
+						     radial_cut_value_water,
+						     lateral_cut_value_water,
+						     kTRUE,
+						     material_mode,
+						     basetrack_distance,
+						     basetrack_distance_water,
+						     track_tangent,
+						     plate_id,
+						     plate_id_next,
+						     radial_angle_difference,
+						     lateral_angle_difference);
+	      if ( nll - nll_min > 0.5 ) {
+		pbeta_err_minus = pbeta - ipbeta;
+		break;
+	      }
+	    }
+	    if ( pbeta_err_minus < 1.e-4 ) {
+	      pbeta_err_minus = pbeta - 20.;
+	    }
+	  }
+	  else {
+	    if ( pbeta_err_minus < 1.e-4 ) {
+	    pbeta_err_minus = pbeta - 20.;
+	    }
+	    if ( pbeta_err_plus < 1.e-4 ) {
+	      pbeta_err_plus = 10000. - pbeta;
+	    }
+	  }
+
 	  // error の取り扱い要確認
 	  if ( particle_id == 0 ) { // muon
 	    chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS);

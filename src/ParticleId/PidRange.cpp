@@ -65,7 +65,7 @@ int main ( int argc, char* argv[]) {
 
 	if ( chain.base_pair.empty() ) continue;
 
-	if ( chain.direction != 1 ) continue; // debug のため
+	// if ( chain.direction != 1 ) continue; // debug のため
 
 	double vph = 0.;
 	std::vector<double> tangent(3);
@@ -80,10 +80,8 @@ int main ( int argc, char* argv[]) {
 	tangent.at(2) = 1.;
 
 	// particle id を確認，muon はすでに終わっている
-	int true_particle_id = chain.particle_flag % 10000;
-
-	if ( true_particle_id != 2212 &&
-	     std::abs(true_particle_id) != 211) continue;
+	int recon_particle_id = chain.particle_flag % 10000;
+	int true_particle_id = chain.particle_flag / 10000;
 
 	// VPH を計算 (data-driven, つまり validation ではない)
 	vph = pid_function.GetVph(true_particle_id, chain.ecc_mcs_mom[0], 
@@ -98,13 +96,15 @@ int main ( int argc, char* argv[]) {
 					   std::hypot(tangent.at(0), tangent.at(1)),
 					   chain.muon_likelihood, chain.proton_likelihood);
 
+	if ( recon_particle_id != 0 ) continue;
+
 	// likelihood に基づき recon particle id を決定
-	int recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
-	chain.particle_flag += recon_particle_id * 10000;
+	recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
+	chain.particle_flag += recon_particle_id;
 
 	// ECC 内で partner が止まっているかを確認
 	pid_function.CalculateStopFlag(chain, ev.true_chains);
-	
+
 	// Range momentum を計算
 
 	std::vector<double > ax, ay;
@@ -117,6 +117,7 @@ int main ( int argc, char* argv[]) {
 	  ay.push_back(base.ay);
 	  pl.push_back(base.pl);
 	}
+	
 	range_function.ModifyVectors(ax, ay, pl);
 	chain.ecc_range_mom[0] = range_function.CalculateEnergyFromRange(ax, ay, pl,
 									 211, chain.direction);

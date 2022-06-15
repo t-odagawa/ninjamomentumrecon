@@ -451,71 +451,36 @@ int PidFunction::GetReconPid(double muon_likelihood, double proton_likelihood) c
 void PidFunction::CalculateStopFlag(Momentum_recon::Mom_chain &chain,
 				    std::vector<Momentum_recon::Mom_chain> true_chains) const {
 
-  if ( chain.stop_flag != 0 ) return;
+  int recon_particle_flag = chain.particle_flag % 10000;
+  if ( recon_particle_flag != 2212 &&
+       std::abs(recon_particle_flag) != 211 ) return;
+  if ( chain.stop_flag != -1 ) return;
 
   for ( auto true_chain : true_chains ) {
     if ( chain.chainid == true_chain.chainid ) {
       
       // 最下端が true と一致しているか，かつ
-      // 最下端の dedx が 平均より 1RMS 以上おおきいとき stop 判定
-      double dedx_ave = 0.;
-      double dedx_rms = 0.;
-      double dedx_back = 0.;
+      // true が ECC 中で stop しているか
       bool edge_identity_flag = false;
       // true の direction を確認
       int direction = true_chain.direction;
-      if ( direction == 1 ) {
-
-	for ( auto base : true_chain.base ) {
-	  if ( base.rawid == true_chain.base.front().rawid ) {
-	    dedx_back = base.m[1].ph;
-	  }
-	  else {
-	    double dedx_tmp = (base.m[0].ph + base.m[1].ph) / 2.;
-	    dedx_ave += dedx_tmp;
-	    dedx_rms += base.m[0].ph * base.m[0].ph + base.m[1].ph * base.m[1].ph;
-	  }
-	}
-	dedx_ave /= true_chain.base.size() - 1;
-	dedx_rms /= 2. * true_chain.base.size() - 2;
-	dedx_rms = std::sqrt( dedx_rms - dedx_ave * dedx_ave);
-
-	if ( chain.base.front().rawid == true_chain.base.front().rawid ) {
+      if ( direction == 1 && 
+	   chain.base.front().rawid == true_chain.base.front().rawid ) {
 	  edge_identity_flag = true;
-	}
-
       }
-      else if ( direction == -1 ) {
-
-	for ( auto base : true_chain.base ) {
-	  if ( base.rawid == true_chain.base.back().rawid ) {
-	    dedx_back = base.m[0].ph;
-	  }
-	  else {
-	    double dedx_tmp = (base.m[0].ph + base.m[1].ph) / 2.;
-	    dedx_ave += dedx_tmp;
-	    dedx_rms += base.m[0].ph * base.m[0].ph + base.m[1].ph * base.m[1].ph;
-	  }
-	}
-	dedx_ave /= true_chain.base.size() - 1;
-	dedx_rms /= 2. * true_chain.base.size() - 2;
-	dedx_rms = std::sqrt( dedx_rms - dedx_ave * dedx_ave);
-
-	if ( chain.base.back().rawid == true_chain.base.back().rawid ) {
-	  edge_identity_flag = true;
-	}
+      else if ( direction == -1 &&
+		chain.base.back().rawid == true_chain.base.back().rawid ) {
+	edge_identity_flag = true;
       }
 
-      if ( dedx_back - dedx_ave > dedx_rms && 
+      if ( true_chain.stop_flag == 2 &&
 	   edge_identity_flag ) {
-	chain.stop_flag = 2;	
+	chain.stop_flag = 2;
       }
       else {
 	chain.stop_flag = 0;
       }
-
       break;
-
     }
   }
 

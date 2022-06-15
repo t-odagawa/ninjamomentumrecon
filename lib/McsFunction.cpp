@@ -262,6 +262,7 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
     }
 
     // Consider energy deposit
+    /*
     Double_t energy = CalculateEnergyFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
     Double_t beta = CalculateBetaFromPBeta(pbeta, PARTICLE_MASS[particle_id]);
 
@@ -271,7 +272,7 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
 
     if ( energy <= PARTICLE_MASS[particle_id]) break;
     pbeta = CalculatePBetaFromEnergy(energy, PARTICLE_MASS[particle_id]);
-
+    */
   }
 
   return nll;
