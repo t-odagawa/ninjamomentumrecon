@@ -452,6 +452,7 @@ void PidFunction::CalculateStopFlag(Momentum_recon::Mom_chain &chain,
 				    std::vector<Momentum_recon::Mom_chain> true_chains) const {
 
   int recon_particle_flag = chain.particle_flag % 10000;
+
   if ( recon_particle_flag != 2212 &&
        std::abs(recon_particle_flag) != 211 ) return;
   if ( chain.stop_flag != -1 ) return;

@@ -82,7 +82,7 @@ int main ( int argc, char* argv[] ) {
     while ( reader.ReadNextSpill() > 0 ) {
 
       // if ( reader.GetEntryNumber() > 1000 ) continue;
-      // if ( reader.GetEntryNumber() != 3295 ) continue;
+      // if ( reader.GetEntryNumber() != 1489 ) continue;
 
       Momentum_recon::Event_information ev;
 

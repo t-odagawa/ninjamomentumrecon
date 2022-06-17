@@ -157,12 +157,13 @@ void ConnectionFunction::AddTrueChainsToEventInfo(Momentum_recon::Event_informat
     }
 
     CalcPosInEccCoordinate(stop_position, ecc_id);
+
     if ( 0. < stop_position.X() &&
 	 stop_position.X() < 250.e3 &&
 	 0. < stop_position.Y() &&
 	 stop_position.Y() < 250.e3 &&
 	 -228.e3 < stop_position.Z() &&
-	 stop_position.Z() < 0. ) {
+	 stop_position.Z() < -3.4e3 ) {
       mom_chain.stop_flag = 2;
     }
     else
