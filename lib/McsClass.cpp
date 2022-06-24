@@ -149,7 +149,7 @@ namespace Momentum_recon
     int num_true_chain = 0;
     int num_base = 0;
     int num_link = 0;
-
+    // int i = 0;
     while ( ReadEventInformationHeader(ifs, ev, num_chain, num_true_chain) ) {
       // chains
       for ( int ichain = 0; ichain < num_chain; ichain++ ) {
@@ -169,6 +169,7 @@ namespace Momentum_recon
 	  }
 	  ev.chains.push_back(mom_chain);
 	}
+
       }
 
       // true chains
@@ -195,6 +196,9 @@ namespace Momentum_recon
       ret.push_back(ev);
       ev.chains.clear();
       ev.true_chains.clear();
+
+      // i++;
+      // if ( i > 100) break;
     }
 
     return ret;

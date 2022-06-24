@@ -118,6 +118,12 @@ include_directories("${MCS_LIB_PATH}")
 set(RANGE_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
 include_directories("${RANGE_LIB_PATH}")
 
+set(PID_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
+include_directories("${PID_LIB_PATH}")
+
+set(MATCH_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
+include_directories("${MATCH_LIB_PATH}")
+
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(NINJA_MOMRECON_LIBRARIES "")
 if (NOT APPLE)

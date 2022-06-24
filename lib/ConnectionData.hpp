@@ -4,6 +4,7 @@
 #include <boost/filesystem.hpp>
 
 #include <string>
+#include <vector>
 #include <map>
 
 #include <B2EmulsionSummary.hh>

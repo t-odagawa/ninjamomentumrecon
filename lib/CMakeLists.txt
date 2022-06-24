@@ -62,3 +62,19 @@ set_target_properties(Pid PROPERTIES PUBLIC_HEADER "${PID_LIB_INCLUDES}")
 install(TARGETS Pid
 	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")
+
+add_library(Match SHARED
+		  MatchData.hpp
+		  MatchData.cpp
+		  MatchFunction.hpp
+		  MatchFunction.cpp
+)
+
+target_include_directories(Match PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+file(GLOB MATCH_LIB_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+set_target_properties(Match PROPERTIES PUBLIC_HEADER "${MATCH_LIB_INCLUDES}")
+
+install(TARGETS Match
+	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCDIR}")

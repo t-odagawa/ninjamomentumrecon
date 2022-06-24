@@ -1508,6 +1508,7 @@ void ConnectionFunction::CollectEdgeTracks(boost::unordered_multimap<Segment, Se
 
 }
 
+
 bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 					 std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
 					 B2EmulsionSummary* &vertex_track,
@@ -1533,6 +1534,20 @@ bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary
   if ( groups_seg.empty() ) {
     for ( auto group : groups ) {
       if ( B2Pdg::IsChargedPion(group.first->GetParentTrack().GetParticlePdg()) &&
+	   !group.second.empty()) {
+	Group group_seg;
+	GroupConvertB2ToSeg(group, group_seg);
+	if ( group_seg.start_plate == 3 ||
+	     group_seg.start_plate == 4 )
+	  groups_seg.push_back(group_seg);
+      }
+    }
+  }
+  
+  // pion も見つからなかった場合は proton を探しておく
+  if ( groups_seg.empty() ) {
+    for ( auto group : groups ) {
+      if ( group.first->GetParentTrack().GetParticlePdg() == PDG_t::kProton &&
 	   !group.second.empty()) {
 	Group group_seg;
 	GroupConvertB2ToSeg(group, group_seg);
@@ -1721,7 +1736,6 @@ void ConnectionFunction::AddGroupToEventInfo(Momentum_recon::Event_information &
 
   if ( muon_group.first->GetEmulsionTrackId() == group.first->GetEmulsionTrackId() ) { // muon
     mom_chain.direction = 1;
-    mom_chain.particle_flag += 13;
   }
   else if ( vertex_track->GetPlate() == group.first->GetPlate() ) { // forward partner
     mom_chain.direction = 1;

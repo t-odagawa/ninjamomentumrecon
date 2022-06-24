@@ -213,12 +213,6 @@ int main ( int argc, char* argv[] ) {
 	ev.ecc_id += ecc_id + 1;
       }
 
-      if ( ev.true_chains.size() > 7 &&
-	   ev.chains.size() == 1 ) {
-	std::cout << "chain size large" << std::endl;
-	BOOST_LOG_TRIVIAL(warning) << "Filename : " << ofilename << ", eventid : " << ev.groupid;
-      }
-
       ev_vec.push_back(ev);
 
     }
