@@ -19,6 +19,8 @@ public:
 
   double GetTrackerEfficiency(double bm_angle) const;
 
+  double GetBmErr(double range_mom) const;
+
 };
 
 #endif

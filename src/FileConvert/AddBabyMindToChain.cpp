@@ -13,8 +13,10 @@
 
 // root includes
 #include <TRandom.h>
+#include <TMath.h>
 
 // B2 includes
+#include <B2Const.hh>
 #include <B2Reader.hh>
 #include <B2SpillSummary.hh>
 #include <B2TrackSummary.hh>
@@ -36,7 +38,8 @@ int main ( int argc, char* argv[] ) {
 
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::info
+     // logging::trivial::severity >= logging::trivial::info
+     logging::trivial::severity >= logging::trivial::debug
      );
 
   BOOST_LOG_TRIVIAL(info) << "==========Add Baby MIND information to MC chain information start==========";
@@ -44,6 +47,7 @@ int main ( int argc, char* argv[] ) {
   if ( argc != 6 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
 			     << " <Input B2 file> <Input NTBM file> <Input momch file> <Output momch file> <data dir path>";
+    std::exit(1);
   }
 
   try {
@@ -51,13 +55,12 @@ int main ( int argc, char* argv[] ) {
     gRandom->SetSeed(time(NULL));
 
     B2Reader reader((std::string)argv[1]);
-    std::string ntbmfilename = argv[2];
-    /*
-    TFile *ntbmfile = new TFile(ntbmfilename, "read");
+
+    TFile *ntbmfile = new TFile(argv[2], "read");
     TTree *ntbmtree = (TTree*)ntbmfile->Get("tree");
     NTBMSummary *ntbm = nullptr;
     ntbmtree->SetBranchAddress("NTBMSummary", &ntbm);
-    */
+
     auto ev_vec = Momentum_recon::ReadEventInformationBin((std::string)argv[3]);
 
     const std::string data_dir_path = argv[5];
@@ -65,60 +68,108 @@ int main ( int argc, char* argv[] ) {
     const MatchFunction match_function(match_data);
     // Shifter efficiency data?
 
+    const double bm_nt_distance = (BABYMIND_POS_Z + BM_SECOND_LAYER_POS) 
+      - (NINJA_POS_Z + NINJA_ECC_POS_Z + NINJA_DESIC_DEPTH / 2. - NINJA_DESIC_THICK
+	 - NINJA_ENV_THICK - 3. * NINJA_FILM_THICK - NINJA_SS_AC_THICK);
+    BOOST_LOG_TRIVIAL(debug) << "Baby MIND-tracker distance = " << bm_nt_distance << " mm";
+
+
     for ( auto &ev : ev_vec ) {
 
       if ( ev.chains.empty() ) continue;
 
+      BOOST_LOG_TRIVIAL(debug) << "Entry : " << ev.groupid;
+      
       reader.ReadSpill(ev.groupid);
       auto &spill_summary = reader.GetSpillSummary();
 
+      ntbmtree->GetEntry(ev.groupid);
+
       bool fill_flag = true;
 
+      int bm_stop_flag = -1;
+      int bm_charge = 0;
+      double range_mom = -1;
+      double muon_angle = -1.;
+      std::vector<double > muon_position;
+      double track_length = -1.;
+
       // Baby MIND の飛跡の中で一番長いものを muon とする
-
+      for ( int itrack = 0; itrack < ntbm->GetNumberOfTracks(); itrack++ ) {
+	if ( ntbm->GetTrackLengthTotal(itrack) > track_length ) {
+	  BOOST_LOG_TRIVIAL(trace) << "Baby MIND muon track update by longer length";
+	  bm_stop_flag = ntbm->GetMomentumType(itrack);
+	  bm_charge = ntbm->GetCharge(itrack);
+	  range_mom = ntbm->GetMomentum(itrack);
+	  auto tangent = ntbm->GetBabyMindTangent(itrack);
+	  muon_angle = std::atan(std::hypot(tangent.at(0),tangent.at(1))) * TMath::RadToDeg();
+	  muon_position = ntbm->GetBabyMindPosition(itrack);
+	  muon_position.at(0) += BABYMIND_POS_Y;
+	  muon_position.at(1) += BABYMIND_POS_X;
+	}
+      }
+      
       // ECC 中の muon id された飛跡を見つける
-      for ( auto &chain : ev.chains ) {
+      // pl3 or 4 に basetrack を持つ chain の中から Baby MIND との位置ズレが
+      // 最も小さいもの？
+      // pl3 or 4 に basetrack が一つもない場合はすでに消去されている
+      if ( ntbm->GetNumberOfTracks() < 1 ) {
+	fill_flag = false;
+      }
+      else {
+	double dx = 100000;
+	double dy = 100000;
 
-	if ( chain.base.front().pl != 3 &&
-	     chain.base.front().pl != 4 ) continue;
+	int muon_chain_id = -1;	
+	int ichain = 0;
+	for ( auto chain : ev.chains ) {
 
-	
-
-
-
-	
-
-	auto it_recon_track = spill_summary.BeginReconTrack();
-	while ( auto *track = it_recon_track.Next() ) {
-
+	  ichain++;
 	  
+	  if ( chain.base.front().pl != 3 &&
+	       chain.base.front().pl != 4 ) continue;
+	  
+	  double x = chain.base.front().x / 1000.;
+	  double y = chain.base.front().y / 1000.; // um -> mm
+	  x = x - 125. + NINJA_POS_X + NINJA_ECC_POS_X;
+	  y = y - 125. + NINJA_POS_Y + NINJA_FV_IRON_POS_Y;
+	  double ax = chain.base.front().ax;
+	  double ay = chain.base.front().ay;
 
+	  double ex_dx = x + ax * bm_nt_distance - muon_position.at(1);
+	  double ex_dy = y + ay * bm_nt_distance - muon_position.at(0);
+	  
+	  if ( ex_dx * ex_dx + ex_dy * ex_dy < dx * dx + dy * dy ) {
+	    BOOST_LOG_TRIVIAL(trace) << "ECC muon track update by smaller position difference";
+	    muon_chain_id = ichain - 1;
+	  }
 
-	  // 対応する Baby MIND range momentum などを追加
-	  if ( track->GetIsStopping() ) {
-	    chain.stop_flag = 1;
+	}
+
+	if ( muon_chain_id >= 0 ) {
+	
+	  auto &muon_chain = ev.chains.at(muon_chain_id);
+	  if ( bm_stop_flag == 0 ) {
+	    muon_chain.stop_flag = 1;
 	  }
 	  else {
-	    chain.stop_flag = 0;
+	    muon_chain.stop_flag = 0;
 	  }
-	  chain.bm_range_mom = track->GetFinalAbsoluteMomentum().GetValue();
-	  chain.bm_range_mom_error[0] = track->GetFinalAbsoluteMomentum().GetError();
-	  chain.bm_range_mom_error[1] = track->GetFinalAbsoluteMomentum().GetError();
+	  muon_chain.particle_flag += 13; // true * 10000 + recon
+	  muon_chain.charge_sign = bm_charge;
+	  muon_chain.bm_range_mom = range_mom;
+	  muon_chain.bm_range_mom_error[0] = range_mom * match_function.GetBmErr(range_mom);
+	  muon_chain.bm_range_mom_error[1] = range_mom * match_function.GetBmErr(range_mom);
+	  // Detection/connection efficiency を計算
+	  // 乱数によってイベントを見つけるかを確認する
+	  double efficiency = match_function.GetTrackerEfficiency(muon_angle);
+	  efficiency *= 0.9; // preliminary shifter efficiency
+	  double prob = gRandom->Uniform();
+	  if ( prob < 1. - efficiency ) fill_flag = false;
 	}
-	
-	
-
-	
-	// Detection/connection efficiency を計算
-	// 乱数によってイベントを見つけるかを確認する
-	double efficiency = match_function.GetTrackerEfficiency(15.);
-	double prob = gRandom->Uniform();
-	if ( prob < 1. - efficiency ) fill_flag = false;	
-
-	break;
+	else { fill_flag = false; }
 
       }
-
       if ( !fill_flag ) {
 	for ( auto &chain : ev.chains ) {
 	  chain.base.clear();
@@ -126,11 +177,10 @@ int main ( int argc, char* argv[] ) {
 	}
 	ev.chains.clear();
       }
-      
+
     }
 
-    Momentum_recon::WriteEventInformationBin(argv[2], ev_vec);
-
+    Momentum_recon::WriteEventInformationBin(argv[4], ev_vec);
     
   } catch ( const std::runtime_error &error ) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

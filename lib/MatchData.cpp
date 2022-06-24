@@ -31,16 +31,16 @@ void MatchData::ReadShifterEfficiencyData(const fs::path &file_dir_path) {
 }
 
 void MatchData::ReadTrackerEfficiencyData(const fs::path &file_dir_path) {
-  const fs::path filepath(file_dir_path/TRACKER_EFFICIENCY_FILENAME);
+  const fs::path filepath(file_dir_path/MATCH_DIRNAME/TRACKER_EFFICIENCY_FILENAME);
 
   if ( !fs::exists(filepath) )
-    throw std::runtime_error("Tracker efficiency file : " + filepath.string() + " nor found");
+    throw std::runtime_error("Tracker efficiency file : " + filepath.string() + " not found");
 
   TFile *file = new TFile(filepath.string().c_str(), "read");
-  TGraphErrors *ge = (TGraphErrors*)file->Get("ge");
+  ge_ = (TGraphErrors*)file->Get("ge_eff");
 
-  for ( int i = 0; i < ge->GetN(); i++ ) {   
-    tracker_efficiency_.push_back(ge->GetPointY(i));
+  for ( int i = 0; i < ge_->GetN(); i++ ) {   
+    tracker_efficiency_.push_back(ge_->GetPointY(i));
   }
 
   for ( int i = 0; i < tracker_efficiency_.size(); i++ ) {
