@@ -14,6 +14,7 @@
 // root includes
 #include <TRandom.h>
 #include <TMath.h>
+#include <TVector3.h>
 
 // B2 includes
 #include <B2Const.hh>
@@ -38,8 +39,9 @@ int main ( int argc, char* argv[] ) {
 
   logging::core::get()->set_filter
     (
-     // logging::trivial::severity >= logging::trivial::info
-     logging::trivial::severity >= logging::trivial::debug
+      logging::trivial::severity >= logging::trivial::info
+     // logging::trivial::severity >= logging::trivial::debug
+     //logging::trivial::severity >= logging::trivial::trace
      );
 
   BOOST_LOG_TRIVIAL(info) << "==========Add Baby MIND information to MC chain information start==========";
@@ -62,6 +64,7 @@ int main ( int argc, char* argv[] ) {
     ntbmtree->SetBranchAddress("NTBMSummary", &ntbm);
 
     auto ev_vec = Momentum_recon::ReadEventInformationBin((std::string)argv[3]);
+    std::vector<Momentum_recon::Event_information> ev_vec_out = {};
 
     const std::string data_dir_path = argv[5];
     const MatchData match_data(data_dir_path);
@@ -79,7 +82,7 @@ int main ( int argc, char* argv[] ) {
       if ( ev.chains.empty() ) continue;
 
       BOOST_LOG_TRIVIAL(debug) << "Entry : " << ev.groupid;
-      
+      // if ( ev.groupid > 64 ) break;
       reader.ReadSpill(ev.groupid);
       auto &spill_summary = reader.GetSpillSummary();
 
@@ -92,6 +95,7 @@ int main ( int argc, char* argv[] ) {
       double range_mom = -1;
       double muon_angle = -1.;
       std::vector<double > muon_position;
+      std::vector<double > muon_tangent;
       double track_length = -1.;
 
       // Baby MIND の飛跡の中で一番長いものを muon とする
@@ -106,12 +110,14 @@ int main ( int argc, char* argv[] ) {
 	  muon_position = ntbm->GetBabyMindPosition(itrack);
 	  muon_position.at(0) += BABYMIND_POS_Y;
 	  muon_position.at(1) += BABYMIND_POS_X;
+	  muon_tangent = ntbm->GetBabyMindTangent(itrack);
 	}
       }
-      
+
       // ECC 中の muon id された飛跡を見つける
       // pl3 or 4 に basetrack を持つ chain の中から Baby MIND との位置ズレが
       // 最も小さいもの？
+      // 角度で適当にカットしないとおかしな chance coincidence がありえる?
       // pl3 or 4 に basetrack が一つもない場合はすでに消去されている
       if ( ntbm->GetNumberOfTracks() < 1 ) {
 	fill_flag = false;
@@ -125,7 +131,6 @@ int main ( int argc, char* argv[] ) {
 	for ( auto chain : ev.chains ) {
 
 	  ichain++;
-	  
 	  if ( chain.base.front().pl != 3 &&
 	       chain.base.front().pl != 4 ) continue;
 	  
@@ -157,31 +162,44 @@ int main ( int argc, char* argv[] ) {
 	  }
 	  muon_chain.particle_flag += 13; // true * 10000 + recon
 	  muon_chain.charge_sign = bm_charge;
+
+	  int nwater = match_function.GetNumIronPlate(ev.vertex_pl);
+	  int niron = match_function.GetNumWaterPlate(ev.vertex_pl);
+	  TVector3 track_direction(muon_chain.base.back().ax, muon_chain.base.back().ay, 1.);
+	  track_length += track_direction.Mag() * (2.3 * nwater + 0.5 * niron * 8.03);
+	  track_length += match_function.GetDWGTrackLength(track_direction);
+	  match_function.ConvertFromLengthToMom(range_mom, track_length);
+
 	  muon_chain.bm_range_mom = range_mom;
 	  muon_chain.bm_range_mom_error[0] = range_mom * match_function.GetBmErr(range_mom);
 	  muon_chain.bm_range_mom_error[1] = range_mom * match_function.GetBmErr(range_mom);
 	  // Detection/connection efficiency を計算
-	  // 乱数によってイベントを見つけるかを確認する
+	  // weight に efficiency をかける
 	  double efficiency = match_function.GetTrackerEfficiency(muon_angle);
-	  efficiency *= 0.9; // preliminary shifter efficiency
-	  double prob = gRandom->Uniform();
-	  if ( prob < 1. - efficiency ) fill_flag = false;
+	  efficiency *= 0.93; // preliminary shifter efficiency
+	  ev.weight *= efficiency;
 	}
 	else { fill_flag = false; }
 
       }
+      
       if ( !fill_flag ) {
 	for ( auto &chain : ev.chains ) {
 	  chain.base.clear();
+	  chain.base.shrink_to_fit();
 	  chain.base_pair.clear();
+	  chain.base_pair.shrink_to_fit();
 	}
 	ev.chains.clear();
+	ev.chains.shrink_to_fit();
       }
+
+      ev_vec_out.push_back(ev);
 
     }
 
-    Momentum_recon::WriteEventInformationBin(argv[4], ev_vec);
-    
+    Momentum_recon::WriteEventInformationBin(argv[4], ev_vec_out);
+
   } catch ( const std::runtime_error &error ) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();
     std::exit(1);

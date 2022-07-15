@@ -1599,6 +1599,187 @@ bool ConnectionFunction::SelectMuonGroup(std::vector<std::pair<B2EmulsionSummary
 
 }
 
+bool ConnectionFunction::PenetrateCheck(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
+					std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+					B2EmulsionSummary* &vertex_track,
+					int ecc_id,
+					std::vector<B2EmulsionSummary* > &emulsions,
+					double &kink_oa, double &kink_md) const {
+  
+  // muon group の最上流 pl 
+  Segment vertex_seg;
+  vertex_seg.rawid = vertex_track->GetEmulsionTrackId();
+  vertex_seg.plate = vertex_track->GetPlate() + 1;
+
+  // muon group の角度は上流 6 seg の平均
+  Group muon_group_seg;
+  GroupConvertB2ToSeg(muon_group, muon_group_seg);
+  std::set<Segment > muon_seg_set;
+  for ( auto linklet : muon_group_seg.linklets ) {
+    muon_seg_set.insert(linklet.first);
+    muon_seg_set.insert(linklet.second);
+  }
+  double ax = 0.;
+  double ay = 0.;
+  int n_mu_ang = 0;
+  for ( auto itr = muon_seg_set.begin(); itr != muon_seg_set.end(); itr++ ) {
+    if ( std::distance(muon_seg_set.begin(), itr) > 5) break;
+    B2EmulsionSummary* tmp;
+    ConvertRawIdToB2((*itr).rawid, tmp, emulsions);
+    ax += tmp->GetTangent().GetValue().X();
+    ay += tmp->GetTangent().GetValue().Y();
+    n_mu_ang++;
+  }
+  ax /= n_mu_ang; ay /= n_mu_ang;
+  
+  // muon もしくは non-low-mom pion が接続候補
+  // 各 group に対して始点が最下流の飛跡で pl-1 から pl-4 の間にあれば penetrate check の接続候補
+  // さらにそれらが MD/OA をみたすか確認して接続候補リストに詰める
+  std::map<double, Group > penetrate_connect_cand_map;
+  std::map<double, double > oa_md_map;
+  for ( auto group : groups ) {  
+
+    Group group_seg;
+    GroupConvertB2ToSeg(group, group_seg);
+    Segment start_seg;
+    start_seg.plate = group_seg.start_plate;
+    start_seg.rawid = group_seg.start_rawid;
+    boost::unordered_multimap<Segment, Segment > ups;
+    boost::unordered_multimap<Segment, Segment > downs;
+    boost::unordered_multimap<Segment, Segment > ups_start;
+    boost::unordered_multimap<Segment, Segment > downs_start;
+    CollectEdgeTracks(ups, downs, ups_start, downs_start,
+		      group_seg, start_seg);
+
+    int downstream_plate = 133;
+    auto range = downs.equal_range(start_seg);
+    for ( auto itr = range.first; itr != range.second; itr++ ) {
+      Segment downstream_seg = itr->second;
+      if ( downstream_seg.plate < downstream_plate ) {
+	downstream_plate = downstream_seg.plate;
+      }
+    }
+
+    if ( group_seg.start_plate == downstream_plate &&
+	 group_seg.start_plate >= vertex_seg.plate + 1 &&
+	 group_seg.start_plate <= vertex_seg.plate + 4 ) { // pl+1 - pl+4 から上流に向かう chain であること
+      if ( group.first->GetParentTrack().GetParticlePdg() == 13 ||
+	   (B2Pdg::IsChargedPion(group.first->GetParentTrack().GetParticlePdg()) &&
+	    group.first->GetParentTrack().GetInitialAbsoluteMomentum().GetValue() > 100.) ) { // MIP like であること
+
+	B2EmulsionSummary* candidate_track;
+	ConvertRawIdToB2(group_seg.start_rawid, candidate_track, emulsions);
+	
+	TVector3 parent_pos = vertex_track->GetAbsolutePosition().GetValue();
+	parent_pos = 1000. * parent_pos; // mm -> um
+	TVector3 daughter_pos = candidate_track->GetAbsolutePosition().GetValue();
+	daughter_pos = 1000. * daughter_pos;
+	TVector3 parent_dir = vertex_track->GetTangent().GetValue();
+	TVector3 daughter_dir = candidate_track->GetTangent().GetValue();
+	std::array<Double_t, 2 > z_range = {parent_pos.Z(), daughter_pos.Z()};
+	std::array<Double_t, 2 > extrapolate_z;
+	TVector3 recon_vertex;
+
+	double oa = GetOpeningAngle(parent_dir, daughter_dir);
+	double md = GetMinimumDistance(parent_pos, daughter_pos,
+				       parent_dir, daughter_dir,
+				       z_range, extrapolate_z,
+				       ecc_id, recon_vertex);
+	BOOST_LOG_TRIVIAL(trace) << "OA : " << oa << ", " << "MD : " << md;
+	if ( oa < 0.2 && md < 200. ) {
+	  penetrate_connect_cand_map.insert(std::make_pair(oa, group_seg));
+	  oa_md_map.insert(std::make_pair(oa, md));
+	}
+      }      
+    }
+
+  }
+
+  // 接続候補の group(chain) が複数ある場合は OA が一番小さいものをつなぐ
+  if ( penetrate_connect_cand_map.size() == 0 ) return false;
+  auto itr = penetrate_connect_cand_map.begin();
+  kink_oa = (*itr).first; kink_md = oa_md_map.at(kink_oa);
+  auto group_connect = (*itr).second;
+  Segment connect_seg;
+  connect_seg.rawid = group_connect.start_rawid;
+  connect_seg.plate = group_connect.start_plate;
+  auto connect_pair = std::make_pair(vertex_seg, connect_seg);
+  muon_group_seg.linklets.push_back(connect_pair);
+  for ( auto linklet : group_connect.linklets ) {
+    muon_group_seg.linklets.push_back(linklet);
+  }
+
+  GroupConvertSegToB2(muon_group_seg, muon_group, emulsions);
+
+  // muon vertex track を更新する
+  int vertex_plate = -1;
+  Segment start_seg;
+  start_seg.plate = muon_group_seg.start_plate;
+  start_seg.rawid = muon_group_seg.start_rawid;
+  boost::unordered_multimap<Segment, Segment > ups;
+  boost::unordered_multimap<Segment, Segment > downs;
+  boost::unordered_multimap<Segment, Segment > ups_start;
+  boost::unordered_multimap<Segment, Segment > downs_start;
+  
+  CollectEdgeTracks(ups, downs, ups_start, downs_start,
+		    muon_group_seg, start_seg);
+  auto range = ups.equal_range(start_seg);
+  for ( auto itr = range.first; itr != range.second; itr++ ) {
+    Segment upstream_seg = itr->second;
+    if ( upstream_seg.plate > vertex_plate ) {
+      ConvertRawIdToB2(upstream_seg.rawid, vertex_track, emulsions);
+      vertex_plate = vertex_track->GetPlate() + 1;
+    }
+  }
+
+  // muon と penetrate check によって同一視された group について
+  // muon chain の linklet を追加
+  for ( auto &group : groups ) {
+    Group group_seg;
+    GroupConvertB2ToSeg(group, group_seg);
+    bool muon_connect_flag = false;
+    for ( auto linklet : group_seg.linklets ) {
+      if ( linklet.first.rawid == connect_seg.rawid) {
+	muon_connect_flag = true;
+	break;
+      }
+      else if ( linklet.second.rawid == vertex_seg.rawid ) {
+	muon_connect_flag = true;
+	break;
+      }
+    }
+
+    if ( muon_connect_flag ) {
+      std::set<std::pair<Segment, Segment > > linklets_set;
+      for ( auto linklet : muon_group_seg.linklets ) {
+	linklets_set.insert(linklet);
+      }
+      linklets_set.insert(std::make_pair(vertex_seg, connect_seg));
+      for ( auto linklet : group_seg.linklets ) {
+	linklets_set.insert(linklet);
+      }
+
+      B2EmulsionSummary* start_b2;
+      ConvertRawIdToB2(group_seg.start_rawid, start_b2, emulsions);
+      std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > linklets_b2;
+      for ( auto linklet_seg : linklets_set ) {
+	std::pair<B2EmulsionSummary*, B2EmulsionSummary* > linklet_b2;
+	LinkletConvertSegToB2(linklet_seg, linklet_b2, emulsions);
+	linklets_b2.push_back(linklet_b2);
+      }
+      group.first = start_b2;
+      group.second = linklets_b2;
+    }
+  }
+
+  // つながったイベントに対して ROOT file につめる
+  // つながらなかった場合は true と vertex plate が一致しないものは ROOT file につめる flag をたてる
+
+
+  return true;
+
+}
+
 void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
 				       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
 				       std::vector<B2EmulsionSummary* > &emulsions_partner,
@@ -1629,9 +1810,9 @@ void ConnectionFunction::PartnerSearch(B2EmulsionSummary* vertex_track,
       recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + 0.5 * NINJA_IRON_LAYER_THICK) * tangent;
     } else if ( vertex_plate == 14 ) {
       recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_ENV_THICK) * tangent;
-    } else if ( vertex_plate%2 == 0 ) {
-      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_ENV_THICK + 0.5 * NINJA_WATER_LAYER_THICK) * tangent;
     } else if ( vertex_plate%2 == 1 ) {
+      recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_ENV_THICK + 0.5 * NINJA_WATER_LAYER_THICK) * tangent;
+    } else if ( vertex_plate%2 == 0 ) {
       recon_vertex = position - 1000. * (NINJA_EMULSION_LAYER_THICK + NINJA_IRON_LAYER_THICK) * tangent;
     }
   }
@@ -2192,6 +2373,14 @@ double ConnectionFunction::GetMinimumDistance(TVector3 parent_pos, TVector3 daug
   CalcPosInEccCoordinate(recon_vertex, ecc_id);
   return distance_vec.Mag();
 
+}
+
+double ConnectionFunction::GetOpeningAngle(TVector3 parent_dir, TVector3 daughter_dir) const {
+
+  double cos = (parent_dir * daughter_dir) / parent_dir.Mag() / daughter_dir.Mag();
+  if ( cos > 1. ) return 0.;
+  if ( cos < -1. ) return TMath::Pi();
+  return std::acos(cos);
 }
 
 int ConnectionFunction::GetVertexMaterial(TVector3 recon_vertex) const {

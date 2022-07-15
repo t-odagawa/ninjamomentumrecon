@@ -99,8 +99,10 @@ int main ( int argc, char* argv[]) {
 	if ( recon_particle_id != 0 ) continue;
 
 	// likelihood に基づき recon particle id を決定
-	recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
-	chain.particle_flag += recon_particle_id;
+	if ( chain.ecc_mcs_mom[0] < 700. ) {
+	  recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
+	  chain.particle_flag += recon_particle_id;
+	}
 
 	// ECC 内で partner が止まっているかを確認
 	pid_function.CalculateStopFlag(chain, ev.true_chains);
@@ -129,6 +131,9 @@ int main ( int argc, char* argv[]) {
 	chain.ecc_range_mom[1] += MCS_PROTON_MASS;
 	chain.ecc_range_mom[1] = CalculateMomentumFromEnergy(chain.ecc_range_mom[1],
 							     MCS_PROTON_MASS);
+	chain.ecc_range_mom_error[1][0] = range_function.CalculateProtonRangeError(chain.ecc_range_mom[1],
+										   std::hypot(tangent.at(0), tangent.at(1)));
+	chain.ecc_range_mom_error[1][1] = chain.ecc_range_mom_error[1][0];
       }
 
     }

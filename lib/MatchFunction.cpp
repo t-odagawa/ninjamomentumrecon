@@ -2,6 +2,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
+#include <TVector3.h>
+
 #include "MatchData.hpp"
 #include "MatchFunction.hpp"
 
@@ -33,4 +35,42 @@ double MatchFunction::GetBmErr(double range_mom) const {
   else if ( range_mom < 1300 ) return 0.037908676;
   else if ( range_mom < 1400 ) return 0.030906878;
   else return 0.036638113;
+}
+
+int MatchFunction::GetNumWaterPlate(int vertex_pl) const {
+  if ( vertex_pl < 17 ) return 0;
+  else return ( vertex_pl - 16 ) / 2;
+}
+
+int MatchFunction::GetNumIronPlate(int vertex_pl) const {
+  if ( vertex_pl < 16 ) return (vertex_pl - 4);
+  else if ( vertex_pl == 16 ) return 11;
+  else return (vertex_pl - 15) / 2 + 11;
+}
+
+void MatchFunction::ConvertFromLengthToMom(double &range_mom, double track_length) const {
+  for ( int i = 0; i < 20; i++ ) {
+    double lefthand, righthand;
+    double gapx, gapy;
+    if ( track_length > x_[i] && track_length < x_[i+1] ) {
+      lefthand = std::fabs(track_length - x_[i]);
+      righthand = std::fabs(x_[i+1] - track_length);
+      gapx = x_[i+1] - x_[i];
+      gapy = y_[i+1] - y_[i];
+      range_mom = y_[i] + gapy * (lefthand/gapx);
+      break;
+    }
+  }
+}
+
+double MatchFunction::GetDWGTrackLength(TVector3 track_direction) const {
+  double track_length_ = 0.;
+  for ( int i = 0; i < 8; i++ ) {
+    track_length_ += 60.;
+  }
+  track_length_ += 18.2;
+  track_length_ += 24 * 7.874;
+
+  return track_length_ * track_direction.Mag();
+
 }

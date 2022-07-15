@@ -381,3 +381,24 @@ double RangeFunction::CalculateEnergyFromRangeBackward(std::vector<double> ax, s
   return energy;
 
 }
+
+double RangeFunction::CalculateProtonRangeError(double range_mom, double tangent) const {
+
+  if ( range_mom < 200.) return range_mom * 0.03;
+  else if ( range_mom < 300. ) {
+    if ( tangent < 1. ) return range_mom * 0.03;
+    else if ( tangent < 2. ) return range_mom * 0.04;
+    else if ( tangent < 3. ) return range_mom * 0.06;
+    else return range_mom * 0.02;    
+  }
+  else if ( range_mom < 400. ) {
+    if ( tangent < 1. ) return range_mom * 0.01;
+    else return range_mom * 0.02;
+  }
+  else if ( range_mom < 500. ) {
+    if ( tangent < 1. ) return range_mom * 0.005;
+    else return range_mom * 0.01;
+  }
+  else return range_mom * 0.01;
+
+}

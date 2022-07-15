@@ -21,7 +21,8 @@ int main (int argc, char* argv[]) {
 
   logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::debug
+     //logging::trivial::severity >= logging::trivial::debug
+     logging::trivial::severity >= logging::trivial::info
      );
 
   BOOST_LOG_TRIVIAL(info) << "=========Momentum Reconstruction Start==========";
@@ -35,13 +36,13 @@ int main (int argc, char* argv[]) {
   try {
 
     std::string ifilename = argv[1];
-    std::vector<Momentum_recon::Event_information > ev_vec = Momentum_recon::ReadEventInformationBin(ifilename);
+    auto ev_vec = Momentum_recon::ReadEventInformationBin(ifilename);
 
     Int_t num_entry = 0;
 
     for ( auto &ev : ev_vec ) {
 
-      BOOST_LOG_TRIVIAL(debug) << "Entry : " << num_entry;
+      BOOST_LOG_TRIVIAL(debug) << "Entry : " << ev.groupid;
       num_entry++;
       // if ( num_entry > 10) break;
             
@@ -219,11 +220,11 @@ int main (int argc, char* argv[]) {
 	int material_mode = std::atoi(argv[3]);
 	// 0 : iron, 1 : water, 2 : combo
 	switch ( material_mode ) {
-	case kNinjaWater : 
-	  BOOST_LOG_TRIVIAL(debug) << "Water only reconstruction";
-	  break;
 	case kNinjaIron : 
 	  BOOST_LOG_TRIVIAL(debug) << "Iron only reconstruction";
+	  break;
+	case kNinjaWater : 
+	  BOOST_LOG_TRIVIAL(debug) << "Water only reconstruction";
 	  break;
 	case 2 :
 	  BOOST_LOG_TRIVIAL(debug) << "Iron + water reconstruction";
@@ -244,6 +245,7 @@ int main (int argc, char* argv[]) {
 	*/
 	for ( int particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
 
+	  // lateral だけで reconstruction
 	  auto results = ReconstructPBeta(initial_pbeta,
 					  1, particle_id,
 					  chain.direction,
@@ -252,7 +254,7 @@ int main (int argc, char* argv[]) {
 					  radial_cut_value_water,
 					  lateral_cut_value_water,
 					  kTRUE,
-					  material_mode,
+					  material_mode, 1,
 					  basetrack_distance,
 					  basetrack_distance_water,
 					  track_tangent,
@@ -273,7 +275,7 @@ int main (int argc, char* argv[]) {
 						       radial_cut_value_water,
 						       lateral_cut_value_water,
 						       kTRUE,
-						       material_mode,
+						       material_mode, 1,
 						       basetrack_distance,
 						       basetrack_distance_water,
 						       track_tangent,
@@ -287,7 +289,7 @@ int main (int argc, char* argv[]) {
 						     radial_cut_value_water,
 						     lateral_cut_value_water,
 						     kTRUE,
-						     material_mode,
+						     material_mode, 1,
 						     basetrack_distance,
 						     basetrack_distance_water,
 						     track_tangent,
@@ -295,7 +297,7 @@ int main (int argc, char* argv[]) {
 						     plate_id_next,
 						     radial_angle_difference,
 						     lateral_angle_difference);
-	      if ( nll - nll_min > 0.5 ) {
+	      if ( nll - nll_min > 1. ) {
 		pbeta_err_minus = ipbeta - pbeta;
 		break;
 	      }
@@ -310,7 +312,7 @@ int main (int argc, char* argv[]) {
 						       radial_cut_value_water,
 						       lateral_cut_value_water,
 						       kTRUE,
-						       material_mode,
+						       material_mode, 1,
 						       basetrack_distance,
 						       basetrack_distance_water,
 						       track_tangent,
@@ -324,7 +326,7 @@ int main (int argc, char* argv[]) {
 						     radial_cut_value_water,
 						     lateral_cut_value_water,
 						     kTRUE,
-						     material_mode,
+						     material_mode, 1,
 						     basetrack_distance,
 						     basetrack_distance_water,
 						     track_tangent,
@@ -332,7 +334,7 @@ int main (int argc, char* argv[]) {
 						     plate_id_next,
 						     radial_angle_difference,
 						     lateral_angle_difference);
-	      if ( nll - nll_min > 0.5 ) {
+	      if ( nll - nll_min > 1. ) {
 		pbeta_err_minus = pbeta - ipbeta;
 		break;
 	      }
@@ -350,7 +352,117 @@ int main (int argc, char* argv[]) {
 	    }
 	  }
 
-	  // error の取り扱い要確認
+	  // ある値より小さければ radial + lateral で測定し直す
+	  if ( (particle_id == 0 && CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS) < 500.) || // muon
+	       (particle_id == 1 && CalculateMomentumFromPBeta(pbeta, MCS_PION_MASS) < 500.) || // pion
+	       (particle_id == 2 && CalculateMomentumFromPBeta(pbeta, MCS_PROTON_MASS) < 700.) ) { // proton
+
+	    auto results = ReconstructPBeta(initial_pbeta,
+					    1, particle_id,
+					    chain.direction,
+					    radial_cut_value,
+					    lateral_cut_value,
+					    radial_cut_value_water,
+					    lateral_cut_value_water,
+					    kTRUE,
+					    material_mode, 0,
+					    basetrack_distance,
+					    basetrack_distance_water,
+					    track_tangent,
+					    plate_id,
+					    plate_id_next,
+					    radial_angle_difference,
+					    lateral_angle_difference);
+
+	    pbeta = results.at(0);
+	    pbeta_err_minus = results.at(3);
+	    pbeta_err_plus = results.at(2);
+
+	    // mis fitting treatment
+	    if ( std::fabs(pbeta - 20.) < 1.e-4 ) {
+	      double nll_min = FuncNegativeLogLikelihood(20., 1, particle_id, chain.direction,
+							 radial_cut_value, lateral_cut_value,
+							 radial_cut_value_water,
+							 lateral_cut_value_water,
+							 kTRUE,
+							 material_mode, 1,
+							 basetrack_distance,
+							 basetrack_distance_water,
+							 track_tangent,
+							 plate_id,
+							 plate_id_next,
+							 radial_angle_difference,
+							 lateral_angle_difference);
+	      for ( double ipbeta = 20.; ipbeta < 10000.; ipbeta += 1. ) {
+		double nll = FuncNegativeLogLikelihood(ipbeta, 1, particle_id, chain.direction,
+						       radial_cut_value, lateral_cut_value,
+						       radial_cut_value_water,
+						       lateral_cut_value_water,
+						       kTRUE,
+						       material_mode, 1,
+						       basetrack_distance,
+						       basetrack_distance_water,
+						       track_tangent,
+						       plate_id,
+						       plate_id_next,
+						       radial_angle_difference,
+						       lateral_angle_difference);
+		if ( nll - nll_min > 1. ) {
+		  pbeta_err_minus = ipbeta - pbeta;
+		  break;
+		}
+	      }
+	      if ( pbeta_err_minus < 1.e-4 ) {
+		pbeta_err_minus = 10000. - pbeta;
+	      }
+	    }
+	    else if ( std::fabs(pbeta - 10000.) < 1.e-4 ) {
+	      double nll_min = FuncNegativeLogLikelihood(10000., 1, particle_id, chain.direction,
+							 radial_cut_value, lateral_cut_value,
+							 radial_cut_value_water,
+							 lateral_cut_value_water,
+							 kTRUE,
+							 material_mode, 1,
+							 basetrack_distance,
+							 basetrack_distance_water,
+							 track_tangent,
+							 plate_id,
+							 plate_id_next,
+							 radial_angle_difference,
+							 lateral_angle_difference);
+	      for ( double ipbeta = 10000.; ipbeta >= 20.; ipbeta -= 1. ) {
+		double nll = FuncNegativeLogLikelihood(ipbeta, 1, particle_id, chain.direction,
+						       radial_cut_value, lateral_cut_value,
+						       radial_cut_value_water,
+						       lateral_cut_value_water,
+						       kTRUE,
+						       material_mode, 1,
+						       basetrack_distance,
+						       basetrack_distance_water,
+						       track_tangent,
+						       plate_id,
+						       plate_id_next,
+						       radial_angle_difference,
+						       lateral_angle_difference);
+		if ( nll - nll_min > 1. ) {
+		  pbeta_err_minus = pbeta - ipbeta;
+		  break;
+		}
+	      }
+	      if ( pbeta_err_minus < 1.e-4 ) {
+		pbeta_err_minus = pbeta - 20.;
+	      }
+	    }
+	    else {
+	      if ( pbeta_err_minus < 1.e-4 ) {
+		pbeta_err_minus = pbeta - 20.;
+	      }
+	      if ( pbeta_err_plus < 1.e-4 ) {
+		pbeta_err_plus = 10000. - pbeta;
+	      }
+	    }	    	    
+	  }
+
 	  if ( particle_id == 0 ) { // muon
 	    chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS);
 	    momentum_minus = CalculateMomentumFromPBeta(pbeta + pbeta_err_minus, MCS_MUON_MASS);
@@ -371,11 +483,9 @@ int main (int argc, char* argv[]) {
 	    momentum_plus = CalculateMomentumFromPBeta(pbeta + pbeta_err_plus, MCS_PROTON_MASS);
 	    chain.ecc_mcs_mom_error[1][0] = chain.ecc_mcs_mom[1] - momentum_minus;
 	    chain.ecc_mcs_mom_error[1][1] = momentum_plus - chain.ecc_mcs_mom[1];
-	  }	    
+	  }	 
 	}
       }
-
-      // Range?
       
     }
 

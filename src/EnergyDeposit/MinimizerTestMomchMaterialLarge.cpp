@@ -269,6 +269,7 @@ int main (int argc, char* argv[]) {
 	  */
 	  for ( int particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
 	    
+	    // lateral だけで reconstruction
 	    auto results = ReconstructPBeta(initial_pbeta,
 					    1, particle_id,
 					    chain.direction,
@@ -277,7 +278,7 @@ int main (int argc, char* argv[]) {
 					    radial_cut_value_water,
 					    lateral_cut_value_water,
 					    kTRUE,
-					    material_mode,
+					    material_mode, 1,
 					    basetrack_distance,
 					    basetrack_distance_water,
 					    track_tangent,
@@ -290,6 +291,34 @@ int main (int argc, char* argv[]) {
 	    double pbeta_err_minus = results.at(3);
 	    double pbeta_err_plus = results.at(2);
 	    double momentum_minus, momentum_plus; // p +/- 1 sigma
+
+	    // ある値より小さければ radial + lateral で測定し直す
+	    if ( (particle_id == 0 && CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS) < 500.) || // muon
+		 (particle_id == 1 && CalculateMomentumFromPBeta(pbeta, MCS_PION_MASS) < 500.) || // pion
+		 (particle_id == 2 && CalculateMomentumFromPBeta(pbeta, MCS_PROTON_MASS) < 700.) ) { // proton
+
+	      auto results = ReconstructPBeta(initial_pbeta,
+					      1, particle_id,
+					      chain.direction,
+					      radial_cut_value,
+					      lateral_cut_value,
+					      radial_cut_value_water,
+					      lateral_cut_value_water,
+					      kTRUE,
+					      material_mode, 0,
+					      basetrack_distance,
+					      basetrack_distance_water,
+					      track_tangent,
+					      plate_id,
+					      plate_id_next,
+					      radial_angle_difference,
+					      lateral_angle_difference);
+	      
+	      pbeta = results.at(0);
+	      pbeta_err_minus = results.at(3);
+	      pbeta_err_plus = results.at(2);	      
+	    }
+
 	    // error の取り扱い要確認
 	    if ( particle_id == 0 ) { // muon
 	      chain.ecc_mcs_mom[0] = CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS);

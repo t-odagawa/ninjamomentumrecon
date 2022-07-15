@@ -13,11 +13,14 @@
 #include <B2EmulsionSummary.hh>
 
 // ROOT includes
+#include <TFile.h>
+#include <TTree.h>
 
 // system includes
 #include <string>
 #include <fstream>
-#include <iostream> 
+#include <iostream>
+#include <sstream>
 #include <vector>
 #include <algorithm>
 #include <map>
@@ -79,10 +82,31 @@ int main ( int argc, char* argv[] ) {
     const ConnectionData connection_data(data_dir_path);
     const ConnectionFunction connection_function(connection_data);
 
+    std::stringstream ss;
+    ss << argv[2] << ".kink.root";
+    TFile *kink_file = new TFile(ss.str().c_str(), "recreate");
+    TTree *kink_tree = new TTree("tree", "tree");
+    int kink_groupid, num_kink;
+    double kink_mom;
+    double kink_ax, kink_ay;
+    std::vector<double > kink_md;
+    std::vector<double > kink_oa;
+    double kink_weight;
+    int kink_pl_diff;
+    double kink_vertex[3];
+    kink_tree->Branch("groupid", &kink_groupid, "groupid/I");
+    kink_tree->Branch("num_kink", &num_kink, "num_kink/I");
+    kink_tree->Branch("mu_momentum", &kink_mom, "mu_momentum/D");
+    kink_tree->Branch("md", &kink_md);
+    kink_tree->Branch("oa", &kink_oa);
+    kink_tree->Branch("weight", &kink_weight, "weight/D");
+    kink_tree->Branch("pl_diff", &kink_pl_diff, "pl_diff/I");
+    kink_tree->Branch("vertex", kink_vertex, "vertex[3]/D");
+
     while ( reader.ReadNextSpill() > 0 ) {
 
-      // if ( reader.GetEntryNumber() > 1000 ) continue;
-      // if ( reader.GetEntryNumber() != 1489 ) continue;
+      //if ( reader.GetEntryNumber() > 1000 ) continue;
+      //if ( reader.GetEntryNumber() != 296 ) continue;
 
       Momentum_recon::Event_information ev;
 
@@ -115,7 +139,7 @@ int main ( int argc, char* argv[] ) {
 
       if ( emulsions.empty() ) continue;
       std::sort(emulsions.begin(), emulsions.end(), EmulsionCompareDownToUp);
-      // std::cout << "Entry:" << reader.GetEntryNumber() << std::endl;
+      //std::cout << "Entry:" << reader.GetEntryNumber() << std::endl;
       // Get true chains
       std::vector<std::vector<const B2EmulsionSummary* > > chains = {};
       connection_function.GetTrueEmulsionChains(chains, emulsions);
@@ -135,8 +159,8 @@ int main ( int argc, char* argv[] ) {
       // Fiducial volume cut
       std::vector<B2EmulsionSummary* > emulsions_detected_in_fv;
       connection_function.ApplyFVCut(emulsions_detected_in_fv, emulsions_detected, ecc_id);     
-      // if ( reader.GetEntryNumber() == 22 )
-      //   connection_data.DrawFiducialAreaData(ecc_id, 37, emulsions_detected, reader.GetEntryNumber());
+      // if ( reader.GetEntryNumber() == 204 )
+      // connection_data.DrawFiducialAreaData(ecc_id, 12, emulsions_detected, reader.GetEntryNumber());
       
       // Linklet
       // Black については VPH <-> PID が同じものだけを対象に loose につなぐ
@@ -157,6 +181,7 @@ int main ( int argc, char* argv[] ) {
       // event-base の MC では省略する
       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_modified;
       connection_function.ModifyGroups(groups_modified, groups_reconnected, emulsions_detected_in_fv);
+
       /*
       for ( auto group : groups_modified ) {
 	std::cout << "start track : PL" << group.first->GetPlate() + 1 << ", " << group.first->GetEmulsionTrackId() << std::endl;
@@ -166,6 +191,7 @@ int main ( int argc, char* argv[] ) {
 	}
       }
       */
+
       // vertex plate を確定させる
       std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary*> > > muon_group;
       std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > groups_partner;
@@ -173,14 +199,30 @@ int main ( int argc, char* argv[] ) {
 
       if ( connection_function.SelectMuonGroup(groups_modified, muon_group, vertex_track, emulsions_detected_in_fv) ) {
 
-	int stop_flag = -1;
+	// crazy penetrate check, 接続候補がなくなるまでくりかえす
+	double tmp_oa, tmp_md;
+	while ( connection_function.PenetrateCheck(groups_modified, muon_group, vertex_track,
+						   ecc_id, emulsions_detected_in_fv,
+						   tmp_oa, tmp_md)) {
+	  kink_oa.push_back(tmp_oa); kink_md.push_back(tmp_md);
+	  BOOST_LOG_TRIVIAL(debug) << "Kink modification : " << ev.groupid;
+	}
+	/*
+	if ( connection_function.PenetrateCheck(groups_modified, muon_group, vertex_track,
+						ecc_id, emulsions_detected_in_fv) ) {
+	  std::cout << "Kink modification : " << ev.groupid << std::endl;
+	}
+	*/
 
 	if ( vertex_track->GetPlate() + 1 > 131 ) {
-	  stop_flag = 0;
 	  ev.vertex_material = -2;
+	  TVector3 recon_vertex = vertex_track->GetAbsolutePosition().GetValue();
+	  connection_function.CalcPosInEccCoordinate(recon_vertex, ecc_id);
+	  ev.recon_vertex_position[0] = recon_vertex.X();
+	  ev.recon_vertex_position[1] = recon_vertex.Y();
+	  ev.recon_vertex_position[2] = recon_vertex.Z();
 	} // penetrate
 	else if ( !connection_function.JudgeEdgeOut(vertex_track, ecc_id) ) { // stop check
-	  stop_flag = 1; // ECC stop
 	  // vertex plate に attach する basetrack を探す
 	  std::vector<B2EmulsionSummary* > emulsions_partner;
 	  TVector3 recon_vertex(0., 0., 0.);
@@ -203,14 +245,41 @@ int main ( int argc, char* argv[] ) {
 
 	}
 	else { // side escape
-	  stop_flag = 2;
 	  ev.vertex_material = -3;
+	  TVector3 recon_vertex = vertex_track->GetAbsolutePosition().GetValue();
+	  connection_function.CalcPosInEccCoordinate(recon_vertex, ecc_id);
+	  ev.recon_vertex_position[0] = recon_vertex.X();
+	  ev.recon_vertex_position[1] = recon_vertex.Y();
+	  ev.recon_vertex_position[2] = recon_vertex.Z();
 	}
 
 	// group を event information に変換
 	connection_function.AddGroupsToEventInfo(ev, vertex_track, muon_group, groups_partner, emulsions_detected_in_fv, ecc_id);
 	ev.vertex_pl += vertex_track->GetPlate() + 1;
 	ev.ecc_id += ecc_id + 1;
+
+      // kink file
+      kink_groupid = ev.groupid;
+      num_kink = kink_md.size();
+      kink_mom = vertex_track->GetParentTrack().GetInitialAbsoluteMomentum().GetValue();
+      kink_ax = muon_group.first->GetTangent().GetValue().X();
+      kink_ay = muon_group.first->GetTangent().GetValue().Y();
+      kink_weight = ev.weight;
+      kink_pl_diff = ev.vertex_pl / 1000 - ev.vertex_pl % 1000;
+      kink_vertex[0] = ev.true_vertex_position[0];
+      kink_vertex[1] = ev.true_vertex_position[1];
+      kink_vertex[2] = ev.true_vertex_position[2];
+      kink_tree->Fill();
+      kink_groupid = -1;
+      num_kink = 0;
+      kink_mom = -1.;
+      kink_ax = -5.; kink_ay = -5.;
+      kink_md.clear(); kink_oa.clear();
+      kink_weight = 0.;
+      kink_pl_diff = -133;
+      kink_vertex[0] = -1.; kink_vertex[1] = -1.; kink_vertex[2] = 1.;
+
+
       }
 
       ev_vec.push_back(ev);
@@ -218,6 +287,10 @@ int main ( int argc, char* argv[] ) {
     }
 
     Momentum_recon::WriteEventInformationBin(ofilename, ev_vec);
+
+    kink_file->cd();
+    kink_tree->Write();
+    kink_file->Close();
 
   } catch (const std::runtime_error &error) {
     BOOST_LOG_TRIVIAL(fatal) << "Runtime error : " << error.what();

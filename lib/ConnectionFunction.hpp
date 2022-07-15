@@ -157,6 +157,13 @@ public:
 		       B2EmulsionSummary* &vertex_track,
 		       std::vector<B2EmulsionSummary* > &emulsions) const;
 
+  bool PenetrateCheck(std::vector<std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > > &groups,
+		      std::pair<B2EmulsionSummary*, std::vector<std::pair<B2EmulsionSummary*, B2EmulsionSummary* > > > &muon_group,
+		      B2EmulsionSummary* &vertex_track,
+		      int ecc_id,
+		      std::vector<B2EmulsionSummary* > &emulsions,
+		      double &kink_oa, double &kink_md) const;
+
   void CollectEdgeTracks(boost::unordered_multimap<Segment, Segment > &upstream_tracks,
 			 boost::unordered_multimap<Segment, Segment > &downstream_tracks,
 			 boost::unordered_multimap<Segment, Segment > &upstream_tracks_start,
@@ -203,6 +210,7 @@ public:
 			    std::array<Double_t,2> &extrapolate_z,
 			    int ecc_id,
 			    TVector3 &recon_vertex) const;
+  double GetOpeningAngle(TVector3 parent_dir, TVector3 daughter_dir) const;
   int GetVertexMaterial(TVector3 recon_vertex) const;
   int GetVertexTargetMaterial(int vertex_plate) const;
 };

@@ -21,14 +21,15 @@
 // par[7]             : lateral angle difference water cut value
 // par[8]             : true(0)/smear(1) flag
 // par[9]             : reconstruction material mode
-// par[10]            : number of pairs of the basetracks ( = N )
-// par[   11 -  N+10] : basetrack distance (used for energy deposition and radiation length calculation)
-// par[ N+11 - 2N+10] : downstream water basetrack distance (used for energy deposition)
-// par[2N+11 - 3N+10] : upstream track tangent
-// par[3N+11 - 4N+10] : upstream plate id
-// par[4N+11 - 5N+10] : downstream plate id
-// par[5N+11 - 6N+10] : radial angle differences between basetracks
-// par[6N+11 - 7N+10] : lateral angle differences between basetracks
+// par[10]            : radial lateral mode
+// par[11]            : number of pairs of the basetracks ( = N )
+// par[   12 -  N+11] : basetrack distance (used for energy deposition and radiation length calculation)
+// par[ N+12 - 2N+11] : downstream water basetrack distance (used for energy deposition)
+// par[2N+12 - 3N+11] : upstream track tangent
+// par[3N+12 - 4N+11] : upstream plate id
+// par[4N+12 - 5N+11] : downstream plate id
+// par[5N+12 - 6N+11] : radial angle differences between basetracks
+// par[6N+12 - 7N+11] : lateral angle differences between basetracks
 void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag);
 
 ///> NLL function value for given information
@@ -42,6 +43,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
 				   Double_t lateral_cut_value_water,
 				   Bool_t smear_flag,
 				   Int_t material_mode,
+				   Int_t radlat_mode,
 				   std::vector<Double_t > basetrack_distance,
 				   std::vector<Double_t > basetrack_distance_water,
 				   std::vector<Double_t > track_tangent,
@@ -60,22 +62,24 @@ void GetSigmaAtEachStep(Double_t pbeta,
 			Double_t &lateral_sigma);
 
 Double_t FuncNegativeLogLikelihoodWater(Double_t pbeta, UInt_t ncell,
-					    Int_t particle_id, Int_t direction,
-					    Double_t radial_cut_value_water,
-					    Double_t lateral_cut_value_water,
-					    Bool_t smear_flag,
-					    std::vector<Double_t > basetrack_distance,
-					    std::vector<Double_t > basetrack_distance_water,
-					    std::vector<Double_t > track_tangent,
-					    std::vector<Int_t > plate_id,
-					    std::vector<Int_t > plate_id_next,
-					    std::vector<Double_t > radial_angle_difference,
-					    std::vector<Double_t > lateral_angle_difference);
+					Int_t particle_id, Int_t direction,
+					Double_t radial_cut_value_water,
+					Double_t lateral_cut_value_water,
+					Bool_t smear_flag,
+					Int_t radlat_mode,
+					std::vector<Double_t > basetrack_distance,
+					std::vector<Double_t > basetrack_distance_water,
+					std::vector<Double_t > track_tangent,
+					std::vector<Int_t > plate_id,
+					std::vector<Int_t > plate_id_next,
+					std::vector<Double_t > radial_angle_difference,
+					std::vector<Double_t > lateral_angle_difference);
 
 Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta, UInt_t ncell,
 				       Int_t particle_id, Int_t direction,
 				       Double_t radial_cut_value, Double_t lateral_cut_value,
 				       Bool_t smear_flag,
+				       Int_t radlat_mode,
 				       std::vector<Double_t > basetrack_distance,
 				       std::vector<Double_t > basetrack_distance_water,
 				       std::vector<Double_t > track_tangent,
@@ -90,6 +94,7 @@ Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta, UInt_t ncell,
 					Double_t radial_cut_value_water,
 					Double_t lateral_cut_value_water,
 					Bool_t smear_flag,
+					Int_t radlat_mode,
 					std::vector<Double_t > basetrack_distance,
 					std::vector<Double_t > basetrack_distance_water,
 					std::vector<Double_t > track_tangent,
@@ -159,6 +164,7 @@ std::array<Double_t, 5> ReconstructPBeta(Double_t initial_pbeta,
 					 Double_t lateral_cut_value_water,
 					 Bool_t smear_flag,
 					 Int_t material_mode,
+					 Int_t radlat_mode,
 					 std::vector<Double_t > basetrack_distance,
 					 std::vector<Double_t > basetrack_distance_water,
 					 std::vector<Double_t > track_tangent,

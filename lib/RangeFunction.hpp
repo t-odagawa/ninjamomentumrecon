@@ -36,6 +36,8 @@ private:
 public:
   explicit RangeFunction(const RangeSpline &range_spline);
 
+  void SetRelativeErrorMap();
+
   double IronRangeFromEnergy(double energy, int particle_id) const;
   double IronEnergyFromRange(double range, int particle_id) const;
   double WaterRangeFromEnergy(double energy, int particle_id) const;
@@ -49,6 +51,9 @@ public:
   double CalculateEnergyFromRange(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id, int direction) const;
   double CalculateEnergyFromRangeForward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
   double CalculateEnergyFromRangeBackward(std::vector<double> ax, std::vector<double> ay, std::vector<int> pl, int particle_id) const;
+
+  double CalculateProtonRangeError(double range_mom, double tangent) const;
+
 };
 
 #endif

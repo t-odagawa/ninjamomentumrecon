@@ -39,8 +39,10 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
   Bool_t smear_flag = (Bool_t)par[8];
   // Reconstruction material mode
   Int_t material_mode = par[9];
+  // Radial + lateral/lateral only flag
+  Int_t radlat_mode = par[10];
   // number of pairs
-  const UInt_t number_of_pairs = (UInt_t)par[10];
+  const UInt_t number_of_pairs = (UInt_t)par[11];
   // basetrack distance
   std::vector<Double_t > basetrack_distance = {};
   basetrack_distance.resize(number_of_pairs);
@@ -63,19 +65,19 @@ void NegativeLogLikelihood(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
   std::vector<Double_t > lateral_angle_difference = {};
   lateral_angle_difference.resize(number_of_pairs);
   for(Int_t ipairs = 0; ipairs < number_of_pairs; ipairs++) {
-    basetrack_distance.at(ipairs)       =        par[11                       + ipairs];
-    basetrack_distance_water.at(ipairs) =        par[11 + 1 * number_of_pairs + ipairs];
-    track_tangent.at(ipairs)            =        par[11 + 2 * number_of_pairs + ipairs];
-    plate_id.at(ipairs)                 = (Int_t)par[11 + 3 * number_of_pairs + ipairs];
-    plate_id_next.at(ipairs)            = (Int_t)par[11 + 4 * number_of_pairs + ipairs];
-    radial_angle_difference.at(ipairs)  =        par[11 + 5 * number_of_pairs + ipairs];
-    lateral_angle_difference.at(ipairs) =        par[11 + 6 * number_of_pairs + ipairs];
+    basetrack_distance.at(ipairs)       =        par[12                       + ipairs];
+    basetrack_distance_water.at(ipairs) =        par[12 + 1 * number_of_pairs + ipairs];
+    track_tangent.at(ipairs)            =        par[12 + 2 * number_of_pairs + ipairs];
+    plate_id.at(ipairs)                 = (Int_t)par[12 + 3 * number_of_pairs + ipairs];
+    plate_id_next.at(ipairs)            = (Int_t)par[12 + 4 * number_of_pairs + ipairs];
+    radial_angle_difference.at(ipairs)  =        par[12 + 5 * number_of_pairs + ipairs];
+    lateral_angle_difference.at(ipairs) =        par[12 + 6 * number_of_pairs + ipairs];
   }
   
   f = FuncNegativeLogLikelihood(pbeta, ncell, particle_id, direction,
 				radial_cut_value, lateral_cut_value,
 				radial_cut_value_water, lateral_cut_value_water,
-				smear_flag, material_mode,
+				smear_flag, material_mode, radlat_mode,
 				basetrack_distance,
 				basetrack_distance_water,
 				track_tangent,
@@ -96,6 +98,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
 				   Double_t lateral_cut_value_water,
 				   Bool_t smear_flag,
 				   Int_t material_mode,
+				   Int_t radlat_mode,
 				   std::vector<Double_t > basetrack_distance,
 				   std::vector<Double_t > basetrack_distance_water,
 				   std::vector<Double_t > track_tangent,
@@ -129,7 +132,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
   case kNinjaIron :
     return FuncNegativeLogLikelihoodIron(pbeta, ncell, particle_id, direction,
 					 radial_cut_value, lateral_cut_value,
-					 smear_flag,
+					 smear_flag, radlat_mode,
 					 basetrack_distance,
 					 basetrack_distance_water,
 					 track_tangent,
@@ -141,7 +144,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
   case kNinjaWater :
     return FuncNegativeLogLikelihoodWater(pbeta, ncell, particle_id, direction,
 					  radial_cut_value_water, lateral_cut_value_water,
-					  smear_flag,
+					  smear_flag, radlat_mode,
 					  basetrack_distance,
 					  basetrack_distance_water,
 					  track_tangent,
@@ -154,7 +157,7 @@ Double_t FuncNegativeLogLikelihood(Double_t pbeta,
     return FuncNegativeLogLikelihoodCombo(pbeta, ncell, particle_id, direction,
 					  radial_cut_value, lateral_cut_value, 
 					  radial_cut_value_water, lateral_cut_value_water,
-					  smear_flag,
+					  smear_flag, radlat_mode,
 					  basetrack_distance,
 					  basetrack_distance_water,
 					  track_tangent,
@@ -176,6 +179,7 @@ Double_t FuncNegativeLogLikelihoodWater(Double_t pbeta,
 					Double_t radial_cut_value_water,
 					Double_t lateral_cut_value_water,
 					Bool_t smear_flag,
+					Int_t radlat_mode,
 					std::vector<Double_t > basetrack_distance,
 					std::vector<Double_t > basetrack_distance_water,
 					std::vector<Double_t > track_tangent,
@@ -198,12 +202,20 @@ Double_t FuncNegativeLogLikelihoodWater(Double_t pbeta,
 			 track_tangent.at(ipairs),
 			 radial_sigma, lateral_sigma);
 
-      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
-	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
-	nll += 2 * TMath::Log(radial_sigma)
-	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-	nll += 2 * TMath::Log(lateral_sigma)
-	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      if ( radlat_mode == 0 ) {
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+	  nll += 2 * TMath::Log(radial_sigma)
+	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+      else if ( radlat_mode == 1 ) {
+	if ( TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
       }
     }
 
@@ -230,6 +242,7 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
 				       Double_t radial_cut_value,
 				       Double_t lateral_cut_value,
 				       Bool_t smear_flag,
+				       Int_t radlat_mode,
 				       std::vector<Double_t > basetrack_distance,
 				       std::vector<Double_t > basetrack_distance_water,
 				       std::vector<Double_t > track_tangent,
@@ -252,12 +265,20 @@ Double_t FuncNegativeLogLikelihoodIron(Double_t pbeta,
 			 track_tangent.at(ipairs),
 			 radial_sigma, lateral_sigma);
 
-      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
-	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
-	nll += 2 * TMath::Log(radial_sigma)
-	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-	nll += 2 * TMath::Log(lateral_sigma)
-	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+      if ( radlat_mode == 0 ) {
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	  nll += 2 * TMath::Log(radial_sigma)
+	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+      else if ( radlat_mode == 1 ) {
+	if ( TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
       }
     }
 
@@ -288,6 +309,7 @@ Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta,
 					Double_t radial_cut_value_water,
 					Double_t lateral_cut_value_water,
 					Bool_t smear_flag,
+					Int_t radlat_mode,
 					std::vector<Double_t > basetrack_distance,
 					std::vector<Double_t > basetrack_distance_water,
 					std::vector<Double_t > track_tangent,
@@ -331,28 +353,46 @@ Double_t FuncNegativeLogLikelihoodCombo(Double_t pbeta,
 			 basetrack_distance.at(ipairs), 
 			 track_tangent.at(ipairs),
 			 radial_sigma, lateral_sigma);
-      if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
-	   TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
-	nll += 2 * TMath::Log(radial_sigma)
-	  + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
-	nll += 2 * TMath::Log(lateral_sigma)
-	  + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
-      }
-    }
-    else if ( material == kNinjaWater &&
-	      basetrack_distance_water.at(ipairs) >= 1 &&
-	      TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
-	GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
-			   basetrack_distance_water.at(ipairs), 
-			   track_tangent.at(ipairs),
-			   radial_sigma, lateral_sigma);
-	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
-	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water) {
+
+      if ( radlat_mode == 0 ) {
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
 	  nll += 2 * TMath::Log(radial_sigma)
 	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
 	  nll += 2 * TMath::Log(lateral_sigma)
 	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
 	}
+      }
+      else if ( radlat_mode == 1 ) {
+	if ( TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value ) {
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+    }
+    else if ( material == kNinjaWater &&
+	      basetrack_distance_water.at(ipairs) >= 1 &&
+	      TMath::Abs(plate_id.at(ipairs) - plate_id_next.at(ipairs)) == 2 * ncell - 1 ) {
+      GetSigmaAtEachStep(pbeta, ncell, smear_flag, kNinjaWater,
+			 basetrack_distance_water.at(ipairs), 
+			 track_tangent.at(ipairs),
+			 radial_sigma, lateral_sigma);
+
+      if ( radlat_mode == 0 ) {
+	if ( TMath::Abs(radial_angle_difference.at(ipairs)) < radial_cut_value_water &&
+	     TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+	  nll += 2 * TMath::Log(radial_sigma)
+	    + radial_angle_difference.at(ipairs) * radial_angle_difference.at(ipairs) / radial_sigma / radial_sigma;
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
+      else if ( radlat_mode == 1 ) {
+	if ( TMath::Abs(lateral_angle_difference.at(ipairs)) < lateral_cut_value_water ) {
+	  nll += 2 * TMath::Log(lateral_sigma)
+	    + lateral_angle_difference.at(ipairs) * lateral_angle_difference.at(ipairs) / lateral_sigma / lateral_sigma;
+	}
+      }
     }
 
     // Consider energy deposit
@@ -722,6 +762,7 @@ std::array<Double_t, 5 > ReconstructPBeta(Double_t initial_pbeta,
 					  Double_t lateral_cut_value_water,
 					  Bool_t smear_flag,
 					  Int_t material_mode,
+					  Int_t radlat_mode,
 					  std::vector<Double_t > basetrack_distance,
 					  std::vector<Double_t > basetrack_distance_water,
 					  std::vector<Double_t > track_tangent,
@@ -730,7 +771,7 @@ std::array<Double_t, 5 > ReconstructPBeta(Double_t initial_pbeta,
 					  std::vector<Double_t > radial_angle_difference,
 					  std::vector<Double_t > lateral_angle_difference) {
 
-  const UInt_t num_of_param = 11 + 7 * basetrack_distance.size();
+  const UInt_t num_of_param = 12 + 7 * basetrack_distance.size();
 
   TMinuit *min = new TMinuit(num_of_param); // TMinuit(n), n = number of parameters
   min->SetPrintLevel(-1);
@@ -749,15 +790,16 @@ std::array<Double_t, 5 > ReconstructPBeta(Double_t initial_pbeta,
   parname[7]  = "Lateral angle difference cut value water";
   parname[8]  = "Smear flag";
   parname[9]  = "Material mode name";
-  parname[10] = "Number of track pairs";
+  parname[10] = "Radial/lateral mode name";
+  parname[11] = "Number of track pairs";
   for (Int_t ipar = 0; ipar < basetrack_distance.size(); ipar++) {
-    parname[11 +                                 ipar] = Form("Basetrack distance %d",       ipar);
-    parname[11 + 1 * basetrack_distance.size() + ipar] = Form("Water basetrack distance %d", ipar);
-    parname[11 + 2 * basetrack_distance.size() + ipar] = Form("Track tangent %d",            ipar);
-    parname[11 + 3 * basetrack_distance.size() + ipar] = Form("Plate id %d",                 ipar);
-    parname[11 + 4 * basetrack_distance.size() + ipar] = Form("Plate id next %d",            ipar);
-    parname[11 + 5 * basetrack_distance.size() + ipar] = Form("Radial angle difference %d",  ipar);
-    parname[11 + 6 * basetrack_distance.size() + ipar] = Form("Lateral angle difference %d", ipar);
+    parname[12 +                                 ipar] = Form("Basetrack distance %d",       ipar);
+    parname[12 + 1 * basetrack_distance.size() + ipar] = Form("Water basetrack distance %d", ipar);
+    parname[12 + 2 * basetrack_distance.size() + ipar] = Form("Track tangent %d",            ipar);
+    parname[12 + 3 * basetrack_distance.size() + ipar] = Form("Plate id %d",                 ipar);
+    parname[12 + 4 * basetrack_distance.size() + ipar] = Form("Plate id next %d",            ipar);
+    parname[12 + 5 * basetrack_distance.size() + ipar] = Form("Radial angle difference %d",  ipar);
+    parname[12 + 6 * basetrack_distance.size() + ipar] = Form("Lateral angle difference %d", ipar);
   }
 
   // Initial values
@@ -772,15 +814,16 @@ std::array<Double_t, 5 > ReconstructPBeta(Double_t initial_pbeta,
   vstart[7]  = lateral_cut_value_water;
   vstart[8]  = smear_flag;
   vstart[9]  = material_mode;
-  vstart[10] = basetrack_distance.size();
+  vstart[10] = radlat_mode;
+  vstart[11] = basetrack_distance.size();
   for (Int_t ipar = 0; ipar < basetrack_distance.size(); ipar++) {
-    vstart[11 +                                 ipar] = basetrack_distance.at(ipar);
-    vstart[11 + 1 * basetrack_distance.size() + ipar] = basetrack_distance_water.at(ipar);
-    vstart[11 + 2 * basetrack_distance.size() + ipar] = track_tangent.at(ipar);
-    vstart[11 + 3 * basetrack_distance.size() + ipar] = plate_id.at(ipar);
-    vstart[11 + 4 * basetrack_distance.size() + ipar] = plate_id_next.at(ipar);
-    vstart[11 + 5 * basetrack_distance.size() + ipar] = radial_angle_difference.at(ipar);
-    vstart[11 + 6 * basetrack_distance.size() + ipar] = lateral_angle_difference.at(ipar);
+    vstart[12 +                                 ipar] = basetrack_distance.at(ipar);
+    vstart[12 + 1 * basetrack_distance.size() + ipar] = basetrack_distance_water.at(ipar);
+    vstart[12 + 2 * basetrack_distance.size() + ipar] = track_tangent.at(ipar);
+    vstart[12 + 3 * basetrack_distance.size() + ipar] = plate_id.at(ipar);
+    vstart[12 + 4 * basetrack_distance.size() + ipar] = plate_id_next.at(ipar);
+    vstart[12 + 5 * basetrack_distance.size() + ipar] = radial_angle_difference.at(ipar);
+    vstart[12 + 6 * basetrack_distance.size() + ipar] = lateral_angle_difference.at(ipar);
   }
   
   // Step
