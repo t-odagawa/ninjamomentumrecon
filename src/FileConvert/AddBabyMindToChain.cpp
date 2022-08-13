@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <map>
 #include <algorithm>
 
 // boost includes
@@ -97,6 +98,7 @@ int main ( int argc, char* argv[] ) {
       std::vector<double > muon_position;
       std::vector<double > muon_tangent;
       double track_length = -1.;
+      int muon_track = -1;
 
       // Baby MIND の飛跡の中で一番長いものを muon とする
       for ( int itrack = 0; itrack < ntbm->GetNumberOfTracks(); itrack++ ) {
@@ -111,6 +113,8 @@ int main ( int argc, char* argv[] ) {
 	  muon_position.at(0) += BABYMIND_POS_Y;
 	  muon_position.at(1) += BABYMIND_POS_X;
 	  muon_tangent = ntbm->GetBabyMindTangent(itrack);
+	  track_length = ntbm->GetTrackLengthTotal(itrack);
+	  muon_track = itrack;
 	}
       }
 
@@ -123,14 +127,16 @@ int main ( int argc, char* argv[] ) {
 	fill_flag = false;
       }
       else {
-	double dx = 100000;
-	double dy = 100000;
 
-	int muon_chain_id = -1;	
+	double pos_diff = 400.;
+
+	int muon_chain_id = -1;
 	int ichain = 0;
+
 	for ( auto chain : ev.chains ) {
 
 	  ichain++;
+	  
 	  if ( chain.base.front().pl != 3 &&
 	       chain.base.front().pl != 4 ) continue;
 	  
@@ -143,10 +149,11 @@ int main ( int argc, char* argv[] ) {
 
 	  double ex_dx = x + ax * bm_nt_distance - muon_position.at(1);
 	  double ex_dy = y + ay * bm_nt_distance - muon_position.at(0);
-	  
-	  if ( ex_dx * ex_dx + ex_dy * ex_dy < dx * dx + dy * dy ) {
+	  BOOST_LOG_TRIVIAL(debug) << "Event : " << ev.groupid << "chain : " << chain.chainid << " (" << ex_dx << ", " << ex_dy << ")";
+	  if ( ex_dx * ex_dx + ex_dy * ex_dy < pos_diff * pos_diff ) {
 	    BOOST_LOG_TRIVIAL(trace) << "ECC muon track update by smaller position difference";
 	    muon_chain_id = ichain - 1;
+	    pos_diff = std::hypot(ex_dx, ex_dy);
 	  }
 
 	}
@@ -163,10 +170,10 @@ int main ( int argc, char* argv[] ) {
 	  muon_chain.particle_flag += 13; // true * 10000 + recon
 	  muon_chain.charge_sign = bm_charge;
 
-	  int nwater = match_function.GetNumIronPlate(ev.vertex_pl);
-	  int niron = match_function.GetNumWaterPlate(ev.vertex_pl);
-	  TVector3 track_direction(muon_chain.base.back().ax, muon_chain.base.back().ay, 1.);
-	  track_length += track_direction.Mag() * (2.3 * nwater + 0.5 * niron * 8.03);
+	  int nwater = match_function.GetNumWaterPlate(ev.vertex_pl % 1000);
+	  int niron = match_function.GetNumIronPlate(ev.vertex_pl % 1000);
+	  TVector3 track_direction(muon_chain.base.front().ax, muon_chain.base.front().ay, 1.);
+	  track_length += track_direction.Mag() * (0.23 * nwater * 1.289 + 0.05 * niron * 8.03);
 	  track_length += match_function.GetDWGTrackLength(track_direction);
 	  match_function.ConvertFromLengthToMom(range_mom, track_length);
 
@@ -175,6 +182,13 @@ int main ( int argc, char* argv[] ) {
 	  muon_chain.bm_range_mom_error[1] = range_mom * match_function.GetBmErr(range_mom);
 	  // Detection/connection efficiency を計算
 	  // weight に efficiency をかける
+
+	  std::cout << "Track length : " << ntbm->GetTrackLengthTotal(muon_track) << ", "
+		    << "Baby MIND only Momentum : " << ntbm->GetMomentum(muon_track) << ", "
+		    << "My track length : " << track_length << ", "
+		    << "My momentum : " << range_mom << std::endl;
+	  
+
 	  double efficiency = match_function.GetTrackerEfficiency(muon_angle);
 	  efficiency *= 0.93; // preliminary shifter efficiency
 	  ev.weight *= efficiency;

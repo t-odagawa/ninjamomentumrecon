@@ -395,10 +395,6 @@ double RangeFunction::CalculateProtonRangeError(double range_mom, double tangent
     if ( tangent < 1. ) return range_mom * 0.01;
     else return range_mom * 0.02;
   }
-  else if ( range_mom < 500. ) {
-    if ( tangent < 1. ) return range_mom * 0.005;
-    else return range_mom * 0.01;
-  }
   else return range_mom * 0.01;
 
 }

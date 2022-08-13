@@ -31,6 +31,14 @@ namespace Pid_data_ns
     
   };
 
+  class VphPionMip {
+  public :
+    double ang_min, ang_max, pb_max, expect, bin_id, vph, entry, prob, prob_acc;
+    VphPionMip();
+    friend std::ostream &operator<<(std::ostream& os, VphPionMip &param);
+    friend std::istream &operator>>(std::istream& is, VphPionMip &param);
+  };
+
 }
 
 #endif

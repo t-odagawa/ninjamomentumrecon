@@ -267,7 +267,6 @@ int main (int argc, char* argv[]) {
 	  double pbeta_err_minus = results.at(3);
 	  double pbeta_err_plus = results.at(2);
 	  double momentum_minus, momentum_plus; // p +/- 1 sigma
-
 	  // mis fitting treatment
 	  if ( std::fabs(pbeta - 20.) < 1.e-4 ) {
 	    double nll_min = FuncNegativeLogLikelihood(20., 1, particle_id, chain.direction,
@@ -298,11 +297,11 @@ int main (int argc, char* argv[]) {
 						     radial_angle_difference,
 						     lateral_angle_difference);
 	      if ( nll - nll_min > 1. ) {
-		pbeta_err_minus = ipbeta - pbeta;
+		pbeta_err_plus = ipbeta - pbeta;
 		break;
 	      }
 	    }
-	    if ( pbeta_err_minus < 1.e-4 ) {
+	    if ( std::fabs(pbeta_err_plus) < 1.e-4 ) {
 	      pbeta_err_minus = 10000. - pbeta;
 	    }
 	  }
@@ -335,19 +334,19 @@ int main (int argc, char* argv[]) {
 						     radial_angle_difference,
 						     lateral_angle_difference);
 	      if ( nll - nll_min > 1. ) {
-		pbeta_err_minus = pbeta - ipbeta;
+		pbeta_err_minus = ipbeta - pbeta;
 		break;
 	      }
 	    }
-	    if ( pbeta_err_minus < 1.e-4 ) {
-	      pbeta_err_minus = pbeta - 20.;
+	    if ( std::fabs(pbeta_err_minus) < 1.e-4 ) {
+	      pbeta_err_minus = 20. - pbeta;
 	    }
 	  }
 	  else {
-	    if ( pbeta_err_minus < 1.e-4 ) {
-	    pbeta_err_minus = pbeta - 20.;
+	    if ( std::fabs(pbeta_err_minus) < 1.e-4 ) {
+	    pbeta_err_minus = 20. - pbeta;
 	    }
-	    if ( pbeta_err_plus < 1.e-4 ) {
+	    if ( std::fabs(pbeta_err_plus) < 1.e-4 ) {
 	      pbeta_err_plus = 10000. - pbeta;
 	    }
 	  }
@@ -408,12 +407,12 @@ int main (int argc, char* argv[]) {
 						       radial_angle_difference,
 						       lateral_angle_difference);
 		if ( nll - nll_min > 1. ) {
-		  pbeta_err_minus = ipbeta - pbeta;
+		  pbeta_err_plus = ipbeta - pbeta;
 		  break;
 		}
 	      }
-	      if ( pbeta_err_minus < 1.e-4 ) {
-		pbeta_err_minus = 10000. - pbeta;
+	      if ( std::fabs(pbeta_err_plus) < 1.e-4 ) {
+		pbeta_err_plus = 10000. - pbeta;
 	      }
 	    }
 	    else if ( std::fabs(pbeta - 10000.) < 1.e-4 ) {
@@ -445,19 +444,19 @@ int main (int argc, char* argv[]) {
 						       radial_angle_difference,
 						       lateral_angle_difference);
 		if ( nll - nll_min > 1. ) {
-		  pbeta_err_minus = pbeta - ipbeta;
+		  pbeta_err_minus = ipbeta - pbeta;
 		  break;
 		}
 	      }
-	      if ( pbeta_err_minus < 1.e-4 ) {
-		pbeta_err_minus = pbeta - 20.;
+	      if ( std::fabs(pbeta_err_minus) < 1.e-4 ) {
+		pbeta_err_minus = 20. - pbeta;
 	      }
 	    }
 	    else {
-	      if ( pbeta_err_minus < 1.e-4 ) {
-		pbeta_err_minus = pbeta - 20.;
+	      if ( std::fabs(pbeta_err_minus) < 1.e-4 ) {
+		pbeta_err_minus = 20. - pbeta;
 	      }
-	      if ( pbeta_err_plus < 1.e-4 ) {
+	      if ( std::fabs(pbeta_err_plus) < 1.e-4 ) {
 		pbeta_err_plus = 10000. - pbeta;
 	      }
 	    }	    	    

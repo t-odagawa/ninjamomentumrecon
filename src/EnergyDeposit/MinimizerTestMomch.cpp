@@ -176,7 +176,7 @@ int main (int argc, char *argv[]) {
 	    lateral_angle_difference_rms = TMath::Sqrt(lateral_angle_difference_rms);
 	    Double_t radial_cut_value = 3. * radial_angle_difference_rms;
 	    Double_t lateral_cut_value = 3. * lateral_angle_difference_rms;
-	    Double_t radiation_length = CalcRadLength(ncell, vertex_tangent.Mag());
+	    Double_t radiation_length = CalcRadLength(ncell, vertex_tangent.Mag(), kNinjaIron);
 	    Double_t initial_pbeta = MCS_SCALE_FACTOR * 13.6 / lateral_angle_difference_rms * TMath::Sqrt(radiation_length) * (1. * 0.038 * TMath::Log(radiation_length));
 	    
 	    // backward
@@ -195,22 +195,24 @@ int main (int argc, char *argv[]) {
 		case kNinjaMcsForward :
 		  result_array.at(idirection) = ReconstructPBeta(initial_pbeta, ncell, particle_id, direction,
 								 radial_cut_value, lateral_cut_value,
-								 kTRUE,
+								 radial_cut_value, lateral_cut_value,
+								 kTRUE, 0, 0,
 								 basetrack_distance,
 								 water_basetrack_distance,
 								 track_tangent,
-								 plate_id,
+								 plate_id, plate_id,
 								 radial_angle_difference,
 								 lateral_angle_difference);
 		  break;
 		case kNinjaMcsBackward :
 		  result_array.at(idirection) = ReconstructPBeta(initial_pbeta_back, ncell, particle_id, direction,
 								 radial_cut_value_back, lateral_cut_value_back,
-								 kTRUE,
+								 radial_cut_value_back, lateral_cut_value_back,
+								 kTRUE, 0, 0,
 								 basetrack_distance_back,
 								 water_basetrack_distance_back,
 								 track_tangent_back,
-								 plate_id_back,
+								 plate_id_back, plate_id_back,
 								 radial_angle_difference_back,
 								 lateral_angle_difference_back);
 		  break;

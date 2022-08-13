@@ -14,123 +14,208 @@ const fs::path PID_LIKELIHOOD_DIRNAME("pid");
 
 const fs::path PID_LIKELIHOOD_FILENAME("likelihood_param.txt");
 const fs::path PID_VPH_FILENAME("vph_func_param.txt");
+const fs::path DIST_PI_FILENAME("vph_dist_pi.txt");
 
 PidData::PidData(const std::string &file_dir_path) {
 
   fs::path file_dir(file_dir_path);
 
-  ReadPidData(likelihood_param_vec_, 
-	      ang_bin_edge_vec_,
-	      mom_bin_edge_map_,
-	      file_dir.string());
+  ReadPidData(likelihood_param_map_, file_dir.string());
   ReadVphParamData(vph_func_param_map_, file_dir.string());
+  ReadPionPdfData(vph_pion_mip_map_, file_dir.string());
 
+  GeneratePionMipMeanMap();
+  GeneratePionMipThrMap();
+  GeneratePionMipBinWidthMap();
+  GeneratePionPdfHistograms();
+  
   BOOST_LOG_TRIVIAL(info) << "Pid data are initialized";
   
 }
 
 PidData::PidData(const fs::path &file_dir_path) : PidData(file_dir_path.string()) {}
 
-void PidData::ReadPidData(std::vector<Pid_data_ns::DataPoint > &data,
-			  std::vector<std::pair<double, double > > &ang_bin_edge_vec,
-			  std::map<std::pair<double, double >, std::vector<std::pair<double, double > > > &mom_bin_edge_map,
+void PidData::ReadPidData(std::map<int, std::map<double, Pid_data_ns::DataPoint> > &data_map,
 			  const std::string file_dir_path) {
-
   std::string file_path = (file_dir_path/PID_LIKELIHOOD_DIRNAME/PID_LIKELIHOOD_FILENAME).string();
   if ( !fs::exists(file_path) )
     throw std::runtime_error("File : " + file_path + " not found");
 
   std::ifstream ifs(file_path);
   BOOST_LOG_TRIVIAL(trace) << "Pid data file name : " << file_path;
-  
 
-  Pid_data_ns::DataPoint data_point_tmp;
+  Pid_data_ns::DataPoint data;
 
-  // 角度でソート，後運動量でソートされているファイルを仮定
-  std::pair<double, double > ang_bin_edge_prev(-1., -1.);
-  std::vector<std::pair<double, double > > mom_bin_edge_vec;
+  while ( ifs >> data ) {
 
-  while ( ifs >> data_point_tmp ) {
-    auto ang_bin_edge_tmp = std::make_pair(data_point_tmp.input_ang_min,
-					   data_point_tmp.input_ang_max);
-
-    if ( data.size() != 0 && ang_bin_edge_tmp != ang_bin_edge_prev ) {
-      ang_bin_edge_vec.push_back(ang_bin_edge_prev);
-      mom_bin_edge_map.insert(std::make_pair(ang_bin_edge_prev, mom_bin_edge_vec));
-      mom_bin_edge_vec.clear(); mom_bin_edge_vec.shrink_to_fit();
-    }
-
-    ang_bin_edge_prev = ang_bin_edge_tmp;
+    BOOST_LOG_TRIVIAL(trace) << data;
     
-    mom_bin_edge_vec.push_back(std::make_pair(data_point_tmp.input_mom_min,
-					      data_point_tmp.input_mom_max));
+    double pbeta_mean = (data.input_mom_min + data.input_mom_max) / 2.;
 
-    data.push_back(data_point_tmp);
-  }
-
-  ang_bin_edge_vec.push_back(ang_bin_edge_prev);
-  mom_bin_edge_map.insert(std::make_pair(ang_bin_edge_prev,
-					 mom_bin_edge_vec));
-
-  ifs.close();
-
-  for ( auto itr = mom_bin_edge_map.begin(); itr != mom_bin_edge_map.end(); itr++ ) {
-    BOOST_LOG_TRIVIAL(trace) << "Angle bin " << "(" << (*itr).first.first << ", " << (*itr).first.second << ")";
-    for ( auto mom_bin : (*itr).second ) {
-      BOOST_LOG_TRIVIAL(trace) << "(" << mom_bin.first << ", " << mom_bin.second << ")";
+    int iang = data.input_ang_max * 10;
+    auto res = data_map.find(iang);
+    if ( res == data_map.end() ) {
+      std::map<double, Pid_data_ns::DataPoint > map_tmp;
+      map_tmp.insert(std::make_pair(pbeta_mean, data));
+      data_map.insert(std::make_pair(iang, map_tmp));
     }
-  }
+    else res->second.insert(std::make_pair(pbeta_mean, data));
 
-  for ( auto itr = data.begin(); itr != data.end(); itr++ ) {
-    BOOST_LOG_TRIVIAL(trace) << (*itr);
   }
 
   return;
 
 }
 
-void PidData::ReadVphParamData(std::map<std::pair<double, double >, Pid_data_ns::VphFuncParam > &param,
-			       const std::string file_dir_path) {
+void PidData::ReadVphParamData(std::map<int, Pid_data_ns::VphFuncParam > &param, const std::string file_dir_path) {
 
   std::string file_path = (file_dir_path/PID_LIKELIHOOD_DIRNAME/PID_VPH_FILENAME).string();
   if ( !fs::exists(file_path) )
-    std::runtime_error("File : " + file_path + "not found");
+    std::runtime_error("File : " + file_path + " not found");
 
   std::ifstream ifs(file_path);
   BOOST_LOG_TRIVIAL(trace) << "Pid VPH function parameter file name : " << file_path;
 
-  Pid_data_ns::VphFuncParam vph_func_param_tmp_;
-  while ( ifs >> vph_func_param_tmp_ ) {
-    auto ang_bin = std::make_pair(vph_func_param_tmp_.input_ang_min,
-				  vph_func_param_tmp_.input_ang_max);
-    vph_func_param_map_.insert(std::make_pair(ang_bin, vph_func_param_tmp_));
-  }
-
-  for ( auto itr = vph_func_param_map_.begin(); itr != vph_func_param_map_.end(); itr++ ) {
-    BOOST_LOG_TRIVIAL(trace) << (*itr).second;
+  Pid_data_ns::VphFuncParam data;
+  while ( ifs >> data ) {
+    BOOST_LOG_TRIVIAL(trace) << data;
+    int iang = data.input_ang_max * 10;
+    param.insert(std::make_pair(iang, data));
   }
 
   return;
 
 }
 
-void PidData::GetLikelihoodParam(std::vector<Pid_data_ns::DataPoint > &likelihood_param_vec) const {
-  likelihood_param_vec = likelihood_param_vec_;
+void PidData::ReadPionPdfData(std::map<int, std::map<double, Pid_data_ns::VphPionMip > > &param_map,
+			       const std::string file_dir_path) {
+
+  std::string file_path = (file_dir_path/PID_LIKELIHOOD_DIRNAME/DIST_PI_FILENAME).string();
+  if ( !fs::exists(file_path) )
+    std::runtime_error("File : " + file_path + "not found");
+  
+  std::ifstream ifs(file_path);
+  Pid_data_ns::VphPionMip data;
+  while ( ifs >> data ) {
+
+    BOOST_LOG_TRIVIAL(trace) << data;
+
+    int iang = data.ang_max * 10;
+    auto res = param_map.find(iang);
+
+    if ( res == param_map.end() ) {
+      std::map<double, Pid_data_ns::VphPionMip > map_tmp;
+      map_tmp.insert(std::make_pair(data.vph, data));
+      param_map.insert(std::make_pair(iang, map_tmp));
+    }
+    else {
+      res->second.insert(std::make_pair(data.vph, data));
+    }
+    
+  }
+
+  return;
+
+}
+
+void PidData::GeneratePionMipMeanMap() {
+
+  for ( auto itr = vph_pion_mip_map_.begin(); itr != vph_pion_mip_map_.end(); itr++ ) {
+    auto map = itr->second;
+    auto param = map.begin()->second;
+    
+    vph_pion_mip_mean_map_.insert(std::make_pair(itr->first, param.expect));
+  }
+
+  return;
+
+}
+
+void PidData::GeneratePionMipThrMap() {
+
+  for ( auto itr = vph_pion_mip_map_.begin(); itr != vph_pion_mip_map_.end(); itr++ ) {
+    auto map = itr->second;
+    auto param = map.begin()->second;
+
+    vph_pion_mip_thr_map_.insert(std::make_pair(itr->first, param.pb_max));
+  }
+
+  return;
+
+}
+
+void PidData::GeneratePionMipBinWidthMap() {
+
+  for ( auto itr = vph_pion_mip_map_.begin(); itr != vph_pion_mip_map_.end(); itr++ ) {
+    auto map = itr->second;
+    auto param1 = map.begin()->second;
+    auto param2 = std::next(map.begin(), 1)->second;
+
+    vph_pion_mip_bin_width_map_.insert(std::make_pair(itr->first, param2.vph - param1.vph));
+
+  }
+
+  return;
+
+}
+
+void PidData::GeneratePionPdfHistograms() {
+  
+  for ( auto itr = vph_pion_mip_map_.begin(); itr != vph_pion_mip_map_.end(); itr++ ) {
+    auto map = itr->second;
+    auto param1 = map.begin()->second;
+    auto param2 = map.rbegin()->second;
+    double start_vph = param1.vph;
+    double end_vph = param2.vph;
+    double bin_width = vph_pion_mip_bin_width_map_.at(itr->first);
+
+    TH1D *tmp = new TH1D(Form("tmp_%d", itr->first),
+			 Form("%.1f < tan#theta < %.1f, %3.0f < p#beta < %3.0f",
+			      param1.ang_min, param1.ang_max, param1.pb_max, param1.pb_max + 200.),
+			 map.size(), start_vph - 0.5 * bin_width, end_vph + 0.5 * bin_width);
+
+    for ( auto itr1 = map.begin(); itr1 != map.end(); itr1++ ) {
+      tmp->Fill(itr1->second.vph, itr1->second.entry);
+    }
+    
+    vph_pion_mip_hist_map_.insert(std::make_pair(itr->first, tmp));
+  }
+  
+  return;
+
+}
+
+void PidData::GetLikelihoodParam(std::map<int, std::map<double, Pid_data_ns::DataPoint > > &likelihood_param_map) const {
+  likelihood_param_map = likelihood_param_map_;
   return;
 }
 
-void PidData::GetAngBinVectorData(std::vector<std::pair<double, double > > &ang_bin_edge_vec) const {
-  ang_bin_edge_vec = ang_bin_edge_vec_;
-
-  return;
-}
-
-void PidData::GetMomBinMapData(std::map<std::pair<double, double>, std::vector<std::pair<double, double > > > &mom_bin_edge_map) const {
-  mom_bin_edge_map = mom_bin_edge_map_;
-  return;
-}
-
-void PidData::GetVphFuncParamMapData(std::map<std::pair<double, double >, Pid_data_ns::VphFuncParam > &vph_func_param_map) const {
+void PidData::GetVphFuncParamMapData(std::map<int, Pid_data_ns::VphFuncParam > &vph_func_param_map) const {
   vph_func_param_map = vph_func_param_map_;
+  return;
+}
+
+void PidData::GetPionMipParamMap(std::map<int, std::map<double, Pid_data_ns::VphPionMip > > &vph_pion_mip_map) const {
+  vph_pion_mip_map = vph_pion_mip_map_;
+  return;
+}
+
+void PidData::GetPionMipMeanMap(std::map<int, double > &vph_pion_mip_mean_map) const {
+  vph_pion_mip_mean_map = vph_pion_mip_mean_map_;
+  return;
+}
+
+void PidData::GetPionMipThrMap(std::map<int, double > &vph_pion_mip_thr_map) const {
+  vph_pion_mip_thr_map = vph_pion_mip_thr_map_;
+  return;
+}
+
+void PidData::GetPionMipBinWidthMap(std::map<int, double > &vph_pion_mip_bin_width_map) const {
+  vph_pion_mip_bin_width_map = vph_pion_mip_bin_width_map_;
+  return;
+}
+
+void PidData::GetPionPdfHistograms(std::map<int, TH1D* > &vph_pion_mip_hist_map) const {
+  vph_pion_mip_hist_map = vph_pion_mip_hist_map_;
   return;
 }

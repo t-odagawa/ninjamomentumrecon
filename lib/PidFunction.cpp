@@ -14,344 +14,444 @@ PidFunction::PidFunction(const PidData &pid_data) : pid_data_(pid_data) {
 
   gRandom->SetSeed(time(NULL));
 
-  pid_data_.GetAngBinVectorData(pid_ang_bin_vec_);
-  pid_data_.GetMomBinMapData(pid_mom_bin_map_);
-  pid_data_.GetLikelihoodParam(likelihood_param_);
+  pid_data_.GetLikelihoodParam(likelihood_param_map_);
   pid_data_.GetVphFuncParamMapData(vph_func_param_map_);
 
-  GenerateLikelihoodParamBinMap();
-  GenerateVphMeanCrossPoint();
-  GenerateVphSigmaCrossPoint();
+  pid_data_.GetPionMipParamMap(vph_pion_mip_map_);
+  pid_data_.GetPionMipMeanMap(vph_pion_mip_mean_map_);
+  pid_data_.GetPionMipThrMap(vph_pion_mip_thr_map_);
+  pid_data_.GetPionPdfHistograms(vph_pion_mip_hist_map_);
+
+  GenerateVphMeanCrossPBeta();
+  GenerateSigmaThr();
 
   BOOST_LOG_TRIVIAL(info) << "Pid functions are initialized";
 
 }
 
-void PidFunction::GenerateLikelihoodParamBinMap() {
+void PidFunction::GenerateVphMeanCrossPBeta() {
 
-  for ( int iang = 0; iang < pid_ang_bin_vec_.size(); iang++ ) {
-    auto ang_bin = pid_ang_bin_vec_.at(iang);
-    auto pid_mom_bin_vec_ = pid_mom_bin_map_.at(ang_bin);
-    for ( int imom = 0; imom < pid_mom_bin_vec_.size(); imom++ ) {
-      auto mom_bin = pid_mom_bin_vec_.at(imom);
-      auto bin = std::make_pair(iang, imom);
-      for ( auto param : likelihood_param_ ) {
-	if ( param.input_ang_min == ang_bin.first &&
-	     param.input_ang_max == ang_bin.second &&
-	     param.input_mom_min == mom_bin.first &&
-	     param.input_mom_max == mom_bin.second ) {
-	  likelihood_param_bin_map_.insert(std::make_pair(bin, param));
-	}
+  for ( auto itr = likelihood_param_map_.begin();
+	itr != likelihood_param_map_.end();
+	itr++ ) { // angle loop
+
+    double pbeta_cross = -1.;
+    double vph_bethe[2] = {};
+    double vph_data[2] = {};
+
+    auto datapoints = itr->second;
+    auto tmp = datapoints.begin()->second;
+    double angle = (tmp.input_ang_min + tmp.input_ang_max) / 2.;
+
+    for ( double pbeta = 1.; pbeta <= 1200.; pbeta += 1. ) {
+      vph_bethe[0] = CalcMomentumVphEmulsionFit(pbeta / 1000., angle);
+      vph_bethe[1] = CalcMomentumVphEmulsionFit((pbeta + 1.) / 1000., angle);
+      Pid_data_ns::DataPoint data[2];
+      data[0] = datapoints.lower_bound(pbeta)->second;
+      if ( datapoints.lower_bound(pbeta) == datapoints.begin() ) {
+	data[1] = std::next(datapoints.lower_bound(pbeta), 1)->second;
+      }
+      else {
+	data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
+      }
+
+      double pbeta_mean[2];
+      pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
+      pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
+
+      vph_data[0] = (data[0].mean[2] - data[1].mean[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
+	+ data[0].mean[2];
+      vph_data[1] = (data[0].mean[2] - data[1].mean[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta + 1. - pbeta_mean[0])
+	+ data[0].mean[2];
+
+      if ( vph_bethe[0] >= vph_data[0] &&
+	   vph_bethe[1] < vph_data[1] ) {
+	pbeta_cross = pbeta + std::min(1., 1. * (vph_bethe[0] - vph_data[0])
+				       / ((vph_data[1] - vph_bethe[1]) + (vph_bethe[0] - vph_data[0])));
+	vph_cross_pbeta_map_.insert(std::make_pair(itr->first, pbeta_cross));
+
+	BOOST_LOG_TRIVIAL(trace) << "Angle : (" << data[0].input_ang_min << ", " << data[0].input_ang_max
+				 << ") -> VPH Threshold : " << (vph_data[0] + vph_data[1]) / 2.
+				 << " at pbeta = " << pbeta_cross;
+
+	break;
+      }
+    } // pbeta loop
+
+  }
+
+  return;
+
+}
+
+void PidFunction::GenerateSigmaThr() {
+
+  for ( auto itr = likelihood_param_map_.begin();
+	itr != likelihood_param_map_.end();
+	itr++ ) { // angle loop
+    auto datapoints = itr->second;
+
+    for ( auto itr1 = datapoints.begin(); itr1 != datapoints.end(); itr1++ ) {
+      auto data = itr1->second;
+      if ( 1200. < (data.input_mom_min + data.input_mom_max) / 2. &&
+	   (data.input_mom_min + data.input_mom_max) / 2. < 1300. ) {
+	vph_sigma_thr_map_.insert(std::make_pair(itr->first, data.sigma[1]));
+
+	BOOST_LOG_TRIVIAL(trace) << "Angle : (" << data.input_ang_min << ", " << data.input_ang_max
+				 << ") -> Sigma Threshold : " << data.sigma[1]
+				 << " at pbeta = " << (data.input_mom_min + data.input_mom_max) / 2.;
+
+	break;
       }
     }
   }
 
   return;
-  
-}
 
-// data と fit の境界を決める pbeta に対応する VPH mean の値を求める
-void PidFunction::GenerateVphMeanCrossPoint() {
-
-  // 角度ごとに mean cross point を作る
-  double mom_data_fit_thr = 200.;
-
-  for ( auto ang_bin : pid_ang_bin_vec_ ) {
-    // data と fit の境界を決める pbeta に対応する VPH
-    double vph = CalcMomentumVphEmulsionFit(mom_data_fit_thr / 1000., ang_bin);
-    vph_mean_cross_map_.insert(std::make_pair(ang_bin, vph));
-
-    BOOST_LOG_TRIVIAL(trace) << "Angle : (" << ang_bin.first << ", " << ang_bin.second << ")"
-			     << " -> Threshold VPH : " << vph;
-			     
-  }
-
-  return;
-
-}
-
-// pion と proton の sigma が一緒になる境界を決める
-void PidFunction::GenerateVphSigmaCrossPoint() {
-
-
-  // 角度ごとに sigma cross point を作る
-  double mom_pi_p_thr_min = 1200.;
-  double mom_pi_p_thr_max = 1300.;
-
-  for ( int i_ang_bin = 0; i_ang_bin < pid_ang_bin_vec_.size(); i_ang_bin++ ) {
-
-    auto ang_bin = pid_ang_bin_vec_.at(i_ang_bin);
-
-    // pion と proton の sigma が同じとみなされるときの　VPH
-
-    auto pid_mom_bin_vec = pid_mom_bin_map_.at(ang_bin);
-    auto param = vph_func_param_map_.at(ang_bin);
-
-    for ( int i_mom_bin = 0; i_mom_bin < pid_mom_bin_vec.size(); i_mom_bin++) {
-
-      auto mom_bin = pid_mom_bin_vec.at(i_mom_bin);
-      auto data = likelihood_param_bin_map_.at(std::make_pair(i_ang_bin, i_mom_bin));
-
-      double mom_bin_mean = (mom_bin.first + mom_bin.second) / 2.;
-      if ( mom_pi_p_thr_min < mom_bin_mean &&
-	   mom_bin_mean < mom_pi_p_thr_max ) { // 1200--1300 MeV/c の間で cross するはず
-	for ( auto pbeta = mom_bin.first; pbeta <= mom_bin.second; pbeta += 1.0 ) {
-	  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., ang_bin);
-	  double sigma = param.sigma_inter + param.sigma_scale * TMath::Sqrt(vph);
-	  // bin の中での vph から計算した sigma が bin の sigma と一致したところを threshold とする
-	  if ( sigma - data.sigma[1] < 1. ) {
-	    vph_sigma_cross_map_.insert(std::make_pair(ang_bin, vph));
-	    BOOST_LOG_TRIVIAL(trace) << "Angle : (" << ang_bin.first << ", " << ang_bin.second << ")"
-				     << " -> Threshold sigma VPH : " << vph;
-	  }
-	  break;
-	} // pbeta
-	break;
-      } // fi mom
-    } // imom
-  } // iang
-
-  return;
-
-}
-
-
-// pid_ang_bin_vec_ で何番目の bin に入るかを確認
-// 最大値より大きい場合は pid_ang_bin_vec_.size() とする
-int PidFunction::GetPidAngBinId(double tangent) const {
-  
-  for ( int i = 0; i < pid_ang_bin_vec_.size(); i++ ) {
-    auto pid_ang_bin_ = pid_ang_bin_vec_.at(i);
-    if ( tangent >= pid_ang_bin_.first &&
-	 tangent < pid_ang_bin_.second ) {
-      return i;
-    }
-  }
-
-  return pid_ang_bin_vec_.size();
-  
 }
 
 // 与えられた particle id, pbeta, tangent をもとに
 // data driven な mean/sigma を使って gauss で VPH を計算
 double PidFunction::GetVph(int true_particle_id,
-			   double ecc_mcs_mom,
+			   double pbeta,
 			   double tangent) const {
 
-  // tangent と pbeta に従って VPH の mean と sigma を求める
-  double mean = -1;
-  double sigma = 0.;
+  double vph = -1;
+  
   if ( true_particle_id == 2212 ) {
-    mean = CalcVphProton(ecc_mcs_mom, tangent);
-    sigma = CalcVphSigmaProton(ecc_mcs_mom, tangent);
+    double mean = CalcVphProton(pbeta, tangent);
+    double sigma = CalcVphSigmaProton(pbeta, tangent);
+    vph = gRandom->Gaus(mean, sigma);
   }
   else {
-    mean = CalcVphMuon(ecc_mcs_mom, tangent);
-    sigma = CalcVphSigmaMuon(ecc_mcs_mom, tangent);
+    double pbeta_thr;
+    if ( vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_thr_map_.end() ) {
+      pbeta_thr = vph_pion_mip_thr_map_.rbegin()->second;
+    }
+    else {
+      pbeta_thr = vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10))->second;
+    }
+    if ( pbeta > pbeta_thr + 100. ) { // MIP
+      TH1D *hist;
+      if ( vph_pion_mip_hist_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_hist_map_.end() ) {
+	hist = vph_pion_mip_hist_map_.rbegin()->second;
+      }
+      else {
+	hist = vph_pion_mip_hist_map_.upper_bound((int)(tangent * 10))->second;
+      }
+      vph = hist->GetRandom();
+    }
+    else {
+      double mean = CalcVphMuon(pbeta, tangent);
+      double sigma = CalcVphSigmaMuon(pbeta, tangent);
+      vph = gRandom->Gaus(mean, sigma);
+    }
   }
 
-  double vph = gRandom->Gaus(mean, sigma);
   if ( vph < 0 ) vph = 0.;
   return vph;
 
 }
 
-// 与えられた vph, pbeta, tangent をもとに
-// likelihood を計算 (何 sigma 離れているか)
-void PidFunction::CalcPartnerLikelihood(double vph, double ecc_mcs_mom, double tangent,
+void PidFunction::CalcPartnerLikelihood(double vph, double pbeta, double tangent,
 					double &muon_likelihood,
 					double &proton_likelihood) const {
-  
-  // Reconstructed pbeta に対応する 各粒子の mean/sigma を求める
-  double muon_mean = CalcVphMuon(ecc_mcs_mom, tangent);
-  double proton_mean = CalcVphProton(ecc_mcs_mom, tangent);
-  double muon_sigma = CalcVphSigmaMuon(ecc_mcs_mom, tangent);
-  double proton_sigma = CalcVphSigmaProton(ecc_mcs_mom, tangent);
 
-  // 実際の VPH をもとにlikelihood を計算
-  muon_likelihood = (vph - muon_mean) / muon_sigma;
-  proton_likelihood = (proton_mean - vph) / proton_sigma;
-  /*
-  muon_likelihood = TMath::Gaus(vph, muon_mean,
-				muon_sigma, kTRUE);
-  proton_likelihood = TMath::Gaus(vph, proton_mean,
-				  proton_sigma, kTRUE);
-  */
+  double proton_mean = CalcVphProton(pbeta, tangent);
+  double proton_sigma = CalcVphSigmaProton(pbeta, tangent);
+  proton_likelihood = (1 + std::erf((vph - proton_mean) / (std::sqrt(2) * proton_sigma))) / 2.;
+
+  double pbeta_thr;
+  if ( vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_thr_map_.end() ) {
+    pbeta_thr = vph_pion_mip_thr_map_.rbegin()->second;
+  }
+  else {
+    pbeta_thr = vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10))->second;
+  }
+
+  if ( pbeta < pbeta_thr + 100. ) {
+    double muon_mean = CalcVphMuon(pbeta, tangent);
+    double muon_sigma = CalcVphSigmaMuon(pbeta, tangent);
+    muon_likelihood = 1 - (1 + std::erf((vph - muon_mean) / (std::sqrt(2) * muon_sigma))) / 2.;
+  }
+  else {
+    muon_likelihood = CalcVphPionMipProb(vph, tangent);
+  }
+  
   return;
+
 }
 
-// pbeta, tangent から muon vph を計算する
+int PidFunction::GetReconPid(double vph, double pbeta, double tangent,
+			     double muon_likelihood, double proton_likelihood) const {
+
+  double pbeta_thr;
+  if ( vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_thr_map_.end() ) {
+    pbeta_thr = vph_pion_mip_thr_map_.rbegin()->second;
+  }
+  else {
+    pbeta_thr = vph_pion_mip_thr_map_.upper_bound((int)(tangent * 10))->second;
+  }
+
+  double likelihood_ratio = muon_likelihood / (muon_likelihood + proton_likelihood);
+  double proton_mean = CalcVphProton(pbeta, tangent);
+  double pion_mean;
+
+  if ( pbeta < pbeta_thr + 100. ) {
+    if ( vph_pion_mip_mean_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_mean_map_.end() ) {
+      pion_mean = vph_pion_mip_mean_map_.rbegin()->second;
+    }
+    else {
+      pion_mean = vph_pion_mip_mean_map_.upper_bound((int)(tangent * 10))->second;
+    }
+  }
+  else {
+    pion_mean = CalcVphMuon(pbeta, tangent);
+  }
+
+  if ( vph > proton_mean ) {
+    return 2212;
+  }
+  else if ( vph < pion_mean ) {
+    return 211;
+  }
+  else if ( likelihood_ratio <= 0.5 ) {
+    return 2212;
+  }
+  else 
+    return 211;
+
+}
+			     
+double PidFunction::CalcVphPionMipProb(double vph, double tangent) const {
+
+  double sum = 0.;
+  Pid_data_ns::VphPionMip point[2];
+
+  std::map<double, Pid_data_ns::VphPionMip > param;
+  if ( vph_pion_mip_map_.upper_bound((int)(tangent * 10)) == vph_pion_mip_map_.end() ) {
+    param = vph_pion_mip_map_.rbegin()->second;
+  }
+  else {
+    param = vph_pion_mip_map_.upper_bound((int)(tangent * 10))->second;
+  }
+  
+
+  for ( auto itr = param.rbegin(); itr != std::next(param.rend(),-1); itr++ ) {
+    point[0] = std::next(itr, 1)->second;
+    point[1] = itr->second;
+    if ( point[1].vph > vph ) {
+      sum += (point[0].prob + point[1].prob) / 2.;
+    }
+    else if ( point[0].vph > vph ) {
+      double prob_middle;
+      prob_middle =  point[0].prob + (point[1].prob - point[0].prob) / (point[1].vph - point[0].vph)
+	* (vph - point[0].vph);
+      double prob_middle_area = (prob_middle + point[1].prob) * (point[1].vph - vph) / 2.;
+      double prob_middle_scale = prob_middle_area / ((point[1].prob + point[0].prob) * (point[1].vph - point[0].vph) / 2.)
+	* ((point[0].prob + point[1].prob) / 2.);
+
+      sum += prob_middle_scale;
+      break;
+    }
+  }
+
+  return sum;
+
+}
+
 double PidFunction::CalcVphMuon(double pbeta, double tangent) const {
 
-  int ang_bin_id = GetPidAngBinId(tangent);
-
-  // 最大値より大きな角度の場合は最大の bin の値をそのまま使う
-  if ( ang_bin_id == pid_ang_bin_vec_.size() ) {
-    ang_bin_id = ang_bin_id - 1;
-  }
-
-  // ang_bin_id に対応する ang_bin に対応する mom_bin の vector
-  auto pid_mom_bin = pid_mom_bin_map_.at(pid_ang_bin_vec_.at(ang_bin_id));
-  // 最小 bin の平均より小さい場合は最小の bin の値をそのまま使う
-  if ( pbeta < (pid_mom_bin.front().first + pid_mom_bin.front().second) / 2. ) {
-    auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, 0));
-    return param.mean[1];
-  }
-
-  // mom bin の 平均同士を比べて内挿に使う値を決定する
-  double vph_min = -1.;
-  double vph_max = -1.;
-  double pb_min = -1.;
-  double pb_max = -1.;
-
-  for ( int i = 0; i < pid_mom_bin.size(); i++ ) {
-    if ( i == 0 ) continue; // すでに return されているが一応
-    auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i));
-    double input_mom_mean = (param.input_mom_min + param.input_mom_max) / 2.;
-    if ( pbeta < input_mom_mean ) { // 初めて bin の平均より小さくなったときが正しい bin
-      auto param_prev = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i-1));
-      vph_min = param_prev.mean[1];
-      vph_max = param.mean[1];
-      pb_min = (param_prev.input_mom_min + param_prev.input_mom_max) / 2.;
-      pb_max = input_mom_mean;
-      break;
-    }
-  }
-
-  if ( vph_min < 0. ) { // 見つからなかったら最後の bin の値をそのまま使う
-    int mom_bin_id = pid_mom_bin.size() - 1;
-    return likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, mom_bin_id)).mean[1];
-  }
-
-  // 直線で内挿して決定
-  return vph_min + (vph_max - vph_min) / (pb_max - pb_min) * (pbeta - pb_min);
-
-}
-
-
-// pbeta tangent から muon vph sigma を計算する
-double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent) const {
-  int ang_bin_id = GetPidAngBinId(tangent);
-
-  // 最大値より大きな角度の場合は最大の bin の値をそのまま使う
-  if ( ang_bin_id == pid_ang_bin_vec_.size() ) {
-    ang_bin_id = ang_bin_id - 1;
-  }
-
-  // ang_bin_id に対応する ang_bin に対応する mom_bin の vector
-  auto pid_mom_bin = pid_mom_bin_map_.at(pid_ang_bin_vec_.at(ang_bin_id));
-
-  // bin の中で sigma は一定
-  for ( int i = 0; i < pid_mom_bin.size(); i++ ) {
-    auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i));
-    if ( pbeta < param.input_mom_max ) { // 初めて mom_max より小さくなったところが正しい bin
-      return param.sigma[1];
-    }
-  }
-
-  // 最後の bin の値をそのまま使う
-  int mom_bin_id = pid_mom_bin.size() - 1;
-  auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, mom_bin_id));  
-  return param.sigma[1];
+  double mean = 0.;
   
+  // 角度ビンを決めて datapoint map を選ぶ
+  auto datapoints = GetParamMapByTangent(tangent);
+
+  Pid_data_ns::DataPoint data[2];
+  if ( datapoints.rbegin()->second.input_mom_min < pbeta ) {
+    data[0] = datapoints.rbegin()->second;
+    data[1] = std::next(datapoints.rbegin(), 1)->second;
+  }
+  else {
+    data[0] = datapoints.lower_bound(pbeta)->second;
+    if ( datapoints.lower_bound(pbeta) == datapoints.begin() ) {
+      data[1] = std::next(datapoints.lower_bound(pbeta), 1)->second;
+    }
+    else {
+      data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
+    }
+  }
+
+  double pbeta_mean[2];
+  pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
+  pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
+  mean = (data[0].mean[1] - data[1].mean[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
+    + data[0].mean[1];
+  return mean;
+
 }
 
+double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent) const {
 
-// pbeta tangent から proton vph sigma を計算する
+  double sigma = 0.;
+
+  // 角度ビンを決めて datapoint map を選ぶ
+  auto datapoints = GetParamMapByTangent(tangent);
+
+  Pid_data_ns::DataPoint data[2];
+  if ( datapoints.rbegin()->second.input_mom_min < pbeta ) {
+    data[0] = datapoints.rbegin()->second;
+    data[1] = std::next(datapoints.rbegin(), 1)->second;
+  }
+  else { // pbeta が最小 bin より小さい場合
+    data[0] = datapoints.lower_bound(pbeta)->second;
+    if ( datapoints.lower_bound(pbeta) == datapoints.begin() ) {
+      data[1] = std::next(datapoints.lower_bound(pbeta), 1)->second;
+    }
+    else {
+      data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
+    }    
+  }
+
+  double pbeta_mean[2];
+  pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
+  pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
+  sigma = (data[0].sigma[1] - data[1].sigma[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
+    + data[0].sigma[1];
+  return sigma;
+
+}
+
 double PidFunction::CalcVphProton(double pbeta, double tangent) const {
 
-  int ang_bin_id = GetPidAngBinId(tangent);
+  double mean = 0.;
 
-  // 最大値より大きな角度の場合は最大の bin の値をそのまま使う
-  if ( ang_bin_id == pid_ang_bin_vec_.size() ) {
-    ang_bin_id = ang_bin_id - 1;
-  }
+  double pbeta_cross_point = GetPBetaCrossPointByTangent(tangent);
 
-  auto ang_bin = pid_ang_bin_vec_.at(ang_bin_id);
-  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., ang_bin);
-  // 200 MeV/c に対応する点より値が小さかったら fit した値を使う
-  if ( vph < vph_mean_cross_map_.at(ang_bin))
-    return vph;
+  if ( pbeta < pbeta_cross_point ) {
 
-  auto pid_mom_bin = pid_mom_bin_map_.at(ang_bin);
-  // 最小 bin の平均より小さい場合は最小の bin の値をそのまま使う
-  if ( pbeta < (pid_mom_bin.front().first + pid_mom_bin.front().second) / 2. ) {
-    auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, 0));
-    return param.mean[2];
-  }
+    auto datapoints = GetParamMapByTangent(tangent);
 
-  // mom bin の平均同士を比べて内挿に使う値を決定する
-  double vph_min = -1.;
-  double vph_max = -1.;
-  double pb_min = -1.;
-  double pb_max = -1.;
-
-  for ( int i = 0; i < pid_mom_bin.size(); i++ ) {
-    if ( i == 0 ) continue; // すでに return されているが一応
-    auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i));
-    double input_mom_mean = (param.input_mom_min + param.input_mom_max) / 2.;
-    if ( pbeta < input_mom_mean ) { // 初めて bin の平均より小さくなったときが正しい bin
-      auto param_prev = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i-1));
-      vph_min = param_prev.mean[2];
-      vph_max = param.mean[2];
-      pb_min = (param_prev.input_mom_min + param_prev.input_mom_max) / 2.;
-      pb_max = input_mom_mean;
-
-      // pb max が 200 MeV/c より大きくなったら範囲を変更
-      if ( pb_max > 200. ) {
-	pb_max = 200.; vph_max = vph_mean_cross_map_.at(ang_bin);
-      }
-
-      break;
+    Pid_data_ns::DataPoint data[2];
+    data[0] = datapoints.lower_bound(pbeta)->second;
+    if ( datapoints.lower_bound(pbeta) == datapoints.begin() ) {
+      data[1] = std::next(datapoints.lower_bound(pbeta), 1)->second;
     }
+    else {
+      data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
+    }
+
+    double pbeta_mean[2];
+    pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
+    pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
+    mean = (data[0].mean[2] - data[1].mean[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
+      + data[0].mean[2];
+  }
+  else {
+    mean = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
   }
 
-
-  // 直線で内挿して決定
-  return vph_min + (vph_max - vph_min) / (pb_max - pb_min) * (pbeta - pb_min);
+  return mean;
 
 }
 
 double PidFunction::CalcVphSigmaProton(double pbeta, double tangent) const {
 
-  int ang_bin_id = GetPidAngBinId(tangent);
+  double sigma = 0.;
 
-  // 最大値より大きな角度の場合は最大の bin の値をそのまま使う
-  if ( ang_bin_id == pid_ang_bin_vec_.size() ) {
-    ang_bin_id = ang_bin_id - 1;
-  }
+  double pbeta_cross_point = GetPBetaCrossPointByTangent(tangent);
 
-  auto ang_bin = pid_ang_bin_vec_.at(ang_bin_id);
-  auto func_param = vph_func_param_map_.at(ang_bin);
-  
-  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., ang_bin);
+  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
+  double vph_thr = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
 
-  // low momentum はデータをそのまま使う
-  if ( vph > vph_mean_cross_map_.at(ang_bin) ) {
-    // ang_bin_id に対応する ang_bin に対応する mom_bin の vector
-    auto pid_mom_bin = pid_mom_bin_map_.at(pid_ang_bin_vec_.at(ang_bin_id));
-    
-    // bin の中で sigma は一定
-    for ( int i = 0; i < pid_mom_bin.size(); i++ ) {
-      auto param = likelihood_param_bin_map_.at(std::make_pair(ang_bin_id, i));
-      if ( pbeta < param.input_mom_max ) { // 初めて mom_max より小さくなったところが正しい bin
-	return param.sigma[2];
+  if ( pbeta < 200. ) {
+    auto datapoints = GetParamMapByTangent(tangent);
+
+    Pid_data_ns::DataPoint data[2];
+    if ( datapoints.rbegin()->second.input_mom_min < pbeta ) {
+      data[0] = datapoints.rbegin()->second;
+      data[1] = std::next(datapoints.rbegin(), 1)->second;
+    }
+    else {
+      data[0] = datapoints.lower_bound(pbeta)->second;
+      if ( datapoints.lower_bound(pbeta) == datapoints.begin() ) {
+	data[1] = std::next(datapoints.lower_bound(pbeta), 1)->second;
       }
-    }    
-  }
-  // pi/p が分けられない点では pi をそのまま延長
-  else if ( vph < vph_sigma_cross_map_.at(ang_bin) ) {
-    vph = vph_sigma_cross_map_.at(ang_bin);
+      else {
+	data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
+      }
+    }
+
+    double pbeta_mean[2];
+    pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
+    pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
+    sigma = (data[0].sigma[2] - data[1].sigma[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
+      + data[0].sigma[2];
+    return sigma;
   }
 
-  return func_param.sigma_inter + func_param.sigma_scale * TMath::Sqrt(vph);
+  auto func_param = GetFuncParamByTangent(tangent);
+  sigma = func_param.sigma_inter + func_param.sigma_scale * std::sqrt(vph);
+  double sigma_thr = GetSigmaThrByTangent(tangent);
+  return std::max(sigma, sigma_thr);
 
 }
 
+std::map<double, Pid_data_ns::DataPoint > PidFunction::GetParamMapByTangent(double tangent) const {
 
+  int iang = tangent * 10;
 
+  if ( likelihood_param_map_.upper_bound(iang) == likelihood_param_map_.end() ) {
+    return likelihood_param_map_.rbegin()->second;
+  }
+  else {
+    return likelihood_param_map_.upper_bound(iang)->second;
+  }
 
-double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, std::pair<double, double > ang_bin) const {
+}
+
+double PidFunction::GetPBetaCrossPointByTangent(double tangent) const {
+
+  int iang = tangent * 10;
+  
+  if ( vph_cross_pbeta_map_.upper_bound(iang) == vph_cross_pbeta_map_.end() ) {
+    return vph_cross_pbeta_map_.rbegin()->second;
+  }
+  else {
+    return vph_cross_pbeta_map_.upper_bound(iang)->second;
+  }
+
+}
+
+double PidFunction::GetSigmaThrByTangent(double tangent) const {
+
+  int iang = tangent * 10;
+  
+  if ( vph_sigma_thr_map_.upper_bound(iang) == vph_sigma_thr_map_.end() ) {
+    return vph_sigma_thr_map_.rbegin()->second;
+  }
+  else {
+    return vph_sigma_thr_map_.upper_bound(iang)->second;
+  }
+
+}
+
+Pid_data_ns::VphFuncParam PidFunction::GetFuncParamByTangent(double tangent) const {
+
+  int iang = tangent * 10;
+
+  if ( vph_func_param_map_.upper_bound(iang) == vph_func_param_map_.end() ) {
+    return vph_func_param_map_.rbegin()->second;
+  }
+  else {
+    return vph_func_param_map_.upper_bound(iang)->second;
+  }
+
+}
+
+double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, double tangent) const {
+
+  auto func_param_ = GetFuncParamByTangent(tangent);
 
   double dedx = 0.;
   
@@ -420,32 +520,11 @@ double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, std::pair<double, d
     
   }
 
-  auto param = vph_func_param_map_.at(ang_bin);
-  double slope = param.mean_slope;
-  double intercept = param.mean_inter;
+  double slope = func_param_.mean_slope;
+  double intercept = func_param_.mean_inter;
   
   return slope * dedx + intercept;
 
-}
-
-
-int PidFunction::GetReconPid(double muon_likelihood, double proton_likelihood) const {
-  
-  if ( muon_likelihood < 0. ) {
-    return 211;
-  }
-  else if ( proton_likelihood < 0. ) {
-    return 2212;
-  }
-  else {
-    double likelihood_ratio = muon_likelihood / (muon_likelihood + proton_likelihood);
-    if ( likelihood_ratio < 0.5 ) {
-      return 211;
-    }
-    else {
-      return 2212;
-    }
-  }
 }
 
 void PidFunction::CalculateStopFlag(Momentum_recon::Mom_chain &chain,
@@ -486,19 +565,5 @@ void PidFunction::CalculateStopFlag(Momentum_recon::Mom_chain &chain,
   }
 
   return;
-
-}
-
-void PidFunction::CheckMeanSigmaValues() const {
-
-  for ( double pbeta = 1.; pbeta < 1500.; pbeta++ ) {
-    double proton_mean = CalcVphProton(pbeta, 0.);
-    double proton_sigma = CalcVphSigmaProton(pbeta, 0.);
-    std::cout << "Momentum : " << pbeta << ", "
-	      << "Mean : " << proton_mean << ", "
-	      << "Sigma : " << proton_sigma << std::endl;
-  }
-
-  std::exit(1);
 
 }

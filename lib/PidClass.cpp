@@ -88,4 +88,39 @@ namespace Pid_data_ns
     return is;
   }
 
+  VphPionMip::VphPionMip() {
+    ang_min = -1.;
+    ang_max = -1.;
+    pb_max = 0.;
+    expect = 0.;
+    bin_id = -1.;
+    vph = 0.;
+    entry = -1.;
+    prob = -1.;
+    prob_acc = -1.;
+  }
+
+  std::ostream &operator<<(std::ostream& os, VphPionMip &param) {
+    os << "Angle Minimum : " << param.ang_min << ", "
+       << "Angle Maximum : " << param.ang_max << ", "
+       << "Pbeta Maximum : " << param.pb_max << ", "
+       << "Expected value : " << param.expect << ", "
+       << "Bin ID : " << param.bin_id << ", "
+       << "VPH : " << param.vph << ", "
+       << "Entry : " << param.entry << ", "
+       << "Probability : " << param.prob << ", "
+       << "Accumulated probability : " << param.prob_acc;
+
+    return os;
+  }
+
+  std::istream &operator>>(std::istream& is, VphPionMip &param) {
+    is >> param.ang_min >> param.ang_max
+       >> param.pb_max >> param.expect
+       >> param.bin_id >> param.vph >> param.entry
+       >> param.prob >> param.prob_acc;
+
+    return is;
+  }
+
 }

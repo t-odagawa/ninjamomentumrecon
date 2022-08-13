@@ -84,24 +84,28 @@ int main ( int argc, char* argv[]) {
 	int true_particle_id = chain.particle_flag / 10000;
 
 	// VPH を計算 (data-driven, つまり validation ではない)
-	vph = pid_function.GetVph(true_particle_id, chain.ecc_mcs_mom[0], 
+	double pb_mu_assume = CalculatePBetaFromMomentum(chain.ecc_mcs_mom[0], MCS_MUON_MASS);
+	vph = pid_function.GetVph(true_particle_id, pb_mu_assume, 
 				  std::hypot(tangent.at(0), tangent.at(1)));
-	if ( vph <= 0.1 ) {
-	  std::cout << "VPH : " <<  vph << ", " << ev.groupid << std::endl;
-	}
+
 	chain.base.front().m[0].ph = vph;
 	
 	// p/pi likelihood を計算
-	pid_function.CalcPartnerLikelihood(vph, chain.ecc_mcs_mom[0],
+	pid_function.CalcPartnerLikelihood(vph, pb_mu_assume,
 					   std::hypot(tangent.at(0), tangent.at(1)),
 					   chain.muon_likelihood, chain.proton_likelihood);
 
 	if ( recon_particle_id != 0 ) continue;
 
 	// likelihood に基づき recon particle id を決定
-	if ( chain.ecc_mcs_mom[0] < 700. ) {
-	  recon_particle_id = pid_function.GetReconPid(chain.muon_likelihood, chain.proton_likelihood);
+	if ( pb_mu_assume < 700. ) {
+	  recon_particle_id = pid_function.GetReconPid(vph, pb_mu_assume, std::hypot(tangent.at(0), tangent.at(1)),
+						       chain.muon_likelihood, chain.proton_likelihood);
 	  chain.particle_flag += recon_particle_id;
+	  BOOST_LOG_TRIVIAL(trace) << "RECON VPH : " << vph
+				   << "True : " << true_particle_id << ", Recon :" << recon_particle_id
+				   << "PBETA : " << pb_mu_assume << ", ANGLE : " << std::hypot(tangent.at(0), tangent.at(1))
+				   << "LIKELIHOOD : " << chain.muon_likelihood << ", " << chain.proton_likelihood;
 	}
 
 	// ECC 内で partner が止まっているかを確認
@@ -114,10 +118,32 @@ int main ( int argc, char* argv[]) {
 	ax.reserve(chain.base.size());
 	ay.reserve(chain.base.size());
 	pl.reserve(chain.base.size());
-	for ( auto base : chain.base ) {
-	  ax.push_back(base.ax);
-	  ay.push_back(base.ay);
-	  pl.push_back(base.pl);
+	
+	if ( chain.direction == 1 ) {
+	  for ( auto pair : chain.base_pair ) {
+	    double x_diff = pair.first.x - pair.second.x;
+	    double y_diff = pair.first.y - pair.second.y;
+	    double z_diff = pair.first.z - pair.second.z;
+	    ax.push_back(x_diff / z_diff);
+	    ay.push_back(y_diff / z_diff);
+	    pl.push_back(pair.first.pl);
+	  }
+	  ax.push_back(chain.base.back().ax);
+	  ay.push_back(chain.base.back().ay);
+	  pl.push_back(chain.base.back().pl);
+	}
+	else if ( chain.direction == -1 ) {
+	  ax.push_back(chain.base.front().ax);
+	  ay.push_back(chain.base.front().ay);
+	  pl.push_back(chain.base.front().pl);
+	  for ( auto pair : chain.base_pair ) {
+	    double x_diff = pair.first.x - pair.second.x;
+	    double y_diff = pair.first.y - pair.second.y;
+	    double z_diff = pair.first.z - pair.second.z;
+	    ax.push_back(x_diff / z_diff);
+	    ay.push_back(y_diff / z_diff);
+	    pl.push_back(pair.second.pl);
+	  }	  
 	}
 	
 	range_function.ModifyVectors(ax, ay, pl);
