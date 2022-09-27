@@ -708,6 +708,36 @@ Double_t GetRadialPlot(Double_t tangent) {
   else return 0.00368;
 }
 
+Double_t GetRadialErrPlot(Double_t tangent) {
+  if (tangent < 0.1) return 5.12e-5;
+  else if (tangent < 0.2) return 3.12e-5;
+  else if (tangent < 0.3) return 2.85e-5;
+  else if (tangent < 0.4) return 3.11e-5;
+  else if (tangent < 0.5) return 3.45e-5;
+  else if (tangent < 0.6) return 3.49e-5;
+  else if (tangent < 0.7) return 3.74e-5;
+  else if (tangent < 0.8) return 3.86e-5;
+  else if (tangent < 0.9) return 3.69e-5;
+  else if (tangent < 1.0) return 3.79e-5;
+  else if (tangent < 1.1) return 3.87e-5;
+  else if (tangent < 1.2) return 3.60e-5;
+  else if (tangent < 1.3) return 3.61e-5;
+  else if (tangent < 1.4) return 3.43e-5;
+  else if (tangent < 1.7) return 1.84e-5;
+  else if (tangent < 2.0) return 1.60e-5;
+  else if (tangent < 2.3) return 1.33e-5;
+  else if (tangent < 2.6) return 1.19e-5;
+  else if (tangent < 2.9) return 1.23e-5;
+  else if (tangent < 3.2) return 1.31e-5;
+  else if (tangent < 3.5) return 1.34e-5;
+  else if (tangent < 3.8) return 1.41e-5;
+  else if (tangent < 4.1) return 1.43e-5;
+  else if (tangent < 4.4) return 1.46e-5;
+  else if (tangent < 4.7) return 1.50e-5;
+  else if (tangent < 5.0) return 1.52e-5;
+  else return 1.52e-5;  
+}
+
 Double_t GetLateralPlot(Double_t tangent) {
   if (tangent < 0.1) return 0.00131;
   else if (tangent < 0.2) return 0.00130;
@@ -726,6 +756,26 @@ Double_t GetLateralPlot(Double_t tangent) {
   else if (tangent < 1.7) return 0.000587;
   else if (tangent < 2.0) return 0.000496;
   else return 0.000496;
+}
+
+Double_t GetLateralErrPlot(Double_t tangent) {
+  if (tangent < 0.1) return 3.47e-5;
+  else if (tangent < 0.2) return 1.88e-5;
+  else if (tangent < 0.3) return 1.21e-5;
+  else if (tangent < 0.4) return 8.68e-6;
+  else if (tangent < 0.5) return 6.67e-6;
+  else if (tangent < 0.6) return 5.03e-6;
+  else if (tangent < 0.7) return 4.05e-6;
+  else if (tangent < 0.8) return 3.46e-6;
+  else if (tangent < 0.9) return 3.14e-6;
+  else if (tangent < 1.0) return 2.82e-6;
+  else if (tangent < 1.1) return 2.57e-6;
+  else if (tangent < 1.2) return 2.40e-6;
+  else if (tangent < 1.3) return 2.30e-6;
+  else if (tangent < 1.4) return 2.26e-6;
+  else if (tangent < 1.7) return 1.30e-6;
+  else if (tangent < 2.0) return 1.36e-6;
+  else return 1.36e-6;
 }
 
 Double_t RadialAnglePrecision(Double_t tangent) {
@@ -1045,16 +1095,27 @@ void SmearTangentVector(TVector3 &tangent) {
 Double_t RadialTangentAccuracy(Double_t tangent) {
 
   if ( tangent < 2.5 ) {
+    
     return std::sqrt(2) * std::sqrt(XY_POSITION_ACCURACY * XY_POSITION_ACCURACY
-				     + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY)/ 210.e-3;
+				     + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY)/ 210.e-3; // nominal
+    
+    /*
+      return std::sqrt(2) * std::sqrt((XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
+      * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
+      + tangent * tangent
+      * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)
+      * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)) / 210.e-3; // syst
+      */
   } else {
-    return 1.64e-2 * (tangent - 2.5) + 2.37e-2;
+    return 1.64e-2 * (tangent - 2.5) + 2.37e-2; // nominal
+    // return (1.64e-2 + 5.98e-4) * (tangent - 2.5) + 2.37e-2; // syst
   }
 
 }
 
 Double_t LateralTangentAccuracy() {
-  return std::sqrt(2) / 210.e-3 * XY_POSITION_ACCURACY;
+  return std::sqrt(2) / 210.e-3 * XY_POSITION_ACCURACY; // nominal
+  // return std::sqrt(2) / 210.e-3 * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR); // syst
 }
 
 

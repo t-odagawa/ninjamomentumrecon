@@ -149,7 +149,9 @@ Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz,
 ///> Calculate angle precisions for radial and lateral directions
 std::pair<Double_t, Double_t > GetMinMaxPlot(Double_t tangent);
 Double_t GetRadialPlot(Double_t tangent);
+Double_t GetRadialErrPlot(Double_t tangent);
 Double_t GetLateralPlot(Double_t tangent);
+Double_t GetLateralErrPlot(Double_t tangent);
 Double_t RadialAnglePrecision(Double_t tangent);
 Double_t LateralAnglePrecision(Double_t tangent);
 

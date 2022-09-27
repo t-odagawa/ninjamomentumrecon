@@ -337,13 +337,15 @@ void ConnectionFunction::ApplyDetectionEfficiency(std::vector<B2EmulsionSummary*
 
     int bin_id = GetAngleBinId(tangent);
     double efficiency = ecc_efficiency_[ecc_id].at(emulsion->GetPlate() + 1).at(bin_id).efficiency;
+    double efficiency_err = ecc_efficiency_[ecc_id].at(emulsion->GetPlate() + 1).at(bin_id).efficiency_err;
 
     if ( emulsion->GetParentTrack().GetParticlePdg() == PDG_t::kProton ||
 	 (B2Pdg::IsChargedPion(emulsion->GetParentTrack().GetParticlePdg()) &&
 	  emulsion->GetParentTrack().GetFinalAbsoluteMomentum().GetValue() < 100.) ) {
       emulsions_detected.push_back(emulsion);
     }
-    else if ( gRandom->Uniform() < efficiency ) {
+    else if ( gRandom->Uniform() < efficiency ) { // nominal
+    // else if ( gRandom->Uniform() < efficiency + efficiency_err ) { // syst
       emulsions_detected.push_back(emulsion);
     }
     else {
@@ -2286,8 +2288,18 @@ bool ConnectionFunction::JudgePartnerTrack(B2EmulsionSummary* vertex_track,
 						 ecc_id, recon_vertex);
   Double_t tangent = std::hypot(parent_dir.X(), parent_dir.Y());
   Double_t tangent_partner = std::hypot(daughter_dir.X(), daughter_dir.Y());
+  
   if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.04 * tangent + 0.04) + 5, 2) +
-				    std::pow(extrapolate_z[1] * (0.04 * tangent_partner + 0.04) + 5, 2)) ) {
+				    std::pow(extrapolate_z[1] * (0.04 * tangent_partner + 0.04) + 5, 2)) ) { // nominal
+  
+  /*
+      if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.02 * tangent + 0.02) + 5, 2) +
+				    std::pow(extrapolate_z[1] * (0.02 * tangent_partner + 0.02) + 5, 2)) ) { // minus
+  	
+    *//*
+  if ( minimum_distance < std::sqrt(std::pow(extrapolate_z[0] * (0.06 * tangent + 0.06) + 5, 2) +
+				    std::pow(extrapolate_z[1] * (0.06 * tangent_partner + 0.06) + 5, 2)) ) { // plus
+      */
 
     // 対応する group の端を探して，start_seg が端かを確認する
     Segment start_seg;

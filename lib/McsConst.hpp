@@ -91,11 +91,15 @@ const static double Z_ALIGN_ACCURACY[2] = {6.e-3, 10.e-3};
 ///> Position determination accuracy in MC smearing (mm)
 // const static double XY_POSITION_ACCURACY = .3e-3;
 const static double XY_POSITION_ACCURACY = .245e-3;
+const static double XY_POSITION_ACCURACY_ERR = 8.e-6;
 //const static double Z_POSITION_ACCURACY = 4.e-3;
 const static double Z_POSITION_ACCURACY = 1.64e-3;
+const static double Z_POSITION_ACCURACY_ERR = 2.12e-5;
 
 ///> Scale factor for MCS correction
-const static double MCS_SCALE_FACTOR = 1.0265;
+ const static double MCS_SCALE_FACTOR = 1.0265;
+// const static double MCS_SCALE_FACTOR = 1.0257; // -1sigma
+//const static double MCS_SCALE_FACTOR = 1.0267; // +1sigma
 // const static double MCS_SCALE_FACTOR = 1.;
 const static double MCS_SCALE_FACTOR_WATER = 1.;
 
