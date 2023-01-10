@@ -46,16 +46,22 @@ int main (int argc, char *argv[]) {
   
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Start==========";
 
-  if ( argc != 8 ) {
+  if ( argc != 9 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input particle gun MC file name> <output root file name> <ncell> <initial pbeta bias> <true(0)/smear(1)> <MC(0)/Data(1)> <Draw LL option>";
+			     << " <input particle gun MC file name> <output root file name> <ncell> <initial pbeta bias> <true(0)/smear(1)> <MC(0)/Data(1)> <Draw LL option> <seed>";
     std::exit(1);
   }
     
   try {
 
     gErrorIgnoreLevel = kWarning;
-    gRandom->SetSeed(time(NULL));
+
+    long seed = std::atoi(argv[8]);
+
+    if ( seed == 0 )
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(seed);
 
     // Input file
     B2Reader reader(argv[1]);
@@ -272,10 +278,10 @@ int main (int argc, char *argv[]) {
 	    TVector3 basetrack_distance_pair(0.,0.,0.);
 	    TVector3 basetrack_distance_pair_water(0.,0.,0.);
 	    GetBasetrackDistancePair(plate_up, plate_down, 1,
-				     position_up, position_down,
-				     basetrack_distance_pair,
-				     basetrack_distance_pair_water,
-				     smear_flag);
+						   position_up, position_down,
+						   basetrack_distance_pair,
+						   basetrack_distance_pair_water,
+						   smear_flag);
 	    
 	    basetrack_distance.push_back(basetrack_distance_pair.Mag());
 	    basetrack_distance_back.push_back(basetrack_distance_pair.Mag());
@@ -426,38 +432,38 @@ int main (int argc, char *argv[]) {
 	for ( int particle_id = 0; particle_id < kNumberOfNinjaMcsParticles; particle_id++ ) {
 	  // Forward reconstruction
 	  auto results = ReconstructPBeta(initial_pbeta[0], ncell, particle_id, 1,
-					  radial_cut_value, lateral_cut_value,
-					  radial_cut_value_water, lateral_cut_value_water,
-					  smear_flag || (datatype == B2DataType::kRealData),
-					  kNinjaIron,
-					  //kNinjaWater,
-					  //2,
-					  0, // radial + lateral
-					  basetrack_distance,
-					  basetrack_distance_water,
-					  track_tangent,
-					  plate_id,
-					  plate_id_next,
-					  radial_angle_difference,
-					  lateral_angle_difference);
+							radial_cut_value, lateral_cut_value,
+							radial_cut_value_water, lateral_cut_value_water,
+							smear_flag || (datatype == B2DataType::kRealData),
+							kNinjaIron,
+							//kNinjaWater,
+							//2,
+							0, // radial + lateral
+							basetrack_distance,
+							basetrack_distance_water,
+							track_tangent,
+							plate_id,
+							plate_id_next,
+							radial_angle_difference,
+							lateral_angle_difference);
 
 	  recon_pbeta_candidate[particle_id][0] = results.at(0);
 	  recon_pbeta_err_candidate[particle_id][0] = results.at(1);
 	  fit_status[particle_id][0] = (Int_t)results.at(2);
 	  log_likelihood[particle_id][0] = FuncNegativeLogLikelihood(results.at(0),
-								     ncell, particle_id, 1,
-								     radial_cut_value, lateral_cut_value,
-								     radial_cut_value_water, lateral_cut_value_water,
-								     smear_flag || (datatype == B2DataType::kRealData),
-								     kNinjaIron,
-								     0,
-								     basetrack_distance,
-								     basetrack_distance_water,
-								     track_tangent,
-								     plate_id,
-								     plate_id_next,
-								     radial_angle_difference,
-								     lateral_angle_difference);
+										   ncell, particle_id, 1,
+										   radial_cut_value, lateral_cut_value,
+										   radial_cut_value_water, lateral_cut_value_water,
+										   smear_flag || (datatype == B2DataType::kRealData),
+										   kNinjaIron,
+										   0,
+										   basetrack_distance,
+										   basetrack_distance_water,
+										   track_tangent,
+										   plate_id,
+										   plate_id_next,
+										   radial_angle_difference,
+										   lateral_angle_difference);
 	  
 	  // Backward reconstruction
 	  /*

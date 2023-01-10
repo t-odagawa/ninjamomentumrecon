@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 #include <TRandom.h>
+#include <TRandom3.h>
 #include <TVector3.h>
 
 #include <B2Pdg.hh>
@@ -32,7 +33,7 @@ bool CompareParticlePdg(std::vector<const B2EmulsionSummary* > lhs,
   return false;
 }
 
-ConnectionFunction::ConnectionFunction(const ConnectionData &connection_data) : connection_data_(connection_data) {
+ConnectionFunction::ConnectionFunction(const ConnectionData &connection_data, long seed) : connection_data_(connection_data) {
 
   // Get allowances
   connection_data_.GetETECCConnectData(et_ecc_param_);
@@ -70,7 +71,15 @@ ConnectionFunction::ConnectionFunction(const ConnectionData &connection_data) : 
     connection_data_.GetEfficiencyData(ecc, ecc_efficiency_[ecc]);
   }
 
-  gRandom->SetSeed(time(NULL));
+  random_ = new TRandom3();
+  if ( seed == 0 ) {
+    random_->SetSeed(time(NULL));
+    gRandom->SetSeed(time(NULL));
+  }
+  else {
+    random_->SetSeed(seed);
+    gRandom->SetSeed(time(NULL));
+  }
 
   BOOST_LOG_TRIVIAL(info) << "Connection functions are initilized";
 
@@ -237,7 +246,9 @@ void ConnectionFunction::CalcPosInEccCoordinate(TVector3 &position, int ecc_id) 
   // center of ECC5 dessicator
   position.SetX(position.X() - NINJA_POS_X - NINJA_ECC_POS_X);
   position.SetY(position.Y() - NINJA_POS_Y - NINJA_ECC_POS_Y);
-  position.SetZ(position.Z() - NINJA_POS_Z - NINJA_ECC_POS_Z);
+  position.SetZ(position.Z() - NINJA_POS_Z - NINJA_ECC_POS_Z); // nominal
+  // position.SetZ(position.Z() - NINJA_POS_Z - NINJA_ECC_POS_Z - 1.); // systematic plus
+  //position.SetZ(position.Z() - NINJA_POS_Z - NINJA_ECC_POS_Z + 1.); // systematic minus
 
   // film coordinate
   position.SetX(position.X()
@@ -319,9 +330,9 @@ void ConnectionFunction::SmearEmulsions(std::vector<B2EmulsionSummary* > &emulsi
 }
 
 void ConnectionFunction::SmearPosition(TVector3 &position /*um*/) const {
-  position.SetX(gRandom->Gaus(position.X(), 0.2));
-  position.SetY(gRandom->Gaus(position.Y(), 0.2));
-  position.SetZ(gRandom->Gaus(position.Z(), 2.));
+  position.SetX(random_->Gaus(position.X(), 0.2));
+  position.SetY(random_->Gaus(position.Y(), 0.2));
+  position.SetZ(random_->Gaus(position.Z(), 2.));
 }
 
 void ConnectionFunction::ApplyDetectionEfficiency(std::vector<B2EmulsionSummary* > &emulsions_detected,
@@ -344,8 +355,10 @@ void ConnectionFunction::ApplyDetectionEfficiency(std::vector<B2EmulsionSummary*
 	  emulsion->GetParentTrack().GetFinalAbsoluteMomentum().GetValue() < 100.) ) {
       emulsions_detected.push_back(emulsion);
     }
-    else if ( gRandom->Uniform() < efficiency ) { // nominal
-    // else if ( gRandom->Uniform() < efficiency + efficiency_err ) { // syst
+    else if ( random_->Uniform() < efficiency ) { // nominal
+    // else if ( random_->Uniform() < efficiency + efficiency_err ) { // syst plus
+    // else if ( random_->Uniform() < efficiency - efficiency_err ) { // syst minus
+
       emulsions_detected.push_back(emulsion);
     }
     else {

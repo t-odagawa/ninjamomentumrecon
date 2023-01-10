@@ -10,6 +10,8 @@
 #include <numeric>
 #include <functional>
 
+#include <TRandom.h>
+
 // my includes
 #include "McsConst.hpp"
 #include "McsClass.hpp"
@@ -27,9 +29,9 @@ int main (int argc, char* argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "=========Momentum Reconstruction Start==========";
 
-  if ( argc != 4 ) {
+  if ( argc != 5 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input momch file name> <output momch file name> <material mode>";
+			     << " <input momch file name> <output momch file name> <material mode> <seed>";
     std::exit(1);
   }
 
@@ -39,6 +41,12 @@ int main (int argc, char* argv[]) {
     auto ev_vec = Momentum_recon::ReadEventInformationBin(ifilename);
 
     Int_t num_entry = 0;
+
+    long seed = std::atoi(argv[4]);
+    if ( seed == 0 )
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(seed);
 
     for ( auto &ev : ev_vec ) {
 
@@ -352,6 +360,7 @@ int main (int argc, char* argv[]) {
 	  }
 
 	  // ある値より小さければ radial + lateral で測定し直す
+
 	  if ( (particle_id == 0 && CalculateMomentumFromPBeta(pbeta, MCS_MUON_MASS) < 500.) || // muon
 	       (particle_id == 1 && CalculateMomentumFromPBeta(pbeta, MCS_PION_MASS) < 500.) || // pion
 	       (particle_id == 2 && CalculateMomentumFromPBeta(pbeta, MCS_PROTON_MASS) < 700.) ) { // proton

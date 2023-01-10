@@ -641,6 +641,7 @@ Double_t LateralSigmaAtIfilm(Double_t pbeta, UInt_t ncell, Double_t dz,
   Double_t sigma_highland = HighlandSigmaAtIfilm(pbeta, ncell, dz, material);
   Double_t tangent_xy = TMath::Sqrt(tangent * tangent - 1);
   Double_t lateral_precision = LateralAnglePrecision(tangent_xy);
+  // lateral_precision *= 0.5;
   return TMath::Hypot(sigma_highland, lateral_precision);
 }
 
@@ -953,7 +954,9 @@ void PositionAddOffset(TVector3 &absolute_position, int ecc_id) {
   // ECC coordinate to global coordinate
   absolute_position.SetX(absolute_position.X() + NINJA_POS_X + NINJA_ECC_POS_X);
   absolute_position.SetY(absolute_position.Y() + NINJA_POS_Y + NINJA_ECC_POS_Y);
-  absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z);
+  absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z); // nominal
+  // absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z + 1); // syst plus
+  // absolute_position.SetZ(absolute_position.Z() + NINJA_POS_Z + NINJA_ECC_POS_Z - 1); // syst minus
 
 }
 
@@ -1095,27 +1098,37 @@ void SmearTangentVector(TVector3 &tangent) {
 Double_t RadialTangentAccuracy(Double_t tangent) {
 
   if ( tangent < 2.5 ) {
-    
+
+        
     return std::sqrt(2) * std::sqrt(XY_POSITION_ACCURACY * XY_POSITION_ACCURACY
-				     + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY)/ 210.e-3; // nominal
+				     + tangent * tangent * Z_POSITION_ACCURACY * Z_POSITION_ACCURACY) / 210.e-3; // nominal
     
     /*
-      return std::sqrt(2) * std::sqrt((XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
-      * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
-      + tangent * tangent
-      * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)
-      * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)) / 210.e-3; // syst
-      */
+    return std::sqrt(2) * std::sqrt((XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
+				    * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR)
+				    + tangent * tangent
+				    * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)
+				    * (Z_POSITION_ACCURACY + Z_POSITION_ACCURACY_ERR)) / 210.e-3; // syst plus
+				    */
+    /*  
+    return std::sqrt(2) * std::sqrt((XY_POSITION_ACCURACY - XY_POSITION_ACCURACY_ERR)
+				    * (XY_POSITION_ACCURACY - XY_POSITION_ACCURACY_ERR)
+				    + tangent * tangent
+				    * (Z_POSITION_ACCURACY - Z_POSITION_ACCURACY_ERR)
+				    * (Z_POSITION_ACCURACY - Z_POSITION_ACCURACY_ERR)) / 210.e-3; // syst minus
+				    */				    
   } else {
     return 1.64e-2 * (tangent - 2.5) + 2.37e-2; // nominal
-    // return (1.64e-2 + 5.98e-4) * (tangent - 2.5) + 2.37e-2; // syst
+    // return (1.64e-2 + 5.98e-4) * (tangent - 2.5) + 2.37e-2; // syst plus
+    //return (1.64e-2 - 5.98e-4) * (tangent - 2.5) + 2.37e-2; // syst minus
   }
 
 }
 
 Double_t LateralTangentAccuracy() {
   return std::sqrt(2) / 210.e-3 * XY_POSITION_ACCURACY; // nominal
-  // return std::sqrt(2) / 210.e-3 * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR); // syst
+  // return std::sqrt(2) / 210.e-3 * (XY_POSITION_ACCURACY + XY_POSITION_ACCURACY_ERR); // syst plus
+  // return std::sqrt(2) / 210.e-3 * (XY_POSITION_ACCURACY - XY_POSITION_ACCURACY_ERR); // syst minus
 }
 
 

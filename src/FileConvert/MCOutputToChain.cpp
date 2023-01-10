@@ -58,9 +58,9 @@ int main ( int argc, char* argv[] ) {
 
   BOOST_LOG_TRIVIAL(info) << "==========MC output to chain like data conversion start==========";
 
-  if ( argc != 6 ) {
+  if ( argc != 7 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <Input B2 file> <Output event info file> <ECC id> <material id (0:water/2:iron)> <data dir path>";
+			     << " <Input B2 file> <Output event info file> <ECC id> <material id (0:water/2:iron)> <data dir path> <seed>";
     std::exit(1);
   }
 
@@ -79,8 +79,14 @@ int main ( int argc, char* argv[] ) {
       throw std::invalid_argument("Water or iron is only accepted material");
 
     const std::string data_dir_path = argv[5];
+    const long seed = std::atoi(argv[6]);
     const ConnectionData connection_data(data_dir_path);
-    const ConnectionFunction connection_function(connection_data);
+    const ConnectionFunction connection_function(connection_data, seed);
+    
+    if ( seed == 0 ) 
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(0);
 
     std::stringstream ss;
     ss << argv[2] << ".kink.root";

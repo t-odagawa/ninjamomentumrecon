@@ -29,3 +29,12 @@ target_link_libraries(TestPidLine
 
 # install the execute in the bin folder
 install(TARGETS TestPidLine DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+add_executable(CompareTwoMomch
+	CompareTwoMomch.cpp)
+
+target_link_libraries(CompareTwoMomch
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
+
+install(TARGETS CompareTwoMomch DESTINATION ${CMAKE_INSTALL_BINDIR})

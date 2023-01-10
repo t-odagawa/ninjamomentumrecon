@@ -10,9 +10,17 @@
 #include "PidFunction.hpp"
 #include "AbsorberMaterial_Emulsion_NINJA_Run6.h"
 
-PidFunction::PidFunction(const PidData &pid_data) : pid_data_(pid_data) {
+PidFunction::PidFunction(const PidData &pid_data, long seed) : pid_data_(pid_data) {
 
-  gRandom->SetSeed(time(NULL));
+  r_ = new TRandom3();
+  if ( seed == 0 ) {
+    r_->SetSeed(time(NULL));
+    gRandom->SetSeed(time(NULL));
+  }
+  else {
+    r_->SetSeed(seed);
+    gRandom->SetSeed(seed);
+  }
 
   pid_data_.GetLikelihoodParam(likelihood_param_map_);
   pid_data_.GetVphFuncParamMapData(vph_func_param_map_);
@@ -112,16 +120,25 @@ void PidFunction::GenerateSigmaThr() {
 
 // 与えられた particle id, pbeta, tangent をもとに
 // data driven な mean/sigma を使って gauss で VPH を計算
+double PidFunction::GetVph(int true_particle_id, double pbeta, double tangent) const {
+  return GetVph(true_particle_id, pbeta, tangent, 0., 0., 0., 0.);
+}
+
 double PidFunction::GetVph(int true_particle_id,
 			   double pbeta,
-			   double tangent) const {
+			   double tangent,
+			   double muon_mean_variation,
+			   double muon_sigma_variation,
+			   double proton_mean_variation,
+			   double proton_sigma_variation) const {
+  double vph = -1.;
 
-  double vph = -1;
-  
   if ( true_particle_id == 2212 ) {
-    double mean = CalcVphProton(pbeta, tangent);
-    double sigma = CalcVphSigmaProton(pbeta, tangent);
-    vph = gRandom->Gaus(mean, sigma);
+    double mean = CalcVphProton(pbeta, tangent, proton_mean_variation);
+    double sigma = CalcVphSigmaProton(pbeta, tangent,
+				      proton_mean_variation,
+				      proton_sigma_variation);
+    vph = r_->Gaus(mean, sigma);
   }
   else {
     double pbeta_thr;
@@ -142,9 +159,9 @@ double PidFunction::GetVph(int true_particle_id,
       vph = hist->GetRandom();
     }
     else {
-      double mean = CalcVphMuon(pbeta, tangent);
-      double sigma = CalcVphSigmaMuon(pbeta, tangent);
-      vph = gRandom->Gaus(mean, sigma);
+      double mean = CalcVphMuon(pbeta, tangent, muon_mean_variation);
+      double sigma = CalcVphSigmaMuon(pbeta, tangent, muon_sigma_variation);
+      vph = r_->Gaus(mean, sigma);
     }
   }
 
@@ -261,10 +278,25 @@ double PidFunction::CalcVphPionMipProb(double vph, double tangent) const {
 }
 
 double PidFunction::CalcVphMuon(double pbeta, double tangent) const {
+  return CalcVphMuon(pbeta, tangent, 0.);
+}
+
+double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent) const {
+  return CalcVphSigmaMuon(pbeta, tangent, 0.);
+}
+
+double PidFunction::CalcVphProton(double pbeta, double tangent) const {
+  return CalcVphProton(pbeta, tangent, 0.);
+}
+
+double PidFunction::CalcVphSigmaProton(double pbeta, double tangent) const {
+  return CalcVphSigmaProton(pbeta, tangent, 0., 0.);
+}
+
+double PidFunction::CalcVphMuon(double pbeta, double tangent, double variation) const {
 
   double mean = 0.;
-  
-  // 角度ビンを決めて datapoint map を選ぶ
+
   auto datapoints = GetParamMapByTangent(tangent);
 
   Pid_data_ns::DataPoint data[2];
@@ -285,17 +317,29 @@ double PidFunction::CalcVphMuon(double pbeta, double tangent) const {
   double pbeta_mean[2];
   pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
   pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
-  mean = (data[0].mean[1] - data[1].mean[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
-    + data[0].mean[1];
+
+  double vph_mean[2];
+  if ( std::fabs(variation) < 1e-9 ) {
+    vph_mean[0] = data[0].mean[1];
+    vph_mean[1] = data[1].mean[1];
+  }
+  else if ( variation > 0 ) {
+    vph_mean[0] = data[0].mean[1] + variation * data[0].mean_high[1];
+    vph_mean[1] = data[1].mean[1] + variation * data[1].mean_high[1];
+  }
+  else {
+    vph_mean[0] = data[0].mean[1] + variation * std::fabs(data[0].mean_low[1]);
+    vph_mean[1] = data[1].mean[1] + variation * std::fabs(data[1].mean_low[1]);
+  }
+  mean = (vph_mean[0] - vph_mean[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0]) + vph_mean[0];
   return mean;
 
 }
 
-double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent) const {
+double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent, double variation) const {
 
   double sigma = 0.;
 
-  // 角度ビンを決めて datapoint map を選ぶ
   auto datapoints = GetParamMapByTangent(tangent);
 
   Pid_data_ns::DataPoint data[2];
@@ -310,26 +354,37 @@ double PidFunction::CalcVphSigmaMuon(double pbeta, double tangent) const {
     }
     else {
       data[1] = std::next(datapoints.lower_bound(pbeta), -1)->second;
-    }    
+    }
   }
 
   double pbeta_mean[2];
   pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
   pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
-  sigma = (data[0].sigma[1] - data[1].sigma[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
-    + data[0].sigma[1];
+  double vph_sigma[2];
+  if ( std::fabs(variation) < 1e-9 ) {
+    vph_sigma[0] = data[0].sigma[1];
+    vph_sigma[1] = data[1].sigma[1];
+  }
+  else if ( variation > 0 ) {
+    vph_sigma[0] = data[0].sigma[1] + variation * data[0].sigma_high[1];
+    vph_sigma[1] = data[1].sigma[1] + variation * data[1].sigma_high[1];
+  }
+  else {
+    vph_sigma[0] = data[0].sigma[1] + variation * std::fabs(data[0].sigma_low[1]);
+    vph_sigma[1] = data[1].sigma[1] + variation * std::fabs(data[1].sigma_low[1]);
+  }
+  sigma = (vph_sigma[0] - vph_sigma[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0]) + vph_sigma[0];
   return sigma;
 
 }
 
-double PidFunction::CalcVphProton(double pbeta, double tangent) const {
+double PidFunction::CalcVphProton(double pbeta, double tangent, double variation) const {
 
   double mean = 0.;
 
   double pbeta_cross_point = GetPBetaCrossPointByTangent(tangent);
 
   if ( pbeta < pbeta_cross_point ) {
-
     auto datapoints = GetParamMapByTangent(tangent);
 
     Pid_data_ns::DataPoint data[2];
@@ -344,25 +399,41 @@ double PidFunction::CalcVphProton(double pbeta, double tangent) const {
     double pbeta_mean[2];
     pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
     pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
-    mean = (data[0].mean[2] - data[1].mean[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
-      + data[0].mean[2];
+    
+    double vph_mean[2];
+
+    if ( std::fabs(variation) < 1e-9 ) {
+      vph_mean[0] = data[0].mean[2];
+      vph_mean[1] = data[1].mean[2];
+    }
+    else if ( variation > 0 ){
+      vph_mean[0] = data[0].mean[2] + variation * data[0].mean_high[2];
+      vph_mean[1] = data[1].mean[2] + variation * data[1].mean_high[2];
+    }
+    else {
+      vph_mean[0] = data[0].mean[2] + variation * std::fabs(data[0].mean_low[2]);
+      vph_mean[1] = data[1].mean[2] + variation * std::fabs(data[1].mean_low[2]);
+    }
+
+    mean = (vph_mean[0] - vph_mean[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0]) + vph_mean[0];
+
   }
   else {
-    mean = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
+    mean = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent, variation);
   }
 
   return mean;
 
 }
 
-double PidFunction::CalcVphSigmaProton(double pbeta, double tangent) const {
+double PidFunction::CalcVphSigmaProton(double pbeta, double tangent, double mean_variation, double variation) const {
 
   double sigma = 0.;
 
   double pbeta_cross_point = GetPBetaCrossPointByTangent(tangent);
 
-  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
-  double vph_thr = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent);
+  double vph = CalcMomentumVphEmulsionFit(pbeta / 1000., tangent, mean_variation);
+  double vph_thr = vph;
 
   if ( pbeta < 200. ) {
     auto datapoints = GetParamMapByTangent(tangent);
@@ -385,13 +456,32 @@ double PidFunction::CalcVphSigmaProton(double pbeta, double tangent) const {
     double pbeta_mean[2];
     pbeta_mean[0] = (data[0].input_mom_min + data[0].input_mom_max) / 2.;
     pbeta_mean[1] = (data[1].input_mom_min + data[1].input_mom_max) / 2.;
-    sigma = (data[0].sigma[2] - data[1].sigma[2]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0])
-      + data[0].sigma[2];
+    
+    double vph_sigma[2];
+    if ( std::fabs(variation) < 1e-9 ) {
+      vph_sigma[0] = data[0].sigma[2];
+      vph_sigma[1] = data[1].sigma[2];
+    }
+    else if ( variation > 0 ) {
+      vph_sigma[0] = data[0].sigma[2] + variation * data[0].sigma_high[2];
+      vph_sigma[1] = data[1].sigma[2] + variation * data[1].sigma_high[2];
+    }
+    else {
+      vph_sigma[0] = data[0].sigma[2] + variation * std::fabs(data[0].sigma_low[2]);
+      vph_sigma[1] = data[1].sigma[2] + variation * std::fabs(data[1].sigma_low[2]);
+    }
+
+    sigma = (vph_sigma[0] - vph_sigma[1]) / (pbeta_mean[0] - pbeta_mean[1]) * (pbeta - pbeta_mean[0]) + vph_sigma[0];
     return sigma;
   }
 
   auto func_param = GetFuncParamByTangent(tangent);
-  sigma = func_param.sigma_inter + func_param.sigma_scale * std::sqrt(vph);
+  double sigma_inter = func_param.sigma_inter;
+  double sigma_scale = func_param.sigma_scale;
+  sigma_inter += variation * func_param.sigma_inter_err;
+  sigma_scale -= variation * func_param.sigma_scale_err;
+
+  sigma = sigma_inter + sigma_scale * std::sqrt(vph);
   double sigma_thr = GetSigmaThrByTangent(tangent);
   return std::max(sigma, sigma_thr);
 
@@ -450,6 +540,10 @@ Pid_data_ns::VphFuncParam PidFunction::GetFuncParamByTangent(double tangent) con
 }
 
 double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, double tangent) const {
+  return CalcMomentumVphEmulsionFit(pbeta, tangent, 0.);
+}
+
+double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, double tangent, double variation) const {
 
   auto func_param_ = GetFuncParamByTangent(tangent);
 
@@ -487,7 +581,7 @@ double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, double tangent) con
     double density = mtrl_Density[Absorber]; // g cm-3
 
     // Calculation of dE/dx
-    double E = ( pbeta + TMath::Sqrt(pbeta * pbeta + 4 * mass * mass)) / 2.; // Energy [GeV]
+    double E = (pbeta + TMath::Sqrt(pbeta * pbeta + 4 * mass * mass)) / 2.; // Energy [GeV]
     double p = TMath::Sqrt(pbeta * E); // Momentum [GeV/c]
     double beta = p / E;
     double gamma = 1. / TMath::Sqrt(1. - beta * beta);
@@ -522,6 +616,11 @@ double PidFunction::CalcMomentumVphEmulsionFit(double pbeta, double tangent) con
 
   double slope = func_param_.mean_slope;
   double intercept = func_param_.mean_inter;
+  double slope_err = func_param_.mean_slope_err;
+  double intercept_err = func_param_.mean_inter_err;
+
+  slope += variation * slope_err;
+  intercept -= variation * intercept_err;
   
   return slope * dedx + intercept;
 

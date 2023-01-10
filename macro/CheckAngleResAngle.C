@@ -13,13 +13,15 @@ void CheckAngleResAngle() {
   vector<double> tangent_err;
 
   //TFile *ofile = new TFile("~/muon_wo_angres_ang_graph.root","recreate");
-  TFile *ofile = new TFile("~/muon_w_angres_ang_graph.root","recreate");
+  // TFile *ofile = new TFile("~/muon_w_angres_ang_graph.root","recreate");
+  TFile *ofile = new TFile("~/muon_w_angres_ang_graph_1GeV.root","recreate");
 
   for ( int i = 0; i < 8; i++ ) {
     for (int j = 0; j < 8; j++ ) {
 
       stringstream inputfile_ss;
-      inputfile_ss << inputdir << "/test_500_"
+      // inputfile_ss << inputdir << "/test_500_"
+      inputfile_ss << inputdir << "/test_1000_"
 		   << (int)5* i << "_" << (int)5*j
 		   << "_new_rad_lat_iron.root";
       TFile *inputfile = new TFile(inputfile_ss.str().c_str(), "read");

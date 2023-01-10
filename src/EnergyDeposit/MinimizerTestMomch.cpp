@@ -10,6 +10,8 @@
 #include <numeric>
 #include <functional>
 
+#include <TRandom.h>
+
 #include "McsConst.hpp"
 #include "McsClass.hpp"
 #include "McsFunction.hpp"
@@ -27,9 +29,9 @@ int main (int argc, char *argv[]) {
   
   BOOST_LOG_TRIVIAL(info) << "==========Momentum Reconstruction Start==========";
 
-  if ( argc != 4 ) {
+  if ( argc != 5 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input momch file name> <output momch file name> <ncell = 1>";
+			     << " <input momch file name> <output momch file name> <ncell = 1> <seed>";
     std::exit(1);
   }
 
@@ -52,6 +54,12 @@ int main (int argc, char *argv[]) {
     const Int_t ncell = std::atoi(argv[3]);
 
     Int_t num_entry = 0;
+
+    long seed = std::atoi(argv[4]);
+    if ( seed == 0 )
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(seed);
 
     while ( Momentum_recon::ReadEventInformationHeader(ifs, ev, num_chain, num_true_chain) ) {
       num_entry++;

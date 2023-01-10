@@ -37,6 +37,21 @@ add_executable(NuFactHistogram
 
 add_executable(AddBabyMindToChainMcBase
 	AddBabyMindToChainMcBase.cpp)
+	
+add_executable(PhdThesisHistogram
+	PhdThesisHistogram.cpp)
+
+add_executable(PhdThesisHistogram0pi
+	PhdThesisHistogram0pi.cpp)
+
+add_executable(Phd0pi1p
+	Phd0pi1p.cpp)
+
+add_executable(Phd0pi2p
+	Phd0pi2p.cpp)
+
+add_executable(Phd1pi0p
+	Phd1pi0p.cpp)
 
 target_include_directories(FileConvert PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(FileReConvert PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -49,6 +64,11 @@ target_include_directories(AddBabyMindToChain PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
 target_include_directories(NuFactEmergency PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})					    
 target_include_directories(NuFactHistogram PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(AddBabyMindToChainMcBase PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(PhdThesisHistogram PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(PhdThesisHistogram0pi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(Phd0pi1p PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(Phd0pi2p PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(Phd1pi0p PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(FileConvert
 	Mcs
@@ -88,6 +108,21 @@ target_link_libraries(AddBabyMindToChainMcBase
 	Mcs
 	Match
 	${NINJA_MOMRECON_LIBRARIES})
+target_link_libraries(PhdThesisHistogram
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
+target_link_libraries(PhdThesisHistogram0pi
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
+target_link_libraries(Phd0pi1p
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
+target_link_libraries(Phd0pi2p
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
+target_link_libraries(Phd1pi0p
+	Mcs
+	${NINJA_MOMRECON_LIBRARIES})
 
 install(TARGETS FileConvert DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(TARGETS FileReConvert DESTINATION "${CMAKE_INSTALL_BINDIR}")
@@ -100,3 +135,8 @@ install(TARGETS AddBabyMindToChain DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(TARGETS NuFactEmergency DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(TARGETS NuFactHistogram DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(TARGETS AddBabyMindToChainMcBase DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS PhdThesisHistogram DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS PhdThesisHistogram0pi DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS Phd0pi1p DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS Phd0pi2p DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS Phd1pi0p DESTINATION "${CMAKE_INSTALL_BINDIR}")

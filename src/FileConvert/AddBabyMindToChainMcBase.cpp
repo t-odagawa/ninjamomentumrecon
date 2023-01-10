@@ -38,6 +38,75 @@
 namespace logging = boost::log;
 namespace fs = boost::filesystem;
 
+double GetFluxReWeight(double energy) {
+  if ( energy < 0. ) return 1.;
+  else if ( energy < 0.1 ) return 0.985272;
+  else if ( energy < 0.2 ) return 0.943425;
+  else if ( energy < 0.3 ) return 0.975768;
+  else if ( energy < 0.4 ) return 1.00847;
+  else if ( energy < 0.5 ) return 1.00904;
+  else if ( energy < 0.6 ) return 0.996631;
+  else if ( energy < 0.7 ) return 0.984680;
+  else if ( energy < 0.8 ) return 0.982568;
+  else if ( energy < 1.0 ) return 0.979188;
+  else if ( energy < 1.2 ) return 0.985920;
+  else if ( energy < 1.5 ) return 1.01473;
+  else if ( energy < 2.0 ) return 1.05913;
+  else if ( energy < 2.5 ) return 1.09421;
+  else if ( energy < 3.0 ) return 1.11633;
+  else if ( energy < 3.5 ) return 1.14111;
+  else if ( energy < 4.0 ) return 1.17187;
+  else if ( energy < 5.0 ) return 1.17726;
+  else if ( energy < 7.0 ) return 1.19322;
+  else return 1.21447;
+}
+
+double GetFluxReWeightAnu(double energy) {
+  if ( energy < 0. ) return 1.;
+  else if ( energy < 0.1 ) return 0.983508;
+  else if ( energy < 0.2 ) return 1.03602;
+  else if ( energy < 0.3 ) return 1.03499;
+  else if ( energy < 0.4 ) return 1.01448;
+  else if ( energy < 0.5 ) return 0.998085;
+  else if ( energy < 0.6 ) return 0.986303;
+  else if ( energy < 0.7 ) return 0.978007;
+  else if ( energy < 0.8 ) return 0.971294;
+  else if ( energy < 1.0 ) return 0.961543;
+  else if ( energy < 1.2 ) return 0.957752;
+  else if ( energy < 1.5 ) return 0.956926;
+  else if ( energy < 2.0 ) return 0.965042;
+  else if ( energy < 2.5 ) return 0.977514;
+  else if ( energy < 3.0 ) return 0.983184;
+  else if ( energy < 3.5 ) return 0.982890;
+  else if ( energy < 4.0 ) return 0.981198;
+  else if ( energy < 5.0 ) return 0.983416;
+  else if ( energy < 7.0 ) return 0.956658;
+  else return 0.882520;
+} 
+
+double GetFluxReWeightWall(double energy) {
+  if ( energy < 0. ) return 1.;
+  else if ( energy < 0.1 ) return 0.986399;
+  else if ( energy < 0.2 ) return 0.951444;
+  else if ( energy < 0.3 ) return 0.981928;
+  else if ( energy < 0.4 ) return 1.01746;
+  else if ( energy < 0.5 ) return 1.01887;
+  else if ( energy < 0.6 ) return 1.02227;
+  else if ( energy < 0.7 ) return 1.00892;
+  else if ( energy < 0.8 ) return 1.00198;
+  else if ( energy < 1.0 ) return 1.00479;
+  else if ( energy < 1.2 ) return 1.01497;
+  else if ( energy < 1.5 ) return 1.02598;
+  else if ( energy < 2.0 ) return 1.05807;
+  else if ( energy < 2.5 ) return 1.10620;
+  else if ( energy < 3.0 ) return 1.14573;
+  else if ( energy < 3.5 ) return 1.18061;
+  else if ( energy < 4.0 ) return 1.23170;
+  else if ( energy < 5.0 ) return 1.22807;
+  else if ( energy < 7.0 ) return 1.38028;
+  else return 1.21520;
+}
+
 int main (int argc, char* argv[]) {
 
   logging::core::get()->set_filter
@@ -259,6 +328,12 @@ int main (int argc, char* argv[]) {
       
       // ECC-shifter の efficiency は weight として実装
       ev.weight *= 0.99;
+
+      // Flux reweight
+      double nu_energy = ev.nu_energy / 1000.; // MeV -> GeV
+      ev.weight *= GetFluxReWeight(nu_energy);
+      // ev.weight *= GetFluxReWeightAnu(nu_energy);
+      // ev.weight *= GetFluxReWeightWall(nu_energy);
      
       ev_vec_out.push_back(ev);
  

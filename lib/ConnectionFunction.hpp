@@ -17,6 +17,8 @@
 #include <B2EmulsionSummary.hh>
 
 #include <TVector3.h>
+#include <TRandom.h>
+#include <TRandom3.h>
 
 #include "McsClass.hpp"
 #include "McsFunction.hpp"
@@ -67,8 +69,10 @@ private:
   std::map<int, std::vector<FiducialArea > > ecc_fiducial_[9];
   std::map<int, std::vector<Efficiency > > ecc_efficiency_[9];
 
+  TRandom* random_;
+
 public:
-  explicit ConnectionFunction(const ConnectionData &connection_data);
+  explicit ConnectionFunction(const ConnectionData &connection_data, long seed);
 
   void GetTrueEmulsionTracks(std::vector<const B2EmulsionSummary* > &emulsions,
 			     B2SpillSummary &spill_summary, int ecc_id) const;

@@ -49,13 +49,18 @@ int main ( int argc, char* argv[] ) {
 
   if ( argc != 6 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <Input B2 file> <Input NTBM file> <Input momch file> <Output momch file> <data dir path>";
+			     << " <Input B2 file> <Input NTBM file> <Input momch file> <Output momch file> <data dir path> <seed>";
     std::exit(1);
   }
 
   try {
 
-    gRandom->SetSeed(time(NULL));
+    long seed = std::atoi(argv[5]);
+
+    if ( seed == 0 )
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(seed);
 
     B2Reader reader((std::string)argv[1]);
 

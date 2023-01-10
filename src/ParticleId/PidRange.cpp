@@ -32,9 +32,9 @@ int main ( int argc, char* argv[]) {
 
   BOOST_LOG_TRIVIAL(info) << "==========PID/Range measurement start==========";
 
-  if ( argc != 4 ) {
+  if ( argc != 5 ) {
     BOOST_LOG_TRIVIAL(error) << "Usage : " << argv[0]
-			     << " <input momch file name> <output momch file name> <data dir path>";
+			     << " <input momch file name> <output momch file name> <data dir path> <seed>";
     std::exit(1);
   }
 
@@ -44,10 +44,16 @@ int main ( int argc, char* argv[]) {
     std::vector<Momentum_recon::Event_information > ev_vec = Momentum_recon::ReadEventInformationBin(ifilename);
 
     const std::string data_dir_path = argv[3];
+    const long seed = std::atoi(argv[4]);
     const PidData pid_data(data_dir_path);
-    const PidFunction pid_function(pid_data);
+    const PidFunction pid_function(pid_data, seed);
     const RangeSpline range_spline(data_dir_path);
     const RangeFunction range_function(range_spline);
+
+    if ( seed == 0 )
+      gRandom->SetSeed(time(NULL));
+    else
+      gRandom->SetSeed(seed);
 
     // pid_function.CheckMeanSigmaValues();
 
@@ -85,8 +91,12 @@ int main ( int argc, char* argv[]) {
 
 	// VPH を計算 (data-driven, つまり validation ではない)
 	double pb_mu_assume = CalculatePBetaFromMomentum(chain.ecc_mcs_mom[0], MCS_MUON_MASS);
-	vph = pid_function.GetVph(true_particle_id, pb_mu_assume, 
-				  std::hypot(tangent.at(0), tangent.at(1)));
+	double tangent_xy = std::hypot(tangent.at(0), tangent.at(1));	
+	vph = pid_function.GetVph(true_particle_id, pb_mu_assume, tangent_xy);
+	// vph = pid_function.GetVph(true_particle_id, pb_mu_assume, tangent_xy, -1, 0, 1, 0); // mean plus
+	// vph = pid_function.GetVph(true_particle_id, pb_mu_assume, tangent_xy, 1, 0, -1, 0); // mean minus
+	// vph = pid_function.GetVph(true_particle_id, pb_mu_assume, tangent_xy, 0, 1, 0, 1); // sigma plus
+	// vph = pid_function.GetVph(true_particle_id, pb_mu_assume, tangent_xy, 0, -1, 0, -1); // sigma minus
 
 	chain.base.front().m[0].ph = vph;
 	

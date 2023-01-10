@@ -134,42 +134,54 @@ int main ( int argc, char* argv[] ) {
 	std::cout << "Reconstructed position distance : (" << dx << ", " << dy << ")" << std::endl;
 
 	double momentum = -1;
-	double momentum_err = -1;
+	double momentum_err_minus = -1;
+	double momentum_err_plus = -1;
 
 	if ( muon_track_id < 0 ) { // Not in new file...
+	  /*
 	  chain.charge_sign = old_ntbm->GetCharge(ev.tracker_track_id);
 	  momentum = old_ntbm->GetMomentum(ev.tracker_track_id);
 	  if ( momentum > 0 ) chain.stop_flag = 1;
 	  else chain.stop_flag = 0;
+	  */
+	  continue;
 	}
 	else {
 	  chain.charge_sign = ntbm->GetCharge(muon_track_id);
+
+	  double range_mom = -1.;
+	  double track_length = ntbm->GetTrackLengthTotal(muon_track_id); // g/cm2
+	  TVector3 track_direction(chain.base.front().ax,
+				   chain.base.front().ay, 1.);
+	  int nwater = match_function.GetNumWaterPlate(ev.vertex_pl);
+	  int niron = match_function.GetNumIronPlate(ev.vertex_pl);
+	  track_length += match_function.GetDWGTrackLength(track_direction);
+	  track_length += track_direction.Mag() * (.23 * nwater * 1.289 + 0.05 * niron * 8.03);
+	  match_function.ConvertFromLengthToMom(range_mom, track_length);
+	  momentum = range_mom;
+
 	  if ( ntbm->GetMomentumType(muon_track_id) == 0 ) { // range
 	    chain.stop_flag = 1;
-	    
-	    double range_mom = -1.;
-	    double track_length = ntbm->GetTrackLengthTotal(muon_track_id); // g/cm2
-	    TVector3 track_direction(chain.base.front().ax,
-				     chain.base.front().ay, 1.);
-	    int nwater = match_function.GetNumWaterPlate(ev.vertex_pl);
-	    int niron = match_function.GetNumIronPlate(ev.vertex_pl);
-	    track_length += match_function.GetDWGTrackLength(track_direction);
-	    track_length += track_direction.Mag() * (.23 * nwater * 1.289 + 0.05 * niron * 8.03);
-	    match_function.ConvertFromLengthToMom(range_mom, track_length);
-	    momentum = range_mom;
-	    momentum_err = momentum * match_function.GetBmErr(momentum);
+
+	    momentum_err_minus = momentum * match_function.GetBmErr(momentum);
+	    momentum_err_plus = momentum * match_function.GetBmErr(momentum);
+
 	    hist_npl->Fill(ntbm->GetBabyMindMaximumPlane(muon_track_id));
 	    hist_npl_range->Fill(ntbm->GetBabyMindMaximumPlane(muon_track_id),
 				 momentum);
 	  }
 	  else {
 	    chain.stop_flag = 0;
+
+	    momentum_err_minus = momentum * match_function.GetBmErr(momentum);
+	    momentum_err_plus = 30e3 - momentum;
+
 	  }
 	}
 
 	chain.bm_range_mom = momentum;
-	chain.bm_range_mom_error[0] = momentum_err;
-	chain.bm_range_mom_error[1] = momentum_err;
+	chain.bm_range_mom_error[0] = momentum_err_minus;
+	chain.bm_range_mom_error[1] = momentum_err_plus;
 	hist_range->Fill(momentum);
 	if ( chain.stop_flag == 1 ) 
 	  std::cout << "Range : " << chain.bm_range_mom << ", "

@@ -16,7 +16,7 @@ int main (int argc, char* argv[]) {
 
   const std::string data_file_dir = argv[2];
   PidData pid_data_(data_file_dir);
-  PidFunction pid_function_(pid_data_);
+  PidFunction pid_function_(pid_data_, 0);
 
   std::map<int, std::map<double, Pid_data_ns::VphPionMip > > map;
   pid_data_.GetPionMipParamMap(map);

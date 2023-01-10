@@ -13,14 +13,16 @@ void CheckAngleResMomentum() {
   vector<double> pbeta_err;
 
   // TFile *ofile = new TFile("~/muon_wo_angres_mom_graph.root","recreate");
-  TFile *ofile = new TFile("~/muon_w_angres_mom_graph.root","recreate");
+  // TFile *ofile = new TFile("~/muon_w_angres_mom_graph.root","recreate");
+  TFile *ofile = new TFile("~/muon_w_angres_mom_graph_30deg.root","recreate");
 
   for ( int i = 6; i < 41; i++ ) {
     int momentum = i * 50;
     double energy = sqrt(momentum * momentum + muon_mass * muon_mass);
     double ipbeta = momentum * momentum / energy;
     stringstream inputfile_ss;
-    inputfile_ss << inputdir << "/test_" << momentum << "_0_0_new_rad_lat_iron.root";
+    // inputfile_ss << inputdir << "/test_" << momentum << "_0_0_new_rad_lat_iron.root";
+    inputfile_ss << inputdir << "/test_" << momentum << "_30_30_new_rad_lat_iron.root";
     TFile *inputfile = new TFile(inputfile_ss.str().c_str(), "read");
     TTree *inputtree = (TTree*)inputfile->Get("tree");
 

@@ -124,8 +124,54 @@ int main (int argc, char* argv[]) {
   for ( auto ev : ev_vec ) {
    
     int multiplicity = 0;
+    int num_muon = 0;
     int num_proton = 0;
     int num_pion = 0;
+    int num_other = 0;
+
+    // select 0pi events
+    for ( auto chain : ev.chains ) {
+
+      double pb_mu_assume = CalculatePBetaFromMomentum(chain.ecc_mcs_mom[0], MCS_MUON_MASS);
+      
+      double vph = 0.;
+      int num_vph_base = 0;
+      for ( auto base : chain.base ) {
+	if ( base.m[0].zone % 10000 > 0 && base.m[1].zone % 10000 > 0 ) {
+	  vph += (base.m[0].zone % 10000 + base.m[1].zone % 10000);
+	  num_vph_base += 2;
+	}
+      }
+      
+      vph /= (double)num_vph_base;
+
+      if ( chain.particle_flag == 13 ) {
+	num_muon++;
+      }
+      else if ( chain.particle_flag == 2212 &&
+		//		chain.ecc_mcs_mom[0] < 700.) {
+		(pb_mu_assume < 700. || vph > 125) ) {
+	num_proton++; 
+      }
+      else if ( chain.particle_flag == 211 &&
+		//		chain.ecc_mcs_mom[0] < 700. ) {
+		(pb_mu_assume < 700. && vph <= 125) ) {
+	num_pion++;
+      } 
+      else {
+	num_other++;
+      }
+    }
+
+    bool sample_flag = false;
+    if ( num_muon == 1 && num_pion == 0 && num_other == 0 ) sample_flag =true;
+
+    // if ( num_pion != 0 || num_other != 0 || num_proton != 2 ) continue;
+    // if ( num_pion != 0 || num_other != 0 ) continue;
+    if ( !sample_flag ) continue;
+    num_proton = 0;
+    num_pion = 0;
+    num_other = 0;
 
     std::cout << "Group : " << ev.groupid << std::endl;
     std::cout << "Entry : " << ev.entry_in_daily_file << std::endl;
@@ -326,7 +372,7 @@ int main (int argc, char* argv[]) {
 	      << " + Proton : " << num_proton
 	      << " + Pion : " << num_pion 
 	      << " + Other : " << multiplicity - num_proton - num_pion - 1 << std::endl;
-
+    if  ( num_proton == 2 )  std::cout << "**********Group : " << ev.groupid << std::endl;
     hist_multi->Fill(multiplicity);
     hist_multi_p->Fill(num_proton);
     hist_multi_pi->Fill(num_pion);
